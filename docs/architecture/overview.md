@@ -114,8 +114,8 @@ Windows batch wrappers have a dedicated, restricted invocation path
 
 ## 7. Developer experience: one CLI and SDK for Java and JS/TS
 
-The approval asked that Java developers and JavaScript/TypeScript developers use the same CLI
-and SDK, including in mixed-language monorepos. The design guarantees this structurally:
+Java developers and JavaScript/TypeScript developers use the same CLI and SDK, including in
+mixed-language monorepos. The design guarantees this structurally:
 
 - **One task format.** Task files describe behaviour (requirements, acceptance criteria), not
   language constructs. The same file drives a Spring Boot change or a React change.

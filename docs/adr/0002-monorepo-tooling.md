@@ -1,6 +1,7 @@
 # ADR 0002: pnpm workspaces, `tsc -b`, and a source export condition
 
 - **Status:** Accepted, 2026-11-06
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

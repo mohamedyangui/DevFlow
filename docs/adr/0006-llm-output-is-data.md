@@ -2,10 +2,11 @@
 
 - **Status:** Accepted, 2026-11-06. The `CommandSpec` schema exists in `@devflow/core`
   (Phase 1). The catalog, executor and edit application arrive in Phases 2–4.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 
-The brief requires that DevFlow never executes arbitrary commands proposed by a model, and
+A core requirement is that DevFlow never executes arbitrary commands proposed by a model, and
 treats repository content and issues as untrusted. Any text a model produces may have been
 influenced by prompt injection.
 

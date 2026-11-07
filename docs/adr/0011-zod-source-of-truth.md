@@ -1,6 +1,7 @@
 # ADR 0011: Zod 4 as the single source of truth for schemas
 
 - **Status:** Accepted, 2026-11-06
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

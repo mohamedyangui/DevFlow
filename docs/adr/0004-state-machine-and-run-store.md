@@ -2,6 +2,7 @@
 
 - **Status:** Accepted, 2026-11-06. Implementation in Phase 2. Phase 1 defines only the
   `WorkflowState` and `WorkflowMode` schemas in `@devflow/core`.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

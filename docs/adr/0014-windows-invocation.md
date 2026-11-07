@@ -1,8 +1,9 @@
 # ADR 0014: Safe invocation of Windows `.cmd`/`.bat` wrappers
 
-- **Status:** Accepted, 2026-11-06. Implements refinement 1 of the Phase 1 approval. Phase 1
+- **Status:** Accepted, 2026-11-06. Implements refinement 1 of the architecture review. Phase 1
   defines the `InvocationStrategy` field of `ExecutionRecord`. The executor and its Windows
   integration tests arrive in Phase 2; the wrapper resolution in the adapters in Phase 3.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

@@ -1,6 +1,7 @@
 # ADR 0003: Seven MVP packages with enforced boundaries
 
 - **Status:** Accepted, 2026-11-06
+- **Deciders:** Mohamed Yangui
 - **Related:** decision D1 in the [architecture proposal](../design/architecture-proposal.md)
 
 ## Context

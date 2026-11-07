@@ -1,11 +1,11 @@
 # DevFlow AI — Architecture & MVP Proposal
 
-> **Status:** Approved 2026-11-06 with decisions D1–D7 as recommended and six refinements
+> **Status:** Accepted 2026-11-06, with decisions D1–D7 and six refinements
 > (Windows invocation, test intent, trusted-only local execution, configurable npm scope,
 > Protobuf awareness, one CLI/SDK for Java and JS/TS).
-> **Date:** 2026-11-06 · **Phase:** 0 (architecture and MVP planning)
+> **Author:** Mohamed Yangui · **Date:** 2026-11-06 · **Phase:** 0 (architecture and MVP planning)
 >
-> This document is kept as the historical record of the approved proposal and is not updated.
+> This document is kept as the historical record of the accepted proposal and is not updated.
 > The maintained documents are the [architecture overview](../architecture/overview.md), the
 > [ADRs](../adr/README.md) (0014–0017 record the refinements), the
 > [specifications](../specs/), and the [roadmap](../roadmap.md). Where they differ from this
@@ -150,7 +150,7 @@ In an interactive terminal, approvals and clarification questions can be answere
 
 ## 3. Repository structure and package boundaries
 
-The prompt proposes 12 or more packages. I propose **7 MVP packages plus 2 later ones**. A new package is created only where the consumers or the dependency footprint really differ:
+An early sketch had 12 or more packages, roughly one per engine. This design uses **7 MVP packages plus 2 later ones**. A new package is created only where the consumers or the dependency footprint really differ:
 
 - adapters are installed and versioned on their own;
 - the LLM SDKs are heavy and optional;
@@ -610,7 +610,7 @@ A violation found by a `check` is a confirmed **deterministic** finding. A viola
 
 ### 8.1 Interface
 
-This revises the conceptual interface from the brief. Detection, analysis, conventions, commands and result parsing are separate methods. Adapters are internally composed of strategies (see §8.2).
+Detection, analysis, conventions, commands and result parsing are separate methods. Adapters are internally composed of strategies (see §8.2).
 
 ```ts
 export interface LanguageAdapter {
@@ -699,7 +699,7 @@ interface QualityToolStrategy { id: string; detect(profile, repo): Promise<Evide
 2. **Classify.** Language, the role of each file (source, test, config, docs, generated) and its module.
 3. **Filter sensitive content.** Files on the path denylist are never read for the LLM. Content is scanned for secrets and redacted (see §11.5).
 4. **Detect modules.** Each adapter runs `detectModules`, and files are mapped to modules.
-5. **Load instructions.** `AGENTS.md` and `CLAUDE.md` from the root and the ancestors of relevant files (the nearest one wins), `.devflow/rules/**`, and `README.md` (truncated). Each instruction is tagged with its source and trust level.
+5. **Load instructions.** `AGENTS.md` from the root and the ancestors of relevant files (the nearest one wins), `.devflow/rules/**`, and `README.md` (truncated). Each instruction is tagged with its source and trust level.
 6. **Rank files for the task.** This uses BM25 over path tokens, symbol outlines and content, then applies boosts:
    - identifiers quoted in the task (exact matches);
    - task scope paths;
@@ -721,7 +721,7 @@ The model can fetch more through **read-only tools**: `read_file`, `search_text`
 | 2    | The user's invocation: CLI flags, interactive answers, `~/.devflow`                         | Yes                | Yes                        |
 | 3    | Task contract (_what_ to build). An external source such as a GitHub issue stays untrusted. | Yes                | No                         |
 | 4    | `.devflow/config.yaml` and `.devflow/rules/` (explicit project rules)                       | Yes                | Only after `devflow trust` |
-| 5    | `AGENTS.md` / `CLAUDE.md` (nearest file first)                                              | Yes                | No                         |
+| 5    | `AGENTS.md` (nearest file first)                                                            | Yes                | No                         |
 | 6    | Conventions inferred from existing code                                                     | Yes                | No                         |
 | 7    | README, docs, code comments                                                                 | Informational only | No                         |
 
@@ -1037,7 +1037,7 @@ Each phase ends with a report covering:
    - a corpus of secrets to redact.
 2. Context engine: discovery, classification, filtering of sensitive content, loading instructions in precedence order, ranking and packing.
 3. Workflow engine: transition table, mode profiles, step runner, run store, events, approvals and rejection with feedback, clarification answers, resume, cancellation, budget errors.
-4. AI: the `LlmProvider` port, the LLM gateway, the Fake and Replay providers, and the **Anthropic provider** (moved earlier than in the brief; see D2).
+4. AI: the `LlmProvider` port, the LLM gateway, the Fake and Replay providers, and the **Anthropic provider** (moved earlier than first planned; see D2).
 5. Steps: context loading, requirements analysis (deterministic lint plus the LLM), planning (with deterministic plan checks), and the report generator.
 6. CLI: `init` (detects the project and writes the config, rule templates and gitignore entry), `trust`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `status` and `report`.
 
@@ -1102,16 +1102,16 @@ Each phase ends with a report covering:
 
 ---
 
-## 19. Decisions requested
+## 19. Decisions
 
-If you approve the design as it stands, the **recommended** option below is used for each decision.
+Each decision lists the chosen option and the main alternative that was considered.
 
-| #   | Decision                                   | Recommended                                                                                                                                                                                                                                                   | Alternative                                                                                                                            |
-| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | Package structure                          | 7 MVP packages, plus `github` and `contracts` later (§3)                                                                                                                                                                                                      | The fine-grained 12+ package layout from the brief                                                                                     |
-| D2  | Phase order                                | Move the provider abstraction, Anthropic, Fake and Replay into Phase 2 so `analyze` and `plan` work end to end early. OpenAI stays in Phase 4.                                                                                                                | Keep all AI work in Phase 4. Phase 2 planning would then be exercised only with the Fake provider.                                     |
-| D3  | npm scope                                  | Use `@devflow/*` in code now and confirm or claim the npm org before the first publish (renaming is mechanical). The CLI binary is `devflow` either way.                                                                                                      | `@devflow-ai/*`                                                                                                                        |
-| D4  | License                                    | Apache-2.0, which includes an explicit patent grant and is common for frameworks                                                                                                                                                                              | MIT                                                                                                                                    |
-| D5  | Java toolchain for local integration tests | Use the official `maven` and `gradle` Docker images **once** to generate the wrapper scripts for the example repos. The wrappers then download Maven or Gradle and dependencies from Maven Central. This needs network access and roughly 0.5–1 GB of images. | (b) You install Maven and Gradle on the host. (c) Java integration tests run in CI only, and local runs report them as `not_executed`. |
-| D6  | Git isolation                              | A dedicated local `devflow/<task>` branch with local commits per phase (tests, then implementation, then repairs). It never pushes. Worktrees are opt-in.                                                                                                     | Worktree by default                                                                                                                    |
-| D7  | Minimum Node version                       | `>=22` (Node 20 reached end of life in April 2026)                                                                                                                                                                                                            | `>=20`                                                                                                                                 |
+| #   | Decision                                   | Chosen                                                                                                                                                                                                                                                        | Alternative                                                                                                                        |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Package structure                          | 7 MVP packages, plus `github` and `contracts` later (§3)                                                                                                                                                                                                      | A fine-grained layout with one package per engine (12+)                                                                            |
+| D2  | Phase order                                | Move the provider abstraction, Anthropic, Fake and Replay into Phase 2 so `analyze` and `plan` work end to end early. OpenAI stays in Phase 4.                                                                                                                | Keep all AI work in Phase 4. Phase 2 planning would then be exercised only with the Fake provider.                                 |
+| D3  | npm scope                                  | Use `@devflow/*` in code now and confirm or claim the npm org before the first publish (renaming is mechanical). The CLI binary is `devflow` either way.                                                                                                      | `@devflow-ai/*`                                                                                                                    |
+| D4  | License                                    | Apache-2.0, which includes an explicit patent grant and is common for frameworks                                                                                                                                                                              | MIT                                                                                                                                |
+| D5  | Java toolchain for local integration tests | Use the official `maven` and `gradle` Docker images **once** to generate the wrapper scripts for the example repos. The wrappers then download Maven or Gradle and dependencies from Maven Central. This needs network access and roughly 0.5–1 GB of images. | (b) Install Maven and Gradle on the host. (c) Java integration tests run in CI only, and local runs report them as `not_executed`. |
+| D6  | Git isolation                              | A dedicated local `devflow/<task>` branch with local commits per phase (tests, then implementation, then repairs). It never pushes. Worktrees are opt-in.                                                                                                     | Worktree by default                                                                                                                |
+| D7  | Minimum Node version                       | `>=22` (Node 20 reached end of life in April 2026)                                                                                                                                                                                                            | `>=20`                                                                                                                             |

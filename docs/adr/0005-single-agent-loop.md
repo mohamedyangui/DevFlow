@@ -1,6 +1,7 @@
 # ADR 0005: One tool-using model loop per step, no multi-agent orchestration
 
 - **Status:** Accepted, 2026-11-06. Implementation in Phases 2 and 4.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

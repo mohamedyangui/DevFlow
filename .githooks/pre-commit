@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuses commits on the protected branch. Every change reaches main through a pull request
+# that the maintainer reviews and merges (see CONTRIBUTING.md).
+branch=$(git symbolic-ref --short -q HEAD)
+if [ "$branch" = "main" ]; then
+  echo "error: direct commits to 'main' are not allowed." >&2
+  echo "Create a branch first, e.g. 'git switch -c phase-2/context-engine', then open a pull request." >&2
+  exit 1
+fi
+exit 0

@@ -8,6 +8,6 @@ Planned responsibilities, specified in [docs/specs/context-engine.md](../../docs
 - Git-aware file discovery and classification (source, test, config, docs, generated, contract).
 - Read-only discovery of `.proto` and OpenAPI files and their relationships to Java and
   JavaScript/TypeScript modules.
-- Loading project instructions (`AGENTS.md`, `CLAUDE.md`, `.devflow/rules/`) with a defined
+- Loading project instructions (`AGENTS.md`, `.devflow/rules/`) with a defined
   precedence.
 - Explainable relevance ranking and token-budgeted context packing.

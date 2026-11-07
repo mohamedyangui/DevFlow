@@ -1,0 +1,11 @@
+#!/bin/sh
+# Refuses pushes to the protected branch. Push a branch and open a pull request instead; main
+# changes only when the maintainer merges a pull request on GitHub (see CONTRIBUTING.md).
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "error: pushing to 'main' is not allowed." >&2
+    echo "Push your branch and open a pull request; the maintainer merges it." >&2
+    exit 1
+  fi
+done
+exit 0

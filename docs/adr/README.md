@@ -5,6 +5,8 @@ the alternatives that were rejected. ADRs are immutable once accepted. To change
 write a new ADR that supersedes the old one, and update the old one's status line to point at
 it.
 
+ADRs are decided by the project maintainer, Mohamed Yangui.
+
 ## Process
 
 1. Copy the structure of an existing ADR into `NNNN-short-title.md`, using the next free

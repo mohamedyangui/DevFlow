@@ -1,8 +1,9 @@
 # ADR 0017: Contract-aware context: read-only Protobuf and OpenAPI discovery
 
-- **Status:** Accepted, 2026-11-06. Implements refinement 5 of the Phase 1 approval.
+- **Status:** Accepted, 2026-11-06. Implements refinement 5 of the architecture review.
   Phase 1 defines the `ContractRelation` schema in `ModuleProfile`. Read-only discovery arrives
   in Phases 2–3; compatibility verification in Phase 6.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

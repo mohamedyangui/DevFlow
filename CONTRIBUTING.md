@@ -1,7 +1,7 @@
 # Contributing to DevFlow AI
 
-Thank you for your interest. DevFlow is in early development; please open an issue to discuss
-larger changes before starting work.
+Thank you for your interest. DevFlow AI is created and maintained by Mohamed Yangui. It is in
+early development; please open an issue to discuss larger changes before starting work.
 
 ## Setup
 
@@ -14,6 +14,7 @@ larger changes before starting work.
 
 ```bash
 pnpm install
+git config core.hooksPath .githooks   # refuse commits and pushes to main (see below)
 pnpm check      # build, typecheck, lint, format:check, test
 ```
 
@@ -63,12 +64,28 @@ Significant decisions are recorded as ADRs in [`docs/adr/`](docs/adr/README.md).
 when a decision is hard to reverse, crosses packages, changes a security property, or rejects
 an option others would propose. ADRs are not edited after acceptance; supersede them instead.
 
-## Commits and pull requests
+## Branches and pull requests
+
+`main` is protected and always releasable. Nothing is committed or pushed to it directly.
+
+- **One branch per phase or change.** Roadmap phases use `phase-<n>/<topic>` (for example
+  `phase-2/context-engine`); other changes use `fix/<topic>`, `docs/<topic>` or
+  `chore/<topic>`. Branch from an up-to-date `main`.
+- **Every change is a pull request** into `main`. CI must pass on all jobs (Ubuntu and Windows,
+  Node 22, 24 and 26).
+- **Only the maintainer merges.** Mohamed Yangui reviews and accepts every pull request; nobody
+  merges their own change, and nothing is merged automatically.
+- **Enforcement.** On GitHub, `main` requires a pull request with passing checks and refuses
+  force pushes and deletion. Locally, the hooks in `.githooks/` refuse commits on `main` and
+  pushes to `main` once you run `git config core.hooksPath .githooks`. Never bypass them with
+  `--no-verify`.
+
+Within a branch:
 
 - Small, focused commits with descriptive messages.
 - `pnpm check` must pass.
-- Describe what you verified and how. If something could not be verified (for example a
-  Windows-only path tested on Linux), say so.
+- Describe in the pull request what you verified and how. If something could not be verified
+  (for example a Windows-only path tested on Linux), say so.
 
 ## License
 

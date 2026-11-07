@@ -2,6 +2,7 @@
 
 - **Status:** Accepted, 2026-11-06, pending a Phase 3 spike. The `SourceParser` port is
   defined together with its implementation in Phase 3, not in Phase 1.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

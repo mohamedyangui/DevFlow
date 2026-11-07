@@ -1,7 +1,8 @@
 # ADR 0016: Configurable npm scope and a publication guard
 
-- **Status:** Accepted, 2026-11-06. Implements decision D3 and refinement 4 of the Phase 1
-  approval.
+- **Status:** Accepted, 2026-11-06. Implements decision D3 and refinement 4 of the architecture
+  review.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

@@ -2,6 +2,7 @@
 
 - **Status:** Accepted, 2026-11-06 (decision D6). Implementation in Phase 4. Phase 1 defines
   only the `workflow.git` configuration schema.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

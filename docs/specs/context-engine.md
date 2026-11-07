@@ -68,7 +68,7 @@ contracts and affected modules as "compatibility not verified".
 | 2    | The user's invocation: CLI flags, interactive answers, `~/.devflow`           | yes                | yes                        |
 | 3    | Task contract (what to build); external sources such as issues stay untrusted | yes                | no                         |
 | 4    | `.devflow/config.yaml` and `.devflow/rules/`                                  | yes                | only after `devflow trust` |
-| 5    | `AGENTS.md` / `CLAUDE.md` (nearest file first)                                | yes                | no                         |
+| 5    | `AGENTS.md` (nearest file first)                                              | yes                | no                         |
 | 6    | Conventions inferred from existing code                                       | yes                | no                         |
 | 7    | README, docs, code comments                                                   | informational only | no                         |
 
