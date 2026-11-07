@@ -125,7 +125,7 @@ packages/
   core/                 @devflow/core                schemas, rules, ports, task loading
   context/              @devflow/context             repository context engine
   ai/                   @devflow/ai                  LLM gateway and model providers
-  adapter-java/         @devflow/adapter-java        (skeleton) Maven, Gradle, JUnit
+  adapter-java/         @devflow/adapter-java        Maven, Gradle, Spring Boot, JUnit
   adapter-javascript/   @devflow/adapter-javascript  (skeleton) npm, pnpm, Vitest, Jest
   workflow/             @devflow/workflow            workflow engine, run store, reports
   cli/                  @devflow/cli                 the devflow command
