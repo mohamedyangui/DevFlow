@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "description": "Defaults to 1.",
+      "type": "number",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "requirements": {
+      "type": "object",
+      "properties": {
+        "functional": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^FR-[1-9][0-9]{0,3}$"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "must",
+                      "should",
+                      "could"
+                    ]
+                  }
+                },
+                "required": [
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "nonFunctional": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^NFR-[1-9][0-9]{0,3}$"
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "performance",
+                      "security",
+                      "reliability",
+                      "compatibility",
+                      "usability",
+                      "accessibility",
+                      "maintainability",
+                      "observability",
+                      "other"
+                    ]
+                  }
+                },
+                "required": [
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "acceptanceCriteria": {
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^AC-[1-9][0-9]{0,3}$"
+              },
+              "statement": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "given": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "when": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "then": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "covers": {
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^N?FR-[1-9][0-9]{0,3}$"
+                }
+              },
+              "verification": {
+                "type": "string",
+                "enum": [
+                  "automated",
+                  "manual"
+                ],
+                "description": "Whether the criterion is expected to be verified by an automated test."
+              },
+              "testLevel": {
+                "type": "string",
+                "enum": [
+                  "unit",
+                  "integration",
+                  "e2e"
+                ]
+              },
+              "testIntent": {
+                "type": "string",
+                "enum": [
+                  "feature",
+                  "regression",
+                  "characterization"
+                ],
+                "description": "feature: new or corrected behaviour (expected to fail before the change); regression: existing behaviour that must keep working; characterization: captures current behaviour before refactoring."
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "constraints": {
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000
+      }
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "modules": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          }
+        },
+        "include": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Repository-relative glob pattern using forward slashes."
+          }
+        },
+        "exclude": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Repository-relative glob pattern using forward slashes."
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "testing": {
+      "type": "object",
+      "properties": {
+        "levels": {
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "integration",
+              "e2e"
+            ]
+          }
+        },
+        "testFirst": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 4000
+        }
+      },
+      "additionalProperties": false
+    },
+    "definitionOfDone": {
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    }
+  },
+  "required": [
+    "id",
+    "title"
+  ],
+  "additionalProperties": false,
+  "title": "DevFlow task file",
+  "description": "A development task for DevFlow AI."
+}

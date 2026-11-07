@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../schemas/task.schema.json
+schemaVersion: 1
+id: TASK-142
+title: Add pagination to GET /api/orders
+description: |
+  The orders list endpoint returns every order in a single response and times out for
+  customers with many orders. Add offset pagination without breaking existing clients.
+requirements:
+  functional:
+    - id: FR-1
+      text: GET /api/orders accepts optional `page` (0-based) and `size` query parameters.
+    - id: FR-2
+      text: The response includes an X-Total-Count header with the total number of orders.
+  nonFunctional:
+    - id: NFR-1
+      category: compatibility
+      text: Clients that send no pagination parameters keep receiving the same JSON shape.
+acceptanceCriteria:
+  - id: AC-1
+    given: 25 orders exist
+    when: a client calls GET /api/orders?page=1&size=10
+    then: orders 11 to 20 are returned and X-Total-Count is 25
+    covers: [FR-1, FR-2]
+    testLevel: integration
+  - id: AC-2
+    given: any request
+    when: size is greater than 100
+    then: the API responds with 400 and the error code PAGE_SIZE_TOO_LARGE
+    covers: [FR-1]
+  - id: AC-3
+    statement: A request without pagination parameters returns the first 50 orders in the existing response format.
+    covers: [NFR-1]
+    testIntent: regression
+constraints:
+  - Do not change the OrderDto JSON shape.
+  - Follow the existing controller and service layering.
+scope:
+  modules: [backend]
+testing:
+  levels: [unit, integration]
+  testFirst: true
+definitionOfDone:
+  - Every acceptance criterion has a passing automated test.
+  - The backend test gate passes with no regressions.

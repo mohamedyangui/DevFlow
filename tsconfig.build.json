@@ -1,0 +1,14 @@
+// Build solution: `pnpm build` compiles every package to packages/*/dist in dependency order.
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "files": [],
+  "references": [
+    { "path": "packages/core/tsconfig.build.json" },
+    { "path": "packages/context/tsconfig.build.json" },
+    { "path": "packages/ai/tsconfig.build.json" },
+    { "path": "packages/adapter-java/tsconfig.build.json" },
+    { "path": "packages/adapter-javascript/tsconfig.build.json" },
+    { "path": "packages/workflow/tsconfig.build.json" },
+    { "path": "packages/cli/tsconfig.build.json" }
+  ]
+}

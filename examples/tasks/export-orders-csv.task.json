@@ -1,0 +1,27 @@
+{
+  "$schema": "../../schemas/task.schema.json",
+  "id": "TASK-201",
+  "title": "Export orders as CSV from the web dashboard",
+  "description": "Operations staff need to download the orders currently shown in the dashboard as a CSV file.",
+  "requirements": {
+    "functional": [
+      "The orders page shows an \"Export CSV\" button.",
+      "The exported file contains the columns id, customer, total and createdAt, in that order."
+    ]
+  },
+  "acceptanceCriteria": [
+    {
+      "given": "the orders page shows filtered results",
+      "when": "the user clicks \"Export CSV\"",
+      "then": "a file named orders-<date>.csv is downloaded containing only the filtered orders",
+      "covers": ["FR-1", "FR-2"]
+    },
+    {
+      "statement": "The exported CSV opens correctly in common spreadsheet applications.",
+      "verification": "manual"
+    }
+  ],
+  "scope": { "modules": ["web"] },
+  "testing": { "levels": ["unit"] },
+  "definitionOfDone": ["Automated tests cover AC-1.", "AC-2 is checked manually before release."]
+}

@@ -1,0 +1,13 @@
+// Type-checking, editor and lint configuration for the whole repository.
+// Workspace packages resolve to their TypeScript sources through the "devflow-source"
+// export condition, so type-checking and tests do not need a prior build.
+// Emitting JavaScript is done by tsconfig.build.json.
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "customConditions": ["devflow-source"]
+  },
+  "include": ["packages/*/src", "packages/*/test", "tests", "vitest.config.ts"]
+}

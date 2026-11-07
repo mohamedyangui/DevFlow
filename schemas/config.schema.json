@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "project": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "additionalProperties": false
+    },
+    "modules": {
+      "description": "Optional. Modules are auto-detected when omitted.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          },
+          "path": {
+            "type": "string",
+            "description": "Repository-relative path using forward slashes."
+          },
+          "adapter": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "adapter"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "ai": {
+      "description": "API keys are read from environment variables only, never from files.",
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai"
+          ]
+        },
+        "models": {
+          "default": {},
+          "type": "object",
+          "properties": {
+            "default": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "analysis": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "planning": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "testDesign": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "implementation": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "review": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "additionalProperties": false
+        },
+        "budgets": {
+          "default": {
+            "maxCostUsdPerRun": 5,
+            "maxInputTokensPerRun": 600000,
+            "maxOutputTokensPerRun": 80000,
+            "maxCallsPerStep": 12
+          },
+          "type": "object",
+          "properties": {
+            "maxCostUsdPerRun": {
+              "default": 5,
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000
+            },
+            "maxInputTokensPerRun": {
+              "default": 600000,
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "maxOutputTokensPerRun": {
+              "default": 80000,
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "maxCallsPerStep": {
+              "default": 12,
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "workflow": {
+      "default": {
+        "requirePlanApproval": true,
+        "maxRepairAttempts": 2,
+        "git": {
+          "isolation": "branch",
+          "branchPrefix": "devflow/",
+          "commit": "per-phase"
+        }
+      },
+      "type": "object",
+      "properties": {
+        "requirePlanApproval": {
+          "default": true,
+          "type": "boolean"
+        },
+        "maxRepairAttempts": {
+          "default": 2,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "git": {
+          "default": {
+            "isolation": "branch",
+            "branchPrefix": "devflow/",
+            "commit": "per-phase"
+          },
+          "type": "object",
+          "properties": {
+            "isolation": {
+              "default": "branch",
+              "type": "string",
+              "enum": [
+                "branch",
+                "worktree"
+              ]
+            },
+            "branchPrefix": {
+              "default": "devflow/",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,40}$"
+            },
+            "commit": {
+              "default": "per-phase",
+              "type": "string",
+              "enum": [
+                "per-phase",
+                "none"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification": {
+      "default": {
+        "baseline": "auto",
+        "gates": []
+      },
+      "type": "object",
+      "properties": {
+        "baseline": {
+          "default": "auto",
+          "type": "string",
+          "enum": [
+            "auto",
+            "always",
+            "never"
+          ]
+        },
+        "gates": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+              },
+              "module": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+              },
+              "use": {
+                "type": "string",
+                "enum": [
+                  "build",
+                  "compile",
+                  "test",
+                  "lint",
+                  "typecheck",
+                  "static-analysis",
+                  "format-check"
+                ],
+                "description": "Selects the adapter-provided command for this purpose."
+              },
+              "required": {
+                "default": true,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "module",
+              "use"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "context": {
+      "default": {
+        "include": [],
+        "exclude": [],
+        "maxFileBytes": 524288
+      },
+      "type": "object",
+      "properties": {
+        "include": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Repository-relative glob pattern using forward slashes."
+          }
+        },
+        "exclude": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Repository-relative glob pattern using forward slashes."
+          }
+        },
+        "maxFileBytes": {
+          "default": 524288,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 5242880
+        }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "default": {
+        "additionalProtectedPaths": []
+      },
+      "type": "object",
+      "properties": {
+        "additionalProtectedPaths": {
+          "default": [],
+          "description": "Extra paths DevFlow must never modify. Can only add restrictions.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Repository-relative glob pattern using forward slashes."
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "version"
+  ],
+  "additionalProperties": false,
+  "title": "DevFlow project configuration"
+}
