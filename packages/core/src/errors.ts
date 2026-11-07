@@ -29,6 +29,8 @@ export const ErrorCode = {
   CommandArgumentRejected: "COMMAND_ARGUMENT_REJECTED",
   /** The operating system could not start the process. */
   ProcessStartFailed: "PROCESS_START_FAILED",
+  /** A repository file cannot be read for analysis (sensitive, binary, too large, missing). */
+  RepositoryFileUnreadable: "REPOSITORY_FILE_UNREADABLE",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 

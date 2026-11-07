@@ -1,9 +1,41 @@
 /**
- * Engineering context engine: repository discovery, file classification (including
- * OpenAPI and Protobuf contract files), project instructions, relevance ranking and
- * context packing.
- *
- * Status: NOT IMPLEMENTED. Planned for Phase 2 (see docs/specs/context-engine.md).
- * This module intentionally exports nothing until the implementation exists.
+ * Engineering context engine (docs/specs/context-engine.md): repository discovery, file
+ * classification (including OpenAPI and Protobuf contract files), project instructions,
+ * relevance ranking and context packing.
  */
-export {};
+export {
+  ContextModule,
+  ContextPack,
+  ContractSummary,
+  FileRole,
+  Instruction,
+  OpenApiSummary,
+  PackedFile,
+  ProtobufSummary,
+  SkipReason,
+} from "./schemas.js";
+export { buildContext, DEFAULT_CONTEXT_BUDGET_TOKENS, type BuildContextOptions } from "./engine.js";
+export {
+  ALWAYS_EXCLUDED_DIRECTORIES,
+  discoverFiles,
+  type DiscoverOptions,
+  type DiscoveredFile,
+  type DiscoveryResult,
+} from "./discover.js";
+export { isInstructionFile, languageOf, moduleOf, roleOf } from "./classify.js";
+export { looksLikeOpenApi, scanOpenApi, scanProtobuf } from "./contracts.js";
+export { importsOf, outlineOf, suffixIndexOf } from "./outline.js";
+export { Bm25Index, tokenize, type Bm25Document, type Bm25Match } from "./bm25.js";
+export {
+  rankFiles,
+  taskIdentifiers,
+  taskQueryItems,
+  type QueryItem,
+  type RankCandidate,
+  type RankedFile,
+  type TaskIdentifier,
+} from "./rank.js";
+export { loadInstructions, type LoadInstructionsOptions } from "./instructions.js";
+export { packFiles, type PackOptions } from "./pack.js";
+export { estimateTokens, readTextForPrompt, type LoadedText } from "./files.js";
+export { WorkspaceRepository, type WorkspaceRepositoryOptions } from "./repository.js";

@@ -1,8 +1,9 @@
-# Specification: engineering context engine (draft)
+# Specification: engineering context engine
 
-- **Status:** Draft. Implementation in `@devflow/context` starts in Phase 2. Phase 1 contains
-  only the package skeleton (it exports nothing) and the related core types (`RepositoryView`,
-  `ModuleProfile`, `ContractRelation`).
+- **Status:** Phase 2 implements the pipeline in `@devflow/context`: discovery, classification,
+  sensitive-content filtering, contract scanning, instruction loading, ranking and packing,
+  and the `WorkspaceRepository` implementation of `RepositoryView`. Section 5 lists what
+  differs from the full design and what is still to come.
 
 ## 1. Purpose
 
@@ -76,3 +77,32 @@ A conflict between rank 3 and ranks 4–6 is surfaced as a clarification questio
 risk, never resolved silently. Commands mentioned in documentation are never executed.
 Untrusted content placed in a prompt is wrapped in labelled delimiters; this is a mitigation,
 the real protection being that the model cannot act.
+
+## 5. Phase 2 implementation notes
+
+- **Discovery** walks the directory in every case and applies `.gitignore` files (with git's
+  precedence: deeper files win, the last matching rule wins) and `.git/info/exclude`.
+  `git ls-files` arrives with DevFlow's internal git operations (Phase 4). Symbolic links are
+  never followed. Files on the sensitive-path list are skipped without being read; their paths
+  are counted but never packed.
+- **Content loading:** at most 64 MiB of text is read for ranking; further files are ranked by
+  path only. Content with NUL bytes or invalid UTF-8 is treated as binary.
+- **Modules** come from `.devflow/config.yaml`; without it the whole workspace is one module
+  `root`. Adapter detection plugs in when the adapters exist (Phase 3).
+- **Outlines** are regex-based declaration lines with line numbers (Java, Kotlin,
+  JavaScript/TypeScript, Python, Go, Protobuf, Markdown headings) until the `SourceParser`
+  spike (ADR 0009).
+- **Ranking boosts:** an identifier from the task that is a file's name (+6) or appears in it
+  (+3, at most +12 in total), a path named in the task (+10), the task's `scope.include`
+  (+3) and `scope.modules` (+2), a contract declaring a message, service, enum, operation or
+  path the task mentions (+6). Scores are then weighted by role (generated ×0.3,
+  documentation ×0.6, configuration ×0.8). The test/source partner of a top file gains half of
+  its score, and files imported by a top file gain 30%. `scope.exclude` removes files.
+- **Packing:** instructions take at most 30% of the budget (the lowest precedence is dropped
+  first). Then up to 25 files in full (each at most a quarter of the budget), up to 60 as
+  outlines, and up to 400 as paths, including the other files of the relevant modules.
+  Tokens are estimated as characters / 4.
+- **Not yet implemented:** the read-only model tools (`read_file`, `search_text`,
+  `list_files`, `get_outline`) arrive with the tool-using step loop (ADR 0005, Phase 4);
+  generated-code mapping from adapter evidence arrives with the adapters (Phase 3); recent git
+  churn is not used.

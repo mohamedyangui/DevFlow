@@ -37,12 +37,14 @@ Implemented and tested so far:
   [ADR 0014](adr/0014-windows-invocation.md): batch argument round trip, rejection of forbidden
   characters before any process starts, `node-script` shims, `java-launcher` resolution.
   Running a real Gradle or Maven wrapper waits for the Phase 3 example builds.
+- Context engine (`@devflow/context`, [spec](specs/context-engine.md)): discovery honouring
+  ignore files, classification, **read-only `.proto` and OpenAPI discovery**
+  ([ADR 0017](adr/0017-contract-aware-context.md)), sensitive-content filtering, instruction
+  loading, explainable BM25 ranking ([ADR 0008](adr/0008-lexical-ranking.md)) and packing to a
+  token budget.
 
 Planned:
 
-- Context engine: discovery, classification (including **read-only `.proto` and OpenAPI
-  discovery**, [ADR 0017](adr/0017-contract-aware-context.md)), sensitive-content filtering,
-  instruction loading, ranking, packing.
 - Workflow engine: transition table, modes, step runner, run store, approvals, clarification,
   resume, cancellation, budgets.
 - AI: gateway, Fake and Replay providers, Anthropic provider.

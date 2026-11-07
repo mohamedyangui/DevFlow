@@ -77,6 +77,15 @@ importers:
       '@devflow/core':
         specifier: workspace:*
         version: link:../core
+      ignore:
+        specifier: ^7.0.14
+        version: 7.0.14
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/core:
     dependencies:
