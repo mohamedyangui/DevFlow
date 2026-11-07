@@ -4,7 +4,7 @@ This page tracks what **exists** and what is **planned**. Nothing is listed as i
 unless the code exists and its checks pass. The detailed plan for each phase is in section 18
 of the [architecture proposal](design/architecture-proposal.md).
 
-## Phase 1: Architecture and foundation — complete, under review
+## Phase 1: Architecture and foundation — complete
 
 Implemented and tested:
 
@@ -20,10 +20,16 @@ Implemented and tested:
 - npm scope rename script and publication guard (all packages private).
 - Architecture overview, ADRs 0001–0017, specifications.
 
-## Phase 2: Core workflow (assist mode end to end)
+## Phase 2: Core workflow (assist mode end to end) — in progress
 
-- Security primitives: path guard, secret detection and redaction, command policy, trust
-  store (`devflow trust`), executor, audit log.
+Implemented and tested so far:
+
+- Path guard, secret detection and redaction, audit log and redacting logger
+  (`@devflow/core`, [security model](specs/security-model.md) sections 6 to 8).
+
+Planned:
+
+- Security primitives: command policy, trust store (`devflow trust`), executor.
   - **Windows executor integration tests** ([ADR 0014](adr/0014-windows-invocation.md)):
     batch argument round trip, rejection of forbidden characters, `node-script` resolution.
     They run on the `windows-latest` CI leg.

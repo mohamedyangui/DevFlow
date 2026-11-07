@@ -99,6 +99,60 @@ export {
   WorkflowState,
   isTerminalState,
 } from "./schemas/workflow.js";
+export {
+  AuditEntry,
+  CommandAuditEntry,
+  DecisionAuditEntry,
+  FileWriteAuditEntry,
+  LlmCallAuditEntry,
+  RedactionAuditEntry,
+} from "./schemas/audit.js";
+
+// Security primitives
+export {
+  DEFAULT_PROTECTED_PATH_PATTERNS,
+  HARD_PROTECTED_PATH_PATTERNS,
+  SENSITIVE_PATH_PATTERNS,
+  caseInsensitiveFileSystem,
+  createPathMatcher,
+  type PathMatcher,
+} from "./security/path-patterns.js";
+export {
+  PathGuard,
+  type GuardedPath,
+  type PathAccess,
+  type PathCheckRequest,
+  type PathGuardOptions,
+  type PathOrigin,
+  type PathRejectionReason,
+} from "./security/path-guard.js";
+export {
+  BUILT_IN_SECRET_DETECTORS,
+  CREDENTIAL_ENV_NAME,
+  SecretRedactor,
+  credentialValuesFromEnv,
+  redactionMarker,
+  shannonEntropy,
+  type Redaction,
+  type RedactionResult,
+  type SecretDetector,
+  type SecretMatch,
+  type SecretRedactorOptions,
+} from "./security/secrets.js";
+export {
+  AuditLog,
+  readAuditLog,
+  type AuditEntryInput,
+  type AuditLogOptions,
+} from "./security/audit-log.js";
+export {
+  createLogger,
+  silentLogger,
+  type LogLevel,
+  type LogRecord,
+  type Logger,
+  type LoggerOptions,
+} from "./security/logger.js";
 
 // Domain rules
 export {

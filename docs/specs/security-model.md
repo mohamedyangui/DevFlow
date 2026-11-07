@@ -1,12 +1,17 @@
 # Specification: security model
 
-- **Status:** Design accepted. In Phase 1 the following exist and are tested: strict schemas
-  that reject unknown keys; repository-relative path validation; `CommandSpec` validation
-  (whole-argument placeholders, anchored parameter patterns, no control characters, no
-  credential-like environment variables); report and finding invariants; ESLint rules that
-  forbid `child_process` in all package sources and `fs`/network modules in adapters; all
-  packages `private`. The path guard, secret redaction, command policy, trust store, executor
-  and audit log are **not implemented yet** (Phase 2).
+- **Status:** Design accepted.
+  - **Phase 1, implemented and tested:** strict schemas that reject unknown keys;
+    repository-relative path validation; `CommandSpec` validation (whole-argument
+    placeholders, anchored parameter patterns, no control characters, no credential-like
+    environment variables); report and finding invariants; ESLint rules that forbid
+    `child_process` in all package sources and `fs`/network modules in adapters; all packages
+    `private`.
+  - **Phase 2, implemented and tested:** the path guard (section 6), secret detection and
+    redaction (section 7), the audit log (section 8) and a redacting logger, all in
+    `@devflow/core` under `src/security/`.
+  - **Not implemented yet (Phase 2, next):** the command policy, trust store and executor
+    (sections 4 and 5).
 
 ## 1. Principles
 
@@ -84,8 +89,39 @@ DevFlow's own git operations are fixed internal calls with `core.fsmonitor` disa
   `.github/workflows/**`, lockfiles, build wrappers (`mvnw*`, `gradlew*`, `gradle/wrapper/**`,
   `.mvn/wrapper/**`), `.env*`, and the sensitive-path list. A confirmed plan can unlock a
   specific protected path; `security.additionalProtectedPaths` can only add paths.
-- Never read for a prompt: `.env*`, `*.pem`, `*.key`, `id_*`, `*.p12`, `*.jks`, `.npmrc`,
-  `.netrc`, `credentials*`, `*.tfstate`, and similar.
+- Never read for a prompt: `.env*`, `*.pem`, `*.key`, SSH keys (`id_rsa*`, `id_dsa*`,
+  `id_ecdsa*`, `id_ed25519*`), `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `.npmrc`,
+  `.yarnrc.yml`, `.netrc`, `.git-credentials`, `credentials*`, `*.tfstate`, `*.tfvars`,
+  `.aws/`, `.ssh/`, `.gnupg/`, Maven `settings.xml` under `.m2/`, and anything inside `.git/`.
+  The complete lists are `SENSITIVE_PATH_PATTERNS`, `HARD_PROTECTED_PATH_PATTERNS` and
+  `DEFAULT_PROTECTED_PATH_PATTERNS` in `packages/core/src/security/path-patterns.ts`.
+
+### 6.1 How the guard decides
+
+Every check names an **access** (`read` for DevFlow's own use, `prompt` for content sent to a
+model, `write`) and an **origin** (`model`, `user`, `internal`):
+
+1. Empty paths, paths longer than 4096 characters, NUL bytes and control characters are
+   rejected.
+2. Paths from model output must be relative and pass the `RepoPath` syntax check; `..`,
+   absolute paths, drive letters, UNC paths and `~` are rejected. Paths typed by the user may
+   be absolute but must lie inside the workspace.
+3. Every segment is checked for Windows device names (`CON`, `NUL`, `COM1`, `CONIN$`, ...),
+   alternate data streams (any `:`) and trailing dots or spaces, which Windows strips (so
+   `.git.` would otherwise reach `.git`). These checks apply on every platform, so a
+   repository stays portable.
+4. Symbolic links and junctions are resolved with the operating system's `realpath`. The real
+   location must stay inside the workspace; dangling links are rejected. Writing through a
+   link is refused even when it stays inside.
+5. Sensitive and protected patterns are matched against both the path as written and its real
+   location, case-insensitively on Windows and macOS. `.git` and `.devflow` can never be
+   unlocked; other protected paths can be unlocked one exact path at a time by a confirmed
+   plan. DevFlow's own bookkeeping (`internal`) is exempt from the protected list but not from
+   containment.
+
+Residual risk: a check and the following file operation are two steps; a process that swaps a
+directory for a link in between could redirect the operation. Writers re-check immediately
+before writing.
 
 The Phase 1 path schemas (`RepoPath`, `RepoGlob`) already reject absolute paths, drive
 letters, `..` and `.` segments, backslashes, Windows-invalid characters, trailing dots and
@@ -93,10 +129,18 @@ spaces, and reserved device names in task and configuration files.
 
 ## 7. Secrets
 
-Built-in detectors (known token prefixes, private-key headers, JWTs, connection strings with
-passwords, high-entropy assignments to `password`/`secret`/`token`/`api_key`). Redacted values
-are replaced with a marker containing the detector name and a short hash of the value, so
-repeats can be correlated without disclosure. Redaction applies to model requests, logs, the
+Built-in detectors: GitHub, GitLab, Anthropic, OpenAI, AWS, Google, Slack, Stripe and npm
+token formats; Slack webhooks; private keys (PEM, OpenSSH, PGP; the whole block up to its END
+line); JWTs; passwords in URLs and connection strings; and values assigned to
+`password`/`secret`/`token`/`api_key`-like names that pass an entropy threshold (3 bits per
+character) and do not look like placeholders or code. The exact values of credential-like
+environment variables of the DevFlow process are redacted too, whatever their format.
+
+Redacted values are replaced with a marker such as `«REDACTED:github-token:3f2a»`: the
+detector name and the first four hex digits of the value's SHA-256, so repeats can be
+correlated without disclosure. Redaction is idempotent and runs in linear time. The detector
+corpus is in `packages/core/test/security/secrets.test.ts`; its fake secrets are assembled at
+runtime so that the file itself never contains a token-shaped literal. Redaction applies to model requests, logs, the
 audit trail, reports and, in Phase 5, PR comments. API keys are read from environment variables
 only, never from repository files.
 
@@ -105,7 +149,13 @@ only, never from repository files.
 `audit.jsonl` records every model call (provider, model, template and version, prompt hash,
 files included, tokens, cost), every command (argv, working directory, policy decision,
 approver, exit code, duration), every file write (path, hashes before and after, plan change
-id), and every approval, rejection and clarification answer. All entries are redacted.
+id), every approval, rejection and clarification answer, and every redaction applied to
+outbound content (type and location, never the value).
+
+Each line is one `AuditEntry` (`packages/core/src/schemas/audit.ts`) with a sequence number
+and a timestamp. Entries are redacted, then validated, then appended; an entry that does not
+match the schema is refused and nothing is written. Appends are serialized, and reading a log
+validates every line and reports a corrupt one with its line number.
 
 ## 9. Residual risks
 
