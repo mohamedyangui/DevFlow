@@ -2,7 +2,7 @@
   "name": "@devflow/context",
   "version": "0.0.0",
   "private": true,
-  "description": "DevFlow AI engineering context engine (not implemented yet: Phase 2).",
+  "description": "DevFlow AI engineering context engine: discovery, classification, contract scanning, ranking and packing.",
   "license": "Apache-2.0",
   "author": "Mohamed Yangui <mohamed.yangui@esprit.tn>",
   "type": "module",
@@ -20,6 +20,9 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow/core": "workspace:*"
+    "@devflow/core": "workspace:*",
+    "ignore": "^7.0.14",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
   }
 }
