@@ -1,7 +1,8 @@
 # ADR 0010: Official provider SDKs behind `LlmProvider`
 
 - **Status:** Accepted, 2026-11-06. The `LlmProvider` port exists in `@devflow/core` (Phase 1).
-  Anthropic, Fake and Replay providers arrive in Phase 2 (decision D2), OpenAI in Phase 4.
+  The gateway and the Anthropic, Fake and Replay providers are implemented in `@devflow/ai`
+  (Phase 2, decision D2); OpenAI arrives in Phase 4.
 - **Deciders:** Mohamed Yangui
 
 ## Context
@@ -22,8 +23,26 @@ workflow deterministically without network access or cost.
 - A gateway in `@devflow/ai` wraps every provider: redaction, budget checks before the call,
   audit records, retries with backoff, response validation.
 - API keys come from environment variables only, never from files in the repository.
-- Default model ids and prices are taken from the providers' current documentation when the
-  providers are implemented, and every value can be overridden in configuration.
+- No model id is built in. The model always comes from the command line, the configuration
+  (`ai.models`) or the `DEVFLOW_MODEL` environment variable, so DevFlow never silently uses a
+  model the user did not choose, and a retired id never needs a release to change. Prices
+  arrive with the price table in Phase 4; until then budgets count tokens and calls, and
+  `costUsd` is recorded as null.
+
+## Implementation notes (Phase 2)
+
+- The gateway estimates input tokens as characters / 4 and checks the budget with that
+  estimate plus the full output allowance before every call.
+- Transient failures (rate limits, overload, 5xx, 408, 409, network errors, timeouts) are
+  retried up to three attempts in total with exponential backoff and jitter; a `retry-after`
+  header is honoured up to 60 seconds. SDK-level retries are disabled so budgets and audit
+  entries see every call.
+- Structured output: providers receive a JSON Schema generated from the step's Zod schema.
+  The Anthropic provider reduces it to the subset the API accepts (closed objects, no length,
+  range or pattern constraints, which are restated in descriptions); the gateway validates the
+  answer with the full Zod schema.
+- The replay key is the SHA-256 of the request's canonical JSON, the same value the audit log
+  records as `promptSha256`.
 
 ## Consequences
 

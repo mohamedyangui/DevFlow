@@ -11,7 +11,8 @@
     redaction (section 7), the audit log (section 8), a redacting logger, the trust store and
     `devflow trust` (section 3.1), the command policy (section 4) and the executor
     (section 5). Everything except the CLI command is in `@devflow/core` under
-    `src/security/`.
+    `src/security/`. The LLM gateway in `@devflow/ai` redacts every prompt before it reaches a
+    provider and writes the redaction and llm-call audit entries (sections 7 and 8).
   - **Not implemented yet:** wiring the policy and executor into workflow steps and gates
     (the workflow engine, later in Phase 2; gates in Phase 3), a command-line flag for the CI
     allowlist, and the container backend (Phase 6).

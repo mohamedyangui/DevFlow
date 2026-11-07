@@ -2,7 +2,7 @@
   "name": "@devflow/ai",
   "version": "0.0.0",
   "private": true,
-  "description": "DevFlow AI LLM gateway and provider adapters (not implemented yet: Phase 2 and 4).",
+  "description": "DevFlow AI LLM gateway and provider adapters: Anthropic, Fake and Replay (OpenAI in Phase 4).",
   "license": "Apache-2.0",
   "author": "Mohamed Yangui <mohamed.yangui@esprit.tn>",
   "type": "module",
@@ -20,6 +20,8 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow/core": "workspace:*"
+    "@anthropic-ai/sdk": "^1.6.0",
+    "@devflow/core": "workspace:*",
+    "zod": "^4.6.7"
   }
 }

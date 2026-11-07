@@ -31,6 +31,24 @@ export const ErrorCode = {
   ProcessStartFailed: "PROCESS_START_FAILED",
   /** A repository file cannot be read for analysis (sensitive, binary, too large, missing). */
   RepositoryFileUnreadable: "REPOSITORY_FILE_UNREADABLE",
+  /** A model call would exceed the run's token budget or the step's call budget. */
+  BudgetExceeded: "BUDGET_EXCEEDED",
+  /** The model provider cannot be used: unknown provider, no model, no API key, no SDK. */
+  LlmProviderNotConfigured: "LLM_PROVIDER_NOT_CONFIGURED",
+  /** A model call failed, after retries when the failure was transient. */
+  LlmRequestFailed: "LLM_REQUEST_FAILED",
+  /** The model declined the request. */
+  LlmRefused: "LLM_REFUSED",
+  /** The model stopped at the output token limit before finishing its answer. */
+  LlmOutputTruncated: "LLM_OUTPUT_TRUNCATED",
+  /** The model's answer did not match the expected schema, even after a repair attempt. */
+  LlmOutputInvalid: "LLM_OUTPUT_INVALID",
+  /** A replay cassette has no recorded response for a request. */
+  ReplayCassetteMiss: "REPLAY_CASSETTE_MISS",
+  /** A replay cassette file cannot be read or does not match its schema. */
+  ReplayCassetteInvalid: "REPLAY_CASSETTE_INVALID",
+  /** The operation was cancelled by the caller (for example Ctrl+C). */
+  Cancelled: "CANCELLED",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
