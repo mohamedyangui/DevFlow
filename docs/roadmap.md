@@ -49,15 +49,19 @@ Implemented and tested so far:
   lazily, tested against a local HTTP stand-in), Fake (scripted) and Replay (cassettes keyed by
   a request hash, with a record mode). A live API test runs only when `ANTHROPIC_API_KEY` and
   `DEVFLOW_LIVE_MODEL` are set; it is skipped otherwise and has not been run.
+- Workflow engine (`@devflow/workflow`, [ADR 0004](adr/0004-state-machine-and-run-store.md)):
+  transition table tested exhaustively per mode, run store with atomic writes, schema
+  validation on read and a lock file, assist mode end to end (context loading, requirements
+  analysis with clarification, planning with deterministic plan checks and one revision, plan
+  approval and rejection with feedback), resume after budget, provider, cancellation and crash
+  interruptions, cancellation, and `not_verified` reports in JSON and Markdown. Tested with the
+  Fake provider; no run against a real model has been made.
 
 Planned:
 
-- Workflow engine: transition table, modes, step runner, run store, approvals, clarification,
-  resume, cancellation, budgets.
-- Steps: context loading, requirements analysis, planning, report generation.
 - CLI: `init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `status`,
   `report`.
-- Ports defined with their implementations: executor, run store.
+- End-to-end tests of the CLI with Replay cassettes.
 
 ## Phase 3: Language adapters and verification
 

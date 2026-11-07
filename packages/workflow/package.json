@@ -2,7 +2,7 @@
   "name": "@devflow/workflow",
   "version": "0.0.0",
   "private": true,
-  "description": "DevFlow AI workflow orchestrator, engineering steps, run store, reporting and programmatic SDK (not implemented yet: Phase 2).",
+  "description": "DevFlow AI workflow orchestrator: state machine, run store, requirements analysis, planning, plan checks and reports (assist mode; guarded and autonomous modes in Phase 4).",
   "license": "Apache-2.0",
   "author": "Mohamed Yangui <mohamed.yangui@esprit.tn>",
   "type": "module",
@@ -22,6 +22,7 @@
   "dependencies": {
     "@devflow/ai": "workspace:*",
     "@devflow/context": "workspace:*",
-    "@devflow/core": "workspace:*"
+    "@devflow/core": "workspace:*",
+    "zod": "^4.6.7"
   }
 }

@@ -49,6 +49,24 @@ export const ErrorCode = {
   ReplayCassetteInvalid: "REPLAY_CASSETTE_INVALID",
   /** The operation was cancelled by the caller (for example Ctrl+C). */
   Cancelled: "CANCELLED",
+  /** A state transition is not in the transition table or not allowed in the run's mode. */
+  InvalidTransition: "INVALID_TRANSITION",
+  /** The workflow mode exists in the design but is not implemented yet. */
+  WorkflowModeNotImplemented: "WORKFLOW_MODE_NOT_IMPLEMENTED",
+  /** No run with this id exists in the workspace. */
+  RunNotFound: "RUN_NOT_FOUND",
+  /** Another DevFlow process holds the run's lock. */
+  RunLocked: "RUN_LOCKED",
+  /** A run's files cannot be read or do not match their schemas. */
+  RunCorrupt: "RUN_CORRUPT",
+  /** The run is not waiting for this input (for example, approve when no plan awaits approval). */
+  RunNotAwaitingInput: "RUN_NOT_AWAITING_INPUT",
+  /** A decision's input is unusable: answers to unknown questions, empty answers or feedback. */
+  DecisionInputInvalid: "DECISION_INPUT_INVALID",
+  /** The task cannot start a run (it is invalid). */
+  TaskInvalid: "TASK_INVALID",
+  /** The plan still fails the deterministic plan checks after a revision. */
+  PlanInvalid: "PLAN_INVALID",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
