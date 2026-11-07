@@ -1,6 +1,18 @@
-import { Command, CommanderError, Option } from "commander";
+import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
+import { initCommand } from "./commands/init.js";
 import { taskValidateCommand } from "./commands/task-validate.js";
 import { trustCommand } from "./commands/trust.js";
+import {
+  type ModelOptions,
+  answerCommand,
+  approveCommand,
+  cancelCommand,
+  rejectCommand,
+  reportCommand,
+  resumeCommand,
+  startCommand,
+  statusCommand,
+} from "./commands/workflow.js";
 import { ExitCode } from "./exit-codes.js";
 import type { CliIo } from "./io.js";
 import { readCliVersion } from "./version.js";
@@ -74,6 +86,141 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
       },
     );
 
+  program
+    .command("init")
+    .description("write .devflow/config.yaml and a rules template, and ignore .devflow/runs/")
+    .option("--json", "print a machine-readable result")
+    .action(async (options: { json?: boolean }) => {
+      exitCode = await initCommand({ json: options.json === true }, io);
+    });
+
+  for (const goal of ["analyze", "plan"] as const) {
+    withModelOptions(
+      program
+        .command(goal)
+        .description(
+          goal === "analyze"
+            ? "analyse a task's requirements against the repository (assist mode)"
+            : "analyse a task and write an implementation plan for review (assist mode)",
+        )
+        .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)")
+        .addOption(
+          new Option("--mode <mode>", "workflow mode")
+            .choices(["assist", "test", "implement", "review"])
+            .default("assist"),
+        ),
+    ).action(async (options: RawModelOptions & { task: string; mode: string }) => {
+      exitCode = await startCommand(
+        goal,
+        {
+          ...modelOptions(options),
+          task: options.task,
+          mode: options.mode as "assist" | "test" | "implement" | "review",
+        },
+        io,
+      );
+    });
+  }
+
+  program
+    .command("approve")
+    .description("approve the plan a run is waiting on")
+    .argument("<run>", "run id")
+    .option("--plan-sha <sha256>", "approve only if the plan still has this hash")
+    .option("--json", "print a machine-readable result")
+    .action(async (run: string, options: { planSha?: string; json?: boolean }) => {
+      exitCode = await approveCommand(
+        run,
+        { planSha: options.planSha, json: options.json === true },
+        io,
+      );
+    });
+
+  withModelOptions(
+    program
+      .command("reject")
+      .description("reject the plan with feedback; DevFlow plans again")
+      .argument("<run>", "run id")
+      .option("--feedback <text>", "what to change")
+      .option("--feedback-file <file>", "read the feedback from a file"),
+  ).action(
+    async (
+      run: string,
+      options: RawModelOptions & { feedback?: string; feedbackFile?: string },
+    ) => {
+      exitCode = await rejectCommand(
+        run,
+        {
+          ...modelOptions(options),
+          feedback: options.feedback,
+          feedbackFile: options.feedbackFile,
+        },
+        io,
+      );
+    },
+  );
+
+  withModelOptions(
+    program
+      .command("answer")
+      .description("answer clarification questions; the analysis continues once none blocks")
+      .argument("<run>", "run id")
+      .option(
+        "--answer <id=text>",
+        'an answer, for example "Q-1=Pages start at 1" (repeatable)',
+        collect,
+        [],
+      )
+      .option("--file <file>", "YAML or JSON file mapping question ids to answers"),
+  ).action(async (run: string, options: RawModelOptions & { answer: string[]; file?: string }) => {
+    exitCode = await answerCommand(
+      run,
+      { ...modelOptions(options), answer: options.answer, file: options.file },
+      io,
+    );
+  });
+
+  withModelOptions(
+    program
+      .command("resume")
+      .description("continue an interrupted run; limits, model and provider can be changed")
+      .argument("<run>", "run id"),
+  ).action(async (run: string, options: RawModelOptions) => {
+    exitCode = await resumeCommand(run, modelOptions(options), io);
+  });
+
+  program
+    .command("cancel")
+    .description("cancel a run that has not finished")
+    .argument("<run>", "run id")
+    .option("--reason <text>", "why the run is cancelled")
+    .option("--json", "print a machine-readable result")
+    .action(async (run: string, options: { reason?: string; json?: boolean }) => {
+      exitCode = await cancelCommand(
+        run,
+        { reason: options.reason, json: options.json === true },
+        io,
+      );
+    });
+
+  program
+    .command("status")
+    .description("list the runs of this workspace, or show one")
+    .argument("[run]", "run id")
+    .option("--json", "print a machine-readable result")
+    .action(async (run: string | undefined, options: { json?: boolean }) => {
+      exitCode = await statusCommand(run, { json: options.json === true }, io);
+    });
+
+  program
+    .command("report")
+    .description("print the report of a finished run (Markdown, or JSON with --json)")
+    .argument("<run>", "run id")
+    .option("--json", "print report.json")
+    .action(async (run: string, options: { json?: boolean }) => {
+      exitCode = await reportCommand(run, { json: options.json === true }, io);
+    });
+
   try {
     await program.parseAsync([...args], { from: "user" });
   } catch (error) {
@@ -85,4 +232,49 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
     throw error;
   }
   return exitCode;
+}
+
+interface RawModelOptions {
+  provider?: string;
+  model?: string;
+  cassette?: string;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
+  maxCallsPerStep?: number;
+  json?: boolean;
+}
+
+function withModelOptions(command: Command): Command {
+  return command
+    .option("--provider <name>", "model provider: anthropic, or replay with --cassette")
+    .option("--model <id>", "model id for every step (no default: also ai.models or DEVFLOW_MODEL)")
+    .option("--cassette <file>", "recorded responses for the replay provider")
+    .option("--max-input-tokens <n>", "input token budget of the run", positiveInteger)
+    .option("--max-output-tokens <n>", "output token budget of the run", positiveInteger)
+    .option("--max-calls-per-step <n>", "model call budget of each step", positiveInteger)
+    .option("--json", "print a machine-readable result");
+}
+
+function modelOptions(options: RawModelOptions): ModelOptions {
+  return {
+    provider: options.provider,
+    model: options.model,
+    cassette: options.cassette,
+    maxInputTokens: options.maxInputTokens,
+    maxOutputTokens: options.maxOutputTokens,
+    maxCallsPerStep: options.maxCallsPerStep,
+    json: options.json === true,
+  };
+}
+
+function positiveInteger(value: string): number {
+  const parsed = Number(value);
+  if (!/^\d+$/.test(value.trim()) || !Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new InvalidArgumentError("expected a positive integer");
+  }
+  return parsed;
+}
+
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }

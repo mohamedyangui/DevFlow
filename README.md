@@ -6,11 +6,11 @@ DevFlow AI is an open-source, language-agnostic framework for AI-assisted softwa
 workflows. It turns a development task with requirements and acceptance criteria into a
 planned, tested and verified change, and reports what was actually verified, with evidence.
 
-> **Status: early development (Phase 2 of 6 in progress).** Today DevFlow can validate task
-> files and record that you trust a workspace. Its security layer (path guard, secret redaction,
-> audit log, command policy and executor) exists and is tested, but no workflow uses it yet: it
-> cannot analyse repositories, call models, run builds or change code. The table below lists
-> what exists. Nothing is published to npm.
+> **Status: early development (Phase 2 of 6 complete).** DevFlow runs its assist workflow:
+> it analyses a task against a repository with a model, asks clarification questions, and writes
+> an implementation plan that a person approves or rejects. It does not run builds or change code
+> yet (Phases 3 and 4), so every report says `not_verified`. The table below lists what exists.
+> Nothing is published to npm.
 
 ## Principles
 
@@ -26,19 +26,21 @@ planned, tested and verified change, and reports what was actually verified, wit
 
 ## What exists today
 
-| Capability                                                                                                           | Status           |
-| -------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| Task files in YAML, JSON and Markdown: parsing, normalization, validation with line numbers                          | Implemented      |
-| `devflow task validate [--json] [--strict]`                                                                          | Implemented      |
-| Core schemas for tasks, configuration, modules, commands, verification, findings, plans and reports, with invariants | Implemented      |
-| JSON Schema for task and configuration files                                                                         | Implemented      |
-| Security layer: path guard, secret redaction, audit log, command policy, trust store, process executor               | Implemented      |
-| `devflow trust [--yes \| --status \| --revoke] [--json]`                                                             | Implemented      |
-| Context engine, model providers, workflow engine, `devflow init`/`analyze`/`plan`                                    | Planned, Phase 2 |
-| Java and JS/TS adapters, `devflow verify`                                                                            | Planned, Phase 3 |
-| Test generation, implementation, review, `devflow run`                                                               | Planned, Phase 4 |
-| GitHub issues and pull requests                                                                                      | Planned, Phase 5 |
-| OpenAPI and Protobuf compatibility, container sandbox                                                                | Planned, Phase 6 |
+| Capability                                                                                                                | Status           |
+| ------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Task files in YAML, JSON and Markdown: parsing, normalization, validation with line numbers                               | Implemented      |
+| `devflow task validate [--json] [--strict]`                                                                               | Implemented      |
+| Core schemas for tasks, configuration, modules, commands, verification, findings, plans and reports, with invariants      | Implemented      |
+| JSON Schema for task and configuration files                                                                              | Implemented      |
+| Security layer: path guard, secret redaction, audit log, command policy, trust store, process executor                    | Implemented      |
+| `devflow trust [--yes \| --status \| --revoke] [--json]`                                                                  | Implemented      |
+| Context engine: discovery, classification, OpenAPI and Protobuf discovery, ranking, packing                               | Implemented      |
+| LLM gateway with redaction, budgets, retries and validated JSON answers; Anthropic, Fake and Replay providers             | Implemented      |
+| Assist workflow: `devflow init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report` | Implemented      |
+| Java and JS/TS adapters, `devflow verify`                                                                                 | Planned, Phase 3 |
+| Test generation, implementation, review, `devflow run`                                                                    | Planned, Phase 4 |
+| GitHub issues and pull requests                                                                                           | Planned, Phase 5 |
+| OpenAPI and Protobuf compatibility, container sandbox                                                                     | Planned, Phase 6 |
 
 See the [roadmap](docs/roadmap.md) for details.
 
@@ -84,6 +86,24 @@ A task file looks like this (Markdown; YAML and JSON are equivalent):
 More examples are in [`examples/tasks/`](examples/tasks/). Editors that support JSON Schema can
 validate YAML task files with [`schemas/task.schema.json`](schemas/task.schema.json).
 
+### Analyse and plan a task (assist mode)
+
+From the root of the repository you want to work on (`devflow` stands for
+`node <DevFlow clone>/packages/cli/dist/bin.js`):
+
+```bash
+devflow init                                   # .devflow/config.yaml, rules template, .gitignore entry
+export ANTHROPIC_API_KEY=...                   # read from the environment only
+devflow plan --task tasks/TASK-142.yaml --model <model id>
+devflow approve <run id>                       # or: devflow reject <run id> --feedback "..."
+devflow report <run id>
+```
+
+`plan` exits with code 3 while the plan waits for review; the plan is in
+`.devflow/runs/<run id>/artifacts/plan.md`. Assist mode changes no file and runs no command, so
+the report's verdict is `not_verified`. Every command is described in the
+[CLI specification](docs/specs/cli.md).
+
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
@@ -103,11 +123,11 @@ validate YAML task files with [`schemas/task.schema.json`](schemas/task.schema.j
 ```
 packages/
   core/                 @devflow/core                schemas, rules, ports, task loading
-  context/              @devflow/context             (skeleton) repository context
-  ai/                   @devflow/ai                  (skeleton) model providers
+  context/              @devflow/context             repository context engine
+  ai/                   @devflow/ai                  LLM gateway and model providers
   adapter-java/         @devflow/adapter-java        (skeleton) Maven, Gradle, JUnit
   adapter-javascript/   @devflow/adapter-javascript  (skeleton) npm, pnpm, Vitest, Jest
-  workflow/             @devflow/workflow            (skeleton) workflow engine and SDK
+  workflow/             @devflow/workflow            workflow engine, run store, reports
   cli/                  @devflow/cli                 the devflow command
 examples/tasks/         example task files
 schemas/                generated JSON Schema

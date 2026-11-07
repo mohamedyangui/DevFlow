@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline/promises";
+import type { LlmProvider } from "@devflow/core";
 import { createColors } from "picocolors";
 
 export interface CliOutput {
@@ -17,6 +18,22 @@ export interface CliIo {
    * terminal (CI, pipes): commands that need a confirmation then require an explicit flag.
    */
   readonly prompt?: (question: string) => Promise<string>;
+  /**
+   * Starts listening for Ctrl+C while a workflow command runs. The signal aborts on the first
+   * Ctrl+C so the run stops cleanly and can be resumed; a second Ctrl+C ends the process.
+   * Absent in tests.
+   */
+  readonly interrupts?: () => Interruption;
+  /**
+   * Creates the model provider for a run. Tests inject one; the CLI otherwise creates the
+   * provider the run's settings name (`anthropic`, `replay`).
+   */
+  readonly createProvider?: (name: string, options: { cassette?: string }) => Promise<LlmProvider>;
+}
+
+export interface Interruption {
+  readonly signal: AbortSignal;
+  dispose(): void;
 }
 
 export function processIo(): CliIo {
@@ -27,6 +44,24 @@ export function processIo(): CliIo {
     cwd: process.cwd(),
     env: process.env,
     ...(interactive ? { prompt: askOnTerminal } : {}),
+    interrupts: listenForInterrupts,
+  };
+}
+
+function listenForInterrupts(): Interruption {
+  const controller = new AbortController();
+  const onInterrupt = (): void => {
+    process.stderr.write(
+      "\nInterrupting: the run stops after saving its state (press Ctrl+C again to force).\n",
+    );
+    controller.abort();
+  };
+  process.once("SIGINT", onInterrupt);
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      process.off("SIGINT", onInterrupt);
+    },
   };
 }
 

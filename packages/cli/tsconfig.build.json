@@ -8,5 +8,9 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src"],
-  "references": [{ "path": "../core/tsconfig.build.json" }]
+  "references": [
+    { "path": "../core/tsconfig.build.json" },
+    { "path": "../ai/tsconfig.build.json" },
+    { "path": "../workflow/tsconfig.build.json" }
+  ]
 }
