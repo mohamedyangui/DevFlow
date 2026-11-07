@@ -2,10 +2,11 @@
 
 - **Status:** Accepted, 2026-11-06. The report, gate and acceptance-matrix schemas and their
   invariants exist in `@devflow/core` (Phase 1). Report generation arrives in Phase 2.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 
-The brief's central rule is that DevFlow must never report something as passed that was not
+DevFlow's central rule is that it must never report something as passed that was not
 executed, and never present an unverified AI suspicion as a confirmed defect. Reports are read
 by people and by machines (CI, dashboards).
 

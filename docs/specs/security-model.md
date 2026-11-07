@@ -13,7 +13,7 @@
 1. **The AI proposes, deterministic code decides.** Model output is data, validated before use.
    The model cannot run commands or write files ([ADR 0006](../adr/0006-llm-output-is-data.md)).
 2. **Repository content is untrusted.** This includes README files, source comments, issue
-   text, documentation, `AGENTS.md`/`CLAUDE.md`, and `.devflow/config.yaml` until the user
+   text, documentation, `AGENTS.md`, and `.devflow/config.yaml` until the user
    trusts it. Commands mentioned in documentation are never executed.
 3. **Trust belongs to the user**, stored outside the repository
    ([ADR 0007](../adr/0007-workspace-trust.md)).

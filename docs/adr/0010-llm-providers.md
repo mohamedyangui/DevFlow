@@ -2,6 +2,7 @@
 
 - **Status:** Accepted, 2026-11-06. The `LlmProvider` port exists in `@devflow/core` (Phase 1).
   Anthropic, Fake and Replay providers arrive in Phase 2 (decision D2), OpenAI in Phase 4.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

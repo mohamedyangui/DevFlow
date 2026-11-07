@@ -1,6 +1,7 @@
 # ADR 0001: TypeScript on Node.js 22+, ESM only
 
 - **Status:** Accepted, 2026-11-06
+- **Deciders:** Mohamed Yangui
 - **Related:** decision D7 in the [architecture proposal](../design/architecture-proposal.md)
 
 ## Context

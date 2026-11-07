@@ -4,6 +4,7 @@
   "private": true,
   "description": "DevFlow AI language adapter for JavaScript and TypeScript (npm, pnpm, yarn, Jest, Vitest, ESLint, tsc). Not implemented yet: Phase 3.",
   "license": "Apache-2.0",
+  "author": "Mohamed Yangui <mohamed.yangui@esprit.tn>",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"

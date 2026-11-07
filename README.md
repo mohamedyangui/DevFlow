@@ -115,6 +115,11 @@ tests/                  repository-level and end-to-end tests
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
+## Author
+
+DevFlow AI is designed and maintained by **Mohamed Yangui**
+([@mohamedyangui](https://github.com/mohamedyangui)).
+
 ## License
 
-[Apache License 2.0](LICENSE)
+Copyright 2026 Mohamed Yangui. Licensed under the [Apache License 2.0](LICENSE).

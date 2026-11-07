@@ -1,7 +1,8 @@
 # ADR 0007: Workspace trust outside the repository; local execution only for trusted repositories
 
-- **Status:** Accepted, 2026-11-06. Implements refinement 3 of the Phase 1 approval.
+- **Status:** Accepted, 2026-11-06. Implements refinement 3 of the architecture review.
   Implementation of `devflow trust` and the trust store in Phase 2.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

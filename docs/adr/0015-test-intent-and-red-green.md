@@ -1,9 +1,10 @@
 # ADR 0015: Test intent and red/green evidence
 
-- **Status:** Accepted, 2026-11-06. Implements refinement 2 of the Phase 1 approval. The
+- **Status:** Accepted, 2026-11-06. Implements refinement 2 of the architecture review. The
   classification rules exist in `@devflow/core` (`assessTestEvidence`,
   `verification/test-evidence.ts`) with tests. They are applied by the verification engine in
   Phases 3–4.
+- **Deciders:** Mohamed Yangui
 
 ## Context
 

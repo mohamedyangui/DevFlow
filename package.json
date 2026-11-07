@@ -4,6 +4,7 @@
   "private": true,
   "description": "DevFlow AI: a language-agnostic, evidence-driven AI software engineering workflow framework.",
   "license": "Apache-2.0",
+  "author": "Mohamed Yangui <mohamed.yangui@esprit.tn>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mohamedyangui/DevFlow.git"
