@@ -42,12 +42,18 @@ Implemented and tested so far:
   ([ADR 0017](adr/0017-contract-aware-context.md)), sensitive-content filtering, instruction
   loading, explainable BM25 ranking ([ADR 0008](adr/0008-lexical-ranking.md)) and packing to a
   token budget.
+- LLM gateway (`@devflow/ai`, [ADR 0010](adr/0010-llm-providers.md)): redaction with audit
+  entries, token and call budgets checked before each call, retries with backoff and jitter
+  that honour `retry-after`, timeouts, cancellation, JSON answers validated with Zod and one
+  repair request, an llm-call audit entry per call. Providers: Anthropic (official SDK, loaded
+  lazily, tested against a local HTTP stand-in), Fake (scripted) and Replay (cassettes keyed by
+  a request hash, with a record mode). A live API test runs only when `ANTHROPIC_API_KEY` and
+  `DEVFLOW_LIVE_MODEL` are set; it is skipped otherwise and has not been run.
 
 Planned:
 
 - Workflow engine: transition table, modes, step runner, run store, approvals, clarification,
   resume, cancellation, budgets.
-- AI: gateway, Fake and Replay providers, Anthropic provider.
 - Steps: context loading, requirements analysis, planning, report generation.
 - CLI: `init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `status`,
   `report`.
