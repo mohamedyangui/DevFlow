@@ -2,16 +2,18 @@
 
 - **Status:** Schema implemented in Phase 1 (`ProjectConfig` in
   `packages/core/src/schemas/config.ts`, JSON Schema in
-  [`schemas/config.schema.json`](../../schemas/config.schema.json)). Loading the file and the
-  `devflow init` and `devflow trust` commands arrive in Phase 2. Nothing in Phase 1 reads this
-  file.
+  [`schemas/config.schema.json`](../../schemas/config.schema.json)). Phase 2 adds the
+  loader (`loadProjectConfig`: at most 256 KiB, UTF-8, read through the path guard, hashed
+  byte for byte, issues with line numbers) and `devflow trust`. `devflow init` is planned for
+  Phase 2.
 
 ## 1. Trust model
 
 `.devflow/config.yaml` is committed to the repository, so it is **untrusted** until the user
 trusts it with `devflow trust` ([ADR 0007](../adr/0007-workspace-trust.md)). Trust is stored in
-`~/.devflow/trust.json`, keyed by the workspace path and the configuration's hash; editing the
-file invalidates trust.
+`~/.devflow/trust.json` (or `$DEVFLOW_HOME/trust.json`), keyed by the workspace's real path and
+the SHA-256 of the file's exact bytes; any edit invalidates trust, and so does adding the file
+to a workspace that was trusted without one. An invalid file cannot be trusted.
 
 The configuration can describe the project and **restrict** DevFlow. It cannot grant itself
 permissions. There are deliberately no fields for API keys, environment variable pass-through,

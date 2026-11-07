@@ -26,14 +26,20 @@ Implemented and tested so far:
 
 - Path guard, secret detection and redaction, audit log and redacting logger
   (`@devflow/core`, [security model](specs/security-model.md) sections 6 to 8).
+- Project configuration loader, trust store and `devflow trust`
+  ([security model](specs/security-model.md) section 3.1).
+- Command policy with the hard deny list and approval by fingerprint, and the executor
+  (security model sections 4 and 5). The in-house launcher replaces `cross-spawn`
+  ([ADR 0018](adr/0018-in-house-process-launcher.md)).
+- Executor integration tests that start real processes: argument round trip, environment
+  scrubbing, redaction, output cap, timeout with process-tree kill, cancellation. On the
+  `windows-latest` CI leg also the Windows strategies of
+  [ADR 0014](adr/0014-windows-invocation.md): batch argument round trip, rejection of forbidden
+  characters before any process starts, `node-script` shims, `java-launcher` resolution.
+  Running a real Gradle or Maven wrapper waits for the Phase 3 example builds.
 
 Planned:
 
-- Security primitives: command policy, trust store (`devflow trust`), executor.
-  - **Windows executor integration tests** ([ADR 0014](adr/0014-windows-invocation.md)):
-    batch argument round trip, rejection of forbidden characters, `node-script` resolution.
-    They run on the `windows-latest` CI leg.
-  - Decision on `cross-spawn` versus an in-house Windows launcher (ADR 0014).
 - Context engine: discovery, classification (including **read-only `.proto` and OpenAPI
   discovery**, [ADR 0017](adr/0017-contract-aware-context.md)), sensitive-content filtering,
   instruction loading, ranking, packing.
@@ -41,7 +47,7 @@ Planned:
   resume, cancellation, budgets.
 - AI: gateway, Fake and Replay providers, Anthropic provider.
 - Steps: context loading, requirements analysis, planning, report generation.
-- CLI: `init`, `trust`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `status`,
+- CLI: `init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `status`,
   `report`.
 - Ports defined with their implementations: executor, run store.
 

@@ -34,10 +34,11 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0011](0011-zod-source-of-truth.md)         | Zod 4 as the single source of truth for schemas                                       | Accepted                               |
 | [0012](0012-git-isolation.md)               | Dedicated local branch, commits per phase, never push                                 | Accepted (implementation in Phase 4)   |
 | [0013](0013-report-and-status-semantics.md) | JSON report as source of truth, strict status semantics                               | Accepted                               |
-| [0014](0014-windows-invocation.md)          | Safe invocation of Windows `.cmd`/`.bat` wrappers                                     | Accepted (implementation in Phase 2/3) |
+| [0014](0014-windows-invocation.md)          | Safe invocation of Windows `.cmd`/`.bat` wrappers                                     | Accepted (adapters in Phase 3)         |
 | [0015](0015-test-intent-and-red-green.md)   | Test intent and red/green evidence                                                    | Accepted                               |
 | [0016](0016-npm-scope-and-publication.md)   | Configurable npm scope and a publication guard                                        | Accepted                               |
 | [0017](0017-contract-aware-context.md)      | Contract-aware context: read-only Protobuf and OpenAPI discovery                      | Accepted                               |
+| [0018](0018-in-house-process-launcher.md)   | An in-house process launcher instead of `cross-spawn`                                 | Accepted                               |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The

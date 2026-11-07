@@ -6,9 +6,11 @@ DevFlow AI is an open-source, language-agnostic framework for AI-assisted softwa
 workflows. It turns a development task with requirements and acceptance criteria into a
 planned, tested and verified change, and reports what was actually verified, with evidence.
 
-> **Status: early development (Phase 1 of 6).** Today DevFlow can validate task files. It cannot
-> yet analyse repositories, call models, run builds or change code. The table below lists what
-> exists. Nothing is published to npm.
+> **Status: early development (Phase 2 of 6 in progress).** Today DevFlow can validate task
+> files and record that you trust a workspace. Its security layer (path guard, secret redaction,
+> audit log, command policy and executor) exists and is tested, but no workflow uses it yet: it
+> cannot analyse repositories, call models, run builds or change code. The table below lists
+> what exists. Nothing is published to npm.
 
 ## Principles
 
@@ -30,7 +32,9 @@ planned, tested and verified change, and reports what was actually verified, wit
 | `devflow task validate [--json] [--strict]`                                                                          | Implemented      |
 | Core schemas for tasks, configuration, modules, commands, verification, findings, plans and reports, with invariants | Implemented      |
 | JSON Schema for task and configuration files                                                                         | Implemented      |
-| Context engine, model providers, workflow engine, `devflow init`/`trust`/`analyze`/`plan`                            | Planned, Phase 2 |
+| Security layer: path guard, secret redaction, audit log, command policy, trust store, process executor               | Implemented      |
+| `devflow trust [--yes \| --status \| --revoke] [--json]`                                                             | Implemented      |
+| Context engine, model providers, workflow engine, `devflow init`/`analyze`/`plan`                                    | Planned, Phase 2 |
 | Java and JS/TS adapters, `devflow verify`                                                                            | Planned, Phase 3 |
 | Test generation, implementation, review, `devflow run`                                                               | Planned, Phase 4 |
 | GitHub issues and pull requests                                                                                      | Planned, Phase 5 |

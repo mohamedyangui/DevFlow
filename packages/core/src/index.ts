@@ -153,6 +153,68 @@ export {
   type Logger,
   type LoggerOptions,
 } from "./security/logger.js";
+export {
+  TrustStore,
+  defaultTrustStorePath,
+  type ApprovedCommandEntry,
+  type TrustStoreOptions,
+  type WorkspaceTrustEntry,
+  type WorkspaceTrustStatus,
+} from "./security/trust-store.js";
+export { fingerprintCommand, type CommandBinding } from "./security/fingerprint.js";
+export {
+  CommandPolicy,
+  hardDenyReason,
+  isApprovedCommand,
+  substituteParameters,
+  toolName,
+  type ApprovalVia,
+  type ApprovedCommand,
+  type CommandApprovalAnswer,
+  type CommandApprovalRequest,
+  type CommandApprover,
+  type CommandPolicyOptions,
+  type CommandRequest,
+  type DenialReason,
+  type PolicyDecision,
+} from "./security/command-policy.js";
+export {
+  CHILD_ENV_ALLOWLIST,
+  childEnvironment,
+  isReservedEnvName,
+} from "./security/environment.js";
+export {
+  findOnPath,
+  resolveInvocation,
+  resolveNodeShim,
+  type Invocation,
+  type InvocationContext,
+} from "./security/invocation.js";
+export {
+  batchCommandLine,
+  checkBatchArgument,
+  cmdArguments,
+  shimEntryPoint,
+} from "./security/windows-invocation.js";
+export {
+  DEFAULT_MAX_OUTPUT_BYTES,
+  Executor,
+  decodeTail,
+  type ExecuteOptions,
+  type ExecutionResult,
+  type ExecutorOptions,
+} from "./security/executor.js";
+
+// Project configuration
+export {
+  ConfigIssueCode,
+  MAX_CONFIG_FILE_BYTES,
+  PROJECT_CONFIG_PATH,
+  loadProjectConfig,
+  parseConfigText,
+  type ConfigIssue,
+  type LoadedProjectConfig,
+} from "./config/load-config.js";
 
 // Domain rules
 export {
