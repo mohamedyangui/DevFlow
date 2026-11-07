@@ -100,7 +100,9 @@ COMPLETED`, plus `FAILED` and `CANCELLED`. Modes select a path through the state
 | `implement` | yes             | full path with a bounded repair loop          |
 | `review`    | no              | verification and review of an existing change |
 
-Runs are persisted under `.devflow/runs/<run-id>/` and can be resumed
+Assist mode is implemented (Phase 2): it ends at `COMPLETED` after the analysis
+(`devflow analyze`), after the plan is approved, or after planning when approval is not
+required. Runs are persisted under `.devflow/runs/<run-id>/` and can be resumed
 ([ADR 0004](../adr/0004-state-machine-and-run-store.md)). Each model-using step is one bounded
 loop with read-only tools ([ADR 0005](../adr/0005-single-agent-loop.md)).
 

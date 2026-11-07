@@ -1,7 +1,7 @@
 # ADR 0004: Hand-written state machine and file-based run store
 
-- **Status:** Accepted, 2026-11-06. Implementation in Phase 2. Phase 1 defines only the
-  `WorkflowState` and `WorkflowMode` schemas in `@devflow/core`.
+- **Status:** Accepted, 2026-11-06. Implemented in Phase 2 for assist mode
+  (`@devflow/workflow`); the other modes' steps arrive in Phase 4.
 - **Deciders:** Mohamed Yangui
 
 ## Context
@@ -31,7 +31,7 @@ and usable as evidence.
   report.
 - The transition table is small enough to test exhaustively.
 - Concurrency between two DevFlow processes on the same run is not supported; the run store
-  will take a lock file.
+  takes a lock file.
 
 ## Alternatives considered
 
@@ -39,3 +39,22 @@ and usable as evidence.
   must learn.
 - **Temporal or another workflow engine.** Rejected: a server dependency for a local CLI.
 - **SQLite.** Rejected for the MVP: binary files are harder to review and diff than JSON.
+
+## Implementation notes (Phase 2)
+
+- Assist mode ends without changing code, so its table has three edges to `COMPLETED` that the
+  other modes do not take: `REQUIREMENTS_ANALYSIS → COMPLETED` (`devflow analyze`),
+  `PLANNING → COMPLETED` (plan approval not required) and `AWAITING_PLAN_APPROVAL → COMPLETED`
+  (plan approved). The transition table is tested exhaustively for every mode and pair of
+  states.
+- The lock is `lock.json` (process id, host name, time), created exclusively. A lock whose
+  process no longer runs on the same machine is stale and taken over; a lock from another
+  machine is never considered stale.
+- Steps write their artifacts, then update `run.json`, then append to `events.jsonl`. A crash
+  between the two leaves the state at the step, which runs again on resume; a step's results
+  are recomputed, never half-applied.
+- Failures that retrying cannot fix (`LLM_REFUSED`, `PLAN_INVALID`) move the run to `FAILED`.
+  Others (budget, provider failure, invalid output, cancellation) leave the run in its state
+  with a resumable `lastError`; `devflow resume` can raise the budgets or change the model.
+- Every file of a run is validated against its schema when read; an invalid file is
+  `RUN_CORRUPT`. A plan whose hash differs from the one awaiting approval cannot be approved.
