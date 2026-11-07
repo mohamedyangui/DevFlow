@@ -23,8 +23,11 @@
     "dist"
   ],
   "dependencies": {
+    "@devflow/ai": "workspace:*",
     "@devflow/core": "workspace:*",
+    "@devflow/workflow": "workspace:*",
     "commander": "^15.0.0",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "yaml": "^2.9.1"
   }
 }

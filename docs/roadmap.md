@@ -20,9 +20,9 @@ Implemented and tested:
 - npm scope rename script and publication guard (all packages private).
 - Architecture overview, ADRs 0001–0017, specifications.
 
-## Phase 2: Core workflow (assist mode end to end) — in progress
+## Phase 2: Core workflow (assist mode end to end) — complete
 
-Implemented and tested so far:
+Implemented and tested:
 
 - Path guard, secret detection and redaction, audit log and redacting logger
   (`@devflow/core`, [security model](specs/security-model.md) sections 6 to 8).
@@ -57,11 +57,19 @@ Implemented and tested so far:
   interruptions, cancellation, and `not_verified` reports in JSON and Markdown. Tested with the
   Fake provider; no run against a real model has been made.
 
-Planned:
+- CLI ([spec](specs/cli.md)): `init`, `analyze`, `plan`, `approve`, `reject`, `answer`,
+  `resume`, `cancel`, `status`, `report`, with exit codes 3 (waiting for a person), 4 (budget
+  exceeded) and 130 (Ctrl+C, resumable).
+- End-to-end tests of the CLI: each scenario is recorded with a scripted model into a Replay
+  cassette, then replayed in a fresh workspace with `--provider replay`. Scenarios: plan and
+  approve, analyze only, rejection with feedback, clarification answers, budget exceeded and
+  resume, resume after a crashed process (stale lock), a run locked by a live process,
+  cancellation, untrusted configuration, and a prompt-injection fixture showing that nothing is
+  executed, written or approved.
 
-- CLI: `init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `status`,
-  `report`.
-- End-to-end tests of the CLI with Replay cassettes.
+Not done in Phase 2: no run against a real model has been made (the live Anthropic test is
+skipped without an API key), and exit code 5 (policy denial) waits for the commands that run
+builds in Phase 3.
 
 ## Phase 3: Language adapters and verification
 

@@ -1,8 +1,9 @@
 # Specification: command-line interface
 
 - **Status:** Phase 1 implements `devflow --version`, `devflow --help` and
-  `devflow task validate`; Phase 2 adds `devflow trust`. Every other command listed in
-  section 4 is planned and does **not** exist yet.
+  `devflow task validate`; Phase 2 adds `devflow trust` and the assist workflow (`init`,
+  `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report`).
+  The commands listed in section 4 are planned and do **not** exist yet.
 
 The same `devflow` CLI serves Java and JavaScript/TypeScript projects, and mixed monorepos.
 Nothing in the CLI is language-specific: languages are handled by adapters.
@@ -25,9 +26,13 @@ node packages/cli/dist/bin.js --help
 | 0    | Success                                                                       |
 | 1    | The command ran and the result is negative (e.g. the task is invalid)         |
 | 2    | Usage error: unknown command or option, missing argument, unusable input file |
+| 3    | The run is waiting for a person: plan approval or clarification answers       |
+| 4    | A token or call budget was reached; `devflow resume` with a higher limit      |
 | 70   | Internal error (a bug in DevFlow)                                             |
+| 130  | Interrupted by Ctrl+C; `devflow resume` continues the run                     |
 
-Planned for later phases: 3 waiting for input (approval or clarification), 4 budget exceeded,
+For workflow commands, 1 also means a failed run (for example `PLAN_INVALID`), a run
+interrupted by a provider failure (resumable), or a locked or corrupt run. Planned for Phase 3:
 5 denied by policy.
 
 ## 3. Implemented commands
@@ -131,20 +136,93 @@ Residual risks, even for a trusted workspace:
 Trusted. Each command is still approved separately the first time it runs.
 ```
 
+### Assist workflow
+
+```text
+devflow init [--json]
+devflow analyze --task <file> [model options]
+devflow plan    --task <file> [model options]
+devflow approve <run> [--plan-sha <sha256>] [--json]
+devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
+devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
+devflow resume  <run> [model options]
+devflow cancel  <run> [--reason <text>] [--json]
+devflow status  [run] [--json]
+devflow report  <run> [--json]
+```
+
+Model options: `--provider <name>`, `--model <id>`, `--cassette <file>`,
+`--max-input-tokens <n>`, `--max-output-tokens <n>`, `--max-calls-per-step <n>`, `--json`.
+
+The workspace is the current directory: run the commands from the repository root. Runs are
+stored in `.devflow/runs/<run-id>/` ([workflow package](../../packages/workflow/README.md),
+[ADR 0004](../adr/0004-state-machine-and-run-store.md)). Assist mode never changes a repository
+file and never runs a command, so every report has the verdict `not_verified` and no automated
+acceptance criterion is reported as passed.
+
+- **`init`** writes `.devflow/config.yaml` (with comments) and `.devflow/rules/project.md`
+  when they do not exist, and adds `.devflow/runs/` to `.gitignore`. Existing files are never
+  overwritten. The configuration is untrusted until `devflow trust`.
+- **`analyze`** loads the context and analyses the requirements; it completes after the
+  analysis. **`plan`** continues with an implementation plan, checked deterministically (paths,
+  scope, protected files, acceptance-criterion coverage), and waits for approval unless the
+  trusted configuration sets `workflow.requirePlanApproval: false`. `--mode` accepts `assist`
+  only for now; other modes fail with `WORKFLOW_MODE_NOT_IMPLEMENTED` (exit 2).
+- **Model selection.** There is no default model. The model comes from `--model`, then from
+  `ai.models` of a **trusted** configuration, then from `DEVFLOW_MODEL`; the provider from
+  `--provider`, the trusted configuration, `DEVFLOW_PROVIDER`, or `anthropic`. The Anthropic
+  provider reads `ANTHROPIC_API_KEY` (or `ANTHROPIC_AUTH_TOKEN`) from the environment only. The
+  `replay` provider answers from a cassette (`--cassette`, or `DEVFLOW_CASSETTE`) and never
+  calls a network. A provider that cannot be created is reported before a run starts (exit 2).
+- **Untrusted workspace.** The `ai` and `workflow` sections of an untrusted configuration are
+  ignored (with a warning); its `context`, `modules` and `security` sections still apply because
+  they can only restrict. Project rules in `.devflow/rules/` are given to the model as rules only
+  in a trusted workspace. An invalid configuration stops the command (exit 2).
+- **Decisions** are recorded in the run's audit log with the user from `DEVFLOW_USER`, `USER`
+  or `USERNAME`. `approve --plan-sha` approves only the plan with that hash; a plan file edited
+  after it was generated cannot be approved. `reject` plans again with the feedback and the
+  previous plan. `answer` records answers; the analysis runs again once no blocking question is
+  open. An answers file maps question ids to text: `Q-1: Pages start at 1`.
+- **`resume`** continues an interrupted run from its current step. `--max-*` raise the run's
+  limits, `--model` and `--provider` replace them. A waiting or finished run is shown unchanged.
+- **`status`** lists the runs, oldest first, or shows one run with its state, settings, usage,
+  warnings and next step. **`report`** prints `report.md` (or `report.json` with `--json`) of a
+  finished run, and exits 1 for a run that has not finished.
+- Progress lines are written to stderr; with `--json`, stdout holds one JSON document:
+  the outcome `{ runId, state, status, waitingFor?, questions?, error?, runDir, planPath?,
+reportPath?, exitCode }`, or `{ error: { code, message } }`.
+- Ctrl+C stops the run after saving its state (exit 130); `devflow resume` continues it. A
+  second Ctrl+C ends the process at once.
+
+Example:
+
+```text
+$ devflow plan --task tasks/TASK-142.yaml --model <model id>
+Loading the repository context...
+Analysing the requirements...
+Planning the implementation...
+Run:    2026-11-07T10-21-33Z_TASK-142
+State:  AWAITING_PLAN_APPROVAL
+Plan:   .devflow/runs/2026-11-07T10-21-33Z_TASK-142/artifacts/plan.md
+
+Review the plan, then approve it or ask for changes:
+  devflow approve 2026-11-07T10-21-33Z_TASK-142
+  devflow reject 2026-11-07T10-21-33Z_TASK-142 --feedback "what to change"
+$ echo $?
+3
+```
+
 ## 4. Planned commands
 
-| Command                                                   | Phase | Purpose                                                                                  |
-| --------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------- |
-| `devflow init`                                            | 2     | Detect the project, write `.devflow/config.yaml`, rule templates and the gitignore entry |
-| `devflow analyze --task <file>`                           | 2     | Requirements analysis and clarification questions                                        |
-| `devflow plan --task <file>`                              | 2     | Implementation plan                                                                      |
-| `devflow approve` / `reject --feedback` / `answer --file` | 2     | Human decisions on a paused run                                                          |
-| `devflow resume <run>` / `status` / `report <run>`        | 2     | Run management                                                                           |
-| `devflow verify`                                          | 3     | Run the configured gates                                                                 |
-| `devflow test --task <file>`                              | 4     | Generate and run tests for the acceptance criteria                                       |
-| `devflow implement --task <file>` / `run --task <file>`   | 4     | Full workflow                                                                            |
-| `devflow review`                                          | 4     | Review a local diff                                                                      |
-| `devflow run --issue <n>`, `review --pr <n>`              | 5     | GitHub sources                                                                           |
+| Command                                                 | Phase | Purpose                                            |
+| ------------------------------------------------------- | ----- | -------------------------------------------------- |
+| `devflow verify`                                        | 3     | Run the configured gates                           |
+| `devflow test --task <file>`                            | 4     | Generate and run tests for the acceptance criteria |
+| `devflow implement --task <file>` / `run --task <file>` | 4     | Full workflow                                      |
+| `devflow review`                                        | 4     | Review a local diff                                |
+| `devflow run --issue <n>`, `review --pr <n>`            | 5     | GitHub sources                                     |
 
-Workflow commands will accept `--mode assist|test|implement|review`. The SDK exported by
-`@devflow/workflow` (Phase 2) exposes the same operations programmatically.
+Module detection by `devflow init` waits for the Phase 3 adapters. Workflow commands accept
+`--mode assist|test|implement|review`; only `assist` is implemented. The functions exported by
+`@devflow/workflow` (`startRun`, `approvePlan`, `rejectPlan`, `answerQuestions`, `resumeRun`,
+`cancelRun`, `getRun`, `listRuns`) expose the same operations programmatically.
