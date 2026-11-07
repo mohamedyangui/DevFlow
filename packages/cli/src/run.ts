@@ -1,5 +1,6 @@
-import { Command, CommanderError } from "commander";
+import { Command, CommanderError, Option } from "commander";
 import { taskValidateCommand } from "./commands/task-validate.js";
+import { trustCommand } from "./commands/trust.js";
 import { ExitCode } from "./exit-codes.js";
 import type { CliIo } from "./io.js";
 import { readCliVersion } from "./version.js";
@@ -41,6 +42,37 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         io,
       );
     });
+
+  program
+    .command("trust")
+    .description("review the workspace configuration and trust it, show its status, or revoke it")
+    .argument("[directory]", "workspace directory (default: the current directory)")
+    .addOption(new Option("-y, --yes", "trust without asking, after reviewing the output"))
+    .addOption(
+      new Option(
+        "--status",
+        "show whether the workspace is trusted, and the approved commands",
+      ).conflicts(["yes", "revoke"]),
+    )
+    .addOption(new Option("--revoke", "revoke trust and every command approval").conflicts(["yes"]))
+    .option("--json", "print a machine-readable result")
+    .action(
+      async (
+        directory: string | undefined,
+        options: { yes?: boolean; status?: boolean; revoke?: boolean; json?: boolean },
+      ) => {
+        exitCode = await trustCommand(
+          directory,
+          {
+            yes: options.yes === true,
+            status: options.status === true,
+            revoke: options.revoke === true,
+            json: options.json === true,
+          },
+          io,
+        );
+      },
+    );
 
   try {
     await program.parseAsync([...args], { from: "user" });

@@ -17,6 +17,18 @@ export const ErrorCode = {
   AuditEntryInvalid: "AUDIT_ENTRY_INVALID",
   /** An audit log file could not be parsed. */
   AuditLogCorrupt: "AUDIT_LOG_CORRUPT",
+  /** `.devflow/config.yaml` exists but cannot be used (not a file, too large, not UTF-8). */
+  ConfigFileUnreadable: "CONFIG_FILE_UNREADABLE",
+  /** The trust store file exists but is not valid; nothing is trusted until it is fixed. */
+  TrustStoreInvalid: "TRUST_STORE_INVALID",
+  /** The executor was given a command that did not come from the command policy. */
+  CommandNotApproved: "COMMAND_NOT_APPROVED",
+  /** The executable of a command could not be found or is not allowed to run. */
+  ExecutableNotFound: "EXECUTABLE_NOT_FOUND",
+  /** An argument cannot be passed safely to a Windows batch file (ADR 0014). */
+  CommandArgumentRejected: "COMMAND_ARGUMENT_REJECTED",
+  /** The operating system could not start the process. */
+  ProcessStartFailed: "PROCESS_START_FAILED",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 

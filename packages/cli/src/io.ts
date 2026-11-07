@@ -1,3 +1,4 @@
+import { createInterface } from "node:readline/promises";
 import { createColors } from "picocolors";
 
 export interface CliOutput {
@@ -11,15 +12,32 @@ export interface CliIo {
   readonly stderr: CliOutput;
   readonly cwd: string;
   readonly env: Readonly<Record<string, string | undefined>>;
+  /**
+   * Asks the user a question and resolves with the answer. Absent when there is no interactive
+   * terminal (CI, pipes): commands that need a confirmation then require an explicit flag.
+   */
+  readonly prompt?: (question: string) => Promise<string>;
 }
 
 export function processIo(): CliIo {
+  const interactive = process.stdin.isTTY && process.stderr.isTTY;
   return {
     stdout: { write: (text) => process.stdout.write(text), isTTY: process.stdout.isTTY },
     stderr: { write: (text) => process.stderr.write(text), isTTY: process.stderr.isTTY },
     cwd: process.cwd(),
     env: process.env,
+    ...(interactive ? { prompt: askOnTerminal } : {}),
   };
+}
+
+/** Prompts on stderr so that stdout stays usable for the command's own output. */
+async function askOnTerminal(question: string): Promise<string> {
+  const terminal = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return await terminal.question(question);
+  } finally {
+    terminal.close();
+  }
 }
 
 export type Colors = ReturnType<typeof createColors>;

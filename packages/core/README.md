@@ -26,8 +26,18 @@ workspace packages.
   redaction of structured values.
 - **`AuditLog`**: append-only, redacted, schema-validated `audit.jsonl`.
 - **`createLogger`**: a structured logger that redacts every record.
+- **`loadProjectConfig`**: reads `.devflow/config.yaml` through the path guard, hashes its
+  exact bytes and validates it, with line numbers.
+- **`TrustStore`**: workspace trust and command approvals, outside the repository.
+- **`CommandPolicy`**: schema and parameter checks, the hard deny list, wrapper binding,
+  workspace trust and approval by fingerprint. Its allowed decisions are the only input the
+  executor accepts.
+- **`Executor`**: runs approved commands without a shell, with the Windows invocation
+  strategies of ADR 0014, an allowlisted environment, timeouts with process-tree kill, output
+  caps, redaction, logs and audit entries. It is the only code that starts processes
+  (ADR 0018).
 
-**Not implemented yet:** the command policy, trust store and executor (Phase 2, next). See
+**Not implemented yet:** the workflow steps and gates that use the policy and executor. See
 [docs/specs/security-model.md](../../docs/specs/security-model.md).
 
 ```ts

@@ -37,17 +37,23 @@ function restricted(names, message) {
   return names.map((name) => ({ name, message }));
 }
 
+/** The one file allowed to start processes: the executor's launcher (ADR 0003, ADR 0018). */
+const processLauncher = "packages/core/src/security/process-launcher.ts";
+
 /**
  * @param {string} pkg
  * @param {string[] | null} allowed
+ * @param {{ allowProcesses?: boolean }} [options]
  */
-function boundaryConfig(pkg, allowed) {
+function boundaryConfig(pkg, allowed, options = {}) {
   const isAdapter = pkg.startsWith("adapter-");
   const paths = [
-    ...restricted(
-      processModules,
-      "Processes may only be started by the policy-gated executor in core (ADR 0006, ADR 0014).",
-    ),
+    ...(options.allowProcesses === true
+      ? []
+      : restricted(
+          processModules,
+          "Processes may only be started by the policy-gated executor in core (ADR 0006, ADR 0014).",
+        )),
     ...(isAdapter
       ? [
           ...restricted(
@@ -111,4 +117,10 @@ export default defineConfig(
     rules: { "no-console": "off" },
   },
   ...Object.entries(internalDependencies).map(([pkg, allowed]) => boundaryConfig(pkg, allowed)),
+  {
+    // The single reviewed exception to the process rule; tests/repo/process-boundary.test.ts
+    // checks that no other source file imports child_process.
+    ...boundaryConfig("core", internalDependencies.core ?? [], { allowProcesses: true }),
+    files: [processLauncher],
+  },
 );

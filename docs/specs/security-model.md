@@ -8,10 +8,13 @@
     `child_process` in all package sources and `fs`/network modules in adapters; all packages
     `private`.
   - **Phase 2, implemented and tested:** the path guard (section 6), secret detection and
-    redaction (section 7), the audit log (section 8) and a redacting logger, all in
-    `@devflow/core` under `src/security/`.
-  - **Not implemented yet (Phase 2, next):** the command policy, trust store and executor
-    (sections 4 and 5).
+    redaction (section 7), the audit log (section 8), a redacting logger, the trust store and
+    `devflow trust` (section 3.1), the command policy (section 4) and the executor
+    (section 5). Everything except the CLI command is in `@devflow/core` under
+    `src/security/`.
+  - **Not implemented yet:** wiring the policy and executor into workflow steps and gates
+    (the workflow engine, later in Phase 2; gates in Phase 3), a command-line flag for the CI
+    allowlist, and the container backend (Phase 6).
 
 ## 1. Principles
 
@@ -54,33 +57,103 @@ fingerprint has been approved (interactively, or in CI with an explicit allowlis
 untrusted workspace, DevFlow can still validate tasks, analyse and plan (no execution needed);
 every gate is reported as `not_executed` with the reason "workspace not trusted".
 
-## 4. Command policy (Phase 2)
+### 3.1 The trust store and `devflow trust`
 
-1. **Structural validation:** the `CommandSpec` schema; the working directory inside the root;
-   the executable a bare tool name or a known wrapper.
-2. **Hard deny list** (cannot be overridden): shells as executables (`sh`, `bash`, `zsh`,
-   `cmd`, `powershell`, `pwsh`), network tools (`curl`, `wget`), destructive or publishing git
-   and package-manager operations (`git push`, `git reset --hard`, `npm publish`), `rm`,
-   `sudo`, and similar.
-3. **Trust store:** an approved fingerprint is allowed.
-4. **Otherwise:** interactive approval showing argv, working directory and script body; in CI,
-   denial unless pre-approved. A denied command makes its gate `not_executed`.
+- The trust store is `$DEVFLOW_HOME/trust.json`, else `~/.devflow/trust.json`, written
+  atomically and readable by its owner only. A corrupt or unrecognized file is an error
+  (`TRUST_STORE_INVALID`); nothing is trusted meanwhile.
+- A workspace is trusted for its real path and the SHA-256 of the exact bytes of
+  `.devflow/config.yaml` (or for "no configuration"). Any edit to the file, including adding
+  one, makes the workspace `config-changed`, which is not trusted. Trusting it again after a
+  change drops every command approval of the old configuration.
+- `devflow trust` shows the workspace, the configuration hash, the modules and gates the
+  configuration enables, and the residual risks (section 9), then asks for confirmation on an
+  interactive terminal or requires `--yes`. An invalid configuration cannot be trusted. Trust
+  is bound to the hash of the bytes that were shown, so a file edited during the review is not
+  trusted. See the [CLI spec](cli.md#devflow-trust).
+- Command approvals are recorded in the same file, per workspace, by fingerprint.
+
+## 4. Command policy
+
+`CommandPolicy.evaluate` (`src/security/command-policy.ts`) turns a `CommandSpec` and its
+parameter values into a decision. Only an allowed decision carries an `ApprovedCommand`, the
+one input the executor accepts. The checks run in this order; the first failure decides.
+
+1. **Structural validation:** the `CommandSpec` schema. A spec may not set environment
+   variables that change how programs load code: `PATH`, `PATHEXT`, `ComSpec`, `SystemRoot`,
+   `WINDIR`, `NODE_OPTIONS`, `NODE_PATH`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`,
+   `JDK_JAVA_OPTIONS`, `BASH_ENV`, `ENV`, `SHELL`, `PERL5OPT`, `PERL5LIB`, `PYTHONSTARTUP`,
+   `PYTHONPATH`, `RUBYOPT`, and anything starting with `LD_`, `DYLD_`, `GIT_`, `NPM_CONFIG_`,
+   `YARN_` or `PNPM_`.
+2. **Parameters:** every placeholder needs a declared parameter and a value. Values must match
+   the anchored pattern, respect the maximum length, contain no control characters, and must
+   not start with `-`, so that a value cannot become an option.
+3. **Hard deny list** (cannot be overridden by trust or approval):
+   - shells and command launchers (`sh`, `bash`, `zsh`, `fish`, `cmd`, `powershell`, `pwsh`,
+     `wsl`, `wscript`, `cscript`, `mshta`, `env`, `xargs`, `nohup`, `timeout`, `start`,
+     `rundll32`, `schtasks`, `crontab`, ...);
+   - network tools (`curl`, `wget`, `nc`, `ssh`, `scp`, `rsync`, `certutil`, `bitsadmin`, ...);
+   - privilege escalation (`sudo`, `su`, `doas`, `runas`, `pkexec`);
+   - destructive file tools (`rm`, `del`, `rmdir`, `dd`, `chmod`, `chown`, `icacls`, `mv`, ...);
+   - `npx`, `pnpx` and `bunx`, which download and run packages;
+   - `git`: DevFlow runs git only through its own fixed internal operations;
+   - files run by other interpreters (`.ps1`, `.vbs`, `.wsf`, `.hta`, `.js`, `.msi`, ...);
+   - package-manager subcommands that publish, install, change configuration or run downloaded
+     code (`npm publish`, `npm install`, `npm exec`, `pnpm dlx`, `yarn dlx`, `bun x`, ...),
+     anywhere before `--`;
+   - Maven `deploy`, `release:*`, `site:deploy`, `scm:*` and `gpg:*` goals, and Gradle
+     `publish*` and `upload*` tasks;
+   - Node.js options that run inline code, preload modules or open a debugger (`-e`, `-p`,
+     `-r`, `--import`, `--loader`, `--inspect*`) before the script, and inline code for
+     Python (`-c`, `-m`), Perl and Ruby (`-e`).
+4. **Working directory and executable:** the working directory must be an existing directory
+   inside the workspace (path guard, section 6). The executable is a bare tool name or a
+   wrapper in the working directory (`./gradlew`, `./mvnw`, `./run.cmd`). A wrapper is bound
+   into the fingerprint by the hash of every file that can run: its POSIX and Windows
+   variants, and for Gradle and Maven the wrapper JAR and properties.
+5. **Workspace trust** (section 3): an untrusted or changed workspace denies every command.
+6. **Approval by fingerprint** (`fingerprintCommand`): the SHA-256 of the executable, the
+   argument template, the working directory, the environment additions, the parameter
+   definitions, the network requirement and the bound files (a `package.json` script is bound
+   by its body). The fingerprint is approved by the trust store, else by an explicit allowlist
+   of fingerprints (for CI), else by an interactive approver. The approver sees the argv,
+   working directory and bound files, and answers "approve once", "approve always" (stored in
+   the trust store) or "reject". With no approver, the command is denied as
+   `approval-required`.
+
+Every denial and every interactive decision is written to the audit log. A denied command makes
+its gate `not_executed`.
 
 DevFlow's own git operations are fixed internal calls with `core.fsmonitor` disabled,
 `--no-ext-diff` and `--no-textconv`, and commits on the DevFlow branch disable hooks by default.
 
-## 5. Executor (Phase 2)
+## 5. Executor
 
-- argv only, never `shell: true`; the invocation strategy is recorded
-  ([ADR 0014](../adr/0014-windows-invocation.md)).
-- Environment allowlist: `PATH`, `HOME`/`USERPROFILE`, `JAVA_HOME`, `TEMP`/`TMP`, `LANG`,
-  `SystemRoot`, `ComSpec`, `PATHEXT`, plus non-secret additions from the trusted configuration.
-  Variables matching credential patterns are always removed.
-- A timeout per command; on expiry the whole process tree is killed.
-- Output capped (default 5 MB, keeping the tail), written to the run's `logs/`, and redacted
-  before it reaches a model or a report.
+The executor (`src/security/executor.ts`) runs an `ApprovedCommand` and nothing else; a copied
+or hand-built object is refused with `COMMAND_NOT_APPROVED`. Only
+`src/security/process-launcher.ts` may start processes; ESLint and a repository test enforce
+it ([ADR 0018](../adr/0018-in-house-process-launcher.md)).
 
-## 6. Path guard (Phase 2)
+- argv only, never `shell: true`. The invocation strategy is chosen as
+  [ADR 0014](../adr/0014-windows-invocation.md) describes, and recorded. Tools are looked up on
+  `PATH` without its relative entries, so a repository cannot shadow a tool.
+- Environment allowlist: `PATH`, `HOME`, `USERPROFILE`, `JAVA_HOME`, `TEMP`, `TMP`, `TMPDIR`,
+  `LANG`, `LC_ALL`, `LC_CTYPE`, `TZ`, `CI`, `USER`, `LOGNAME`, and on Windows the system
+  variables programs need (`SystemRoot`, `SystemDrive`, `WINDIR`, `ComSpec`, `PATHEXT`,
+  `APPDATA`, `LOCALAPPDATA`, `ProgramData`, `ProgramFiles*`, `NUMBER_OF_PROCESSORS`,
+  `PROCESSOR_ARCHITECTURE`, `OS`, `USERNAME`, `HOMEDRIVE`, `HOMEPATH`), plus the command's own
+  non-secret additions. Variables with credential-like names are always removed, whatever
+  their source, and `NODE_OPTIONS` is never passed on.
+- stdin is closed; on POSIX the command runs in its own process group.
+- A timeout per command. On expiry or cancellation the whole process tree is killed:
+  `taskkill /T /F` on Windows, `SIGTERM` then `SIGKILL` to the process group on POSIX.
+- Output is capped per stream (default 5 MB, keeping the tail) and redacted (section 7), then
+  written to `<logDir>/<command>-<time>-<n>.stdout.log` and `.stderr.log` through the path
+  guard. Only the redacted text is returned, logged or recorded in the `ExecutionRecord`.
+- Every run is written to the audit log with its argv, working directory, strategy, exit code,
+  duration and approval.
+
+## 6. Path guard
 
 - Every path is resolved against the workspace's real path and must stay inside it.
 - Rejected: absolute paths from model output, `..` escapes, NUL bytes, Windows device names,
@@ -144,7 +217,7 @@ runtime so that the file itself never contains a token-shaped literal. Redaction
 audit trail, reports and, in Phase 5, PR comments. API keys are read from environment variables
 only, never from repository files.
 
-## 8. Audit log (Phase 2)
+## 8. Audit log
 
 `audit.jsonl` records every model call (provider, model, template and version, prompt hash,
 files included, tokens, cost), every command (argv, working directory, policy decision,
