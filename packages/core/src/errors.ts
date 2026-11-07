@@ -9,6 +9,14 @@ export const ErrorCode = {
   TaskFileUnreadable: "TASK_FILE_UNREADABLE",
   TaskFileTooLarge: "TASK_FILE_TOO_LARGE",
   TaskUnsupportedFormat: "TASK_UNSUPPORTED_FORMAT",
+  /** A path was refused by the path guard (escape, device name, protected or sensitive path). */
+  PathRejected: "PATH_REJECTED",
+  /** The workspace root does not exist or is not a directory. */
+  WorkspaceInvalid: "WORKSPACE_INVALID",
+  /** An audit entry did not match its schema; nothing was written. */
+  AuditEntryInvalid: "AUDIT_ENTRY_INVALID",
+  /** An audit log file could not be parsed. */
+  AuditLogCorrupt: "AUDIT_LOG_CORRUPT",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 

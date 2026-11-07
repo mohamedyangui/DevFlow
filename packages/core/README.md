@@ -18,8 +18,16 @@ workspace packages.
 - **Domain rules**: classification of red/green test evidence (`assessTestEvidence`).
 - **JSON Schema** generation for task files and project configuration.
 
-**Not implemented yet:** the PathGuard, command policy, executor, secret redaction and audit
-log (Phase 2). The interfaces those components will implement are documented in
+**Implemented (Phase 2, security primitives):**
+
+- **`PathGuard`**: containment, symbolic links, Windows device names and alternate data
+  streams, sensitive paths (never sent to a model) and write-protected paths.
+- **`SecretRedactor`**: built-in secret detectors, redaction markers with a short hash, deep
+  redaction of structured values.
+- **`AuditLog`**: append-only, redacted, schema-validated `audit.jsonl`.
+- **`createLogger`**: a structured logger that redacts every record.
+
+**Not implemented yet:** the command policy, trust store and executor (Phase 2, next). See
 [docs/specs/security-model.md](../../docs/specs/security-model.md).
 
 ```ts
