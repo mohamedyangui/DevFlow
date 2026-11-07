@@ -37,8 +37,22 @@ workspace packages.
   caps, redaction, logs and audit entries. It is the only code that starts processes
   (ADR 0018).
 
-**Not implemented yet:** the workflow steps and gates that use the policy and executor. See
-[docs/specs/security-model.md](../../docs/specs/security-model.md).
+**Implemented (Phase 3, adapter SDK):**
+
+- **`defineAdapter`** and the strategy interfaces adapters are composed of
+  (`DetectionStrategy`, `ResultParser`), with helpers for evidence (`fileEvidence`,
+  `evidenceAt`, `findLine`), repository paths (`joinRepoPath`, `isWithin`, `moduleIdFor`) and
+  fresh test reports (`freshReportFiles`: report files older than the execution are ignored).
+- **`validatedAdapter`**: checks everything an adapter returns against the core schemas and
+  the rules they cannot express (module roots, adapter ids, unique command ids, no command on
+  the hard deny list). Adapter exceptions become `ADAPTER_FAILED`.
+- **`AdapterRegistry`**: registration, module discovery across adapters (or from the
+  `modules` of the project configuration), unique module ids, failures reported as warnings.
+- **`PathToolchainProbe`**: tells adapters whether a tool is on PATH without running it.
+- **`@devflow/core/testing`**: the adapter conformance kit (`checkAdapterConformance`), an
+  in-memory `RepositoryView` and a fixed toolchain probe, for adapter tests.
+
+See [docs/specs/language-adapter.md](../../docs/specs/language-adapter.md).
 
 ```ts
 import { loadTaskFile } from "@devflow/core";

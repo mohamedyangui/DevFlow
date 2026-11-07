@@ -67,6 +67,14 @@ export const ErrorCode = {
   TaskInvalid: "TASK_INVALID",
   /** The plan still fails the deterministic plan checks after a revision. */
   PlanInvalid: "PLAN_INVALID",
+  /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */
+  AdapterInvalid: "ADAPTER_INVALID",
+  /** A language adapter returned data that does not match the core schemas. */
+  AdapterOutputInvalid: "ADAPTER_OUTPUT_INVALID",
+  /** A language adapter threw while analysing the repository or parsing results. */
+  AdapterFailed: "ADAPTER_FAILED",
+  /** No module matches a module id, or no adapter is registered for it. */
+  ModuleNotFound: "MODULE_NOT_FOUND",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 

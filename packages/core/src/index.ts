@@ -242,6 +242,45 @@ export type {
 } from "./ports/llm-provider.js";
 export type { IssueSource, IssueTaskDocument } from "./ports/issue-source.js";
 
+// Adapter SDK
+export {
+  ADAPTER_ID,
+  DEFAULT_MANIFEST_BYTES,
+  REPORT_FRESHNESS_TOLERANCE_MS,
+  defineAdapter,
+  detection,
+  evidenceAt,
+  fileEvidence,
+  findLine,
+  findLines,
+  freshReportFiles,
+  isRecord,
+  isWithin,
+  joinRepoPath,
+  moduleIdFor,
+  parseJsonOrUndefined,
+  readTextIfPresent,
+  relativeTo,
+  repoDirname,
+  runDetectors,
+  unparseable,
+  type AdapterDefinition,
+  type DetectionStrategy,
+  type ReportFile,
+  type ResultParser,
+  type ResultParserInput,
+  type TextMatch,
+} from "./adapters/sdk.js";
+export { catalogProblems, checkIdentity, validatedAdapter } from "./adapters/validate.js";
+export {
+  AdapterRegistry,
+  findModule,
+  type DeclaredModule,
+  type ModuleDiscovery,
+  type WorkspaceModule,
+} from "./adapters/registry.js";
+export { PathToolchainProbe, StaticToolchainProbe } from "./security/toolchain-probe.js";
+
 // Task loading and validation
 export {
   MAX_TASK_FILE_BYTES,

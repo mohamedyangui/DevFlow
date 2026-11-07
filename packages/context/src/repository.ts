@@ -73,8 +73,13 @@ export class WorkspaceRepository implements RepositoryView {
         }
         result.push({ path: relative, kind: "directory" });
       } else if (entry.isFile()) {
-        const size = (await stat(path.join(checked.absolute, entry.name))).size;
-        result.push({ path: relative, kind: "file", sizeBytes: size });
+        const info = await stat(path.join(checked.absolute, entry.name));
+        result.push({
+          path: relative,
+          kind: "file",
+          sizeBytes: info.size,
+          modifiedMs: Math.floor(info.mtimeMs),
+        });
       }
     }
     return result.sort((a, b) => (a.path < b.path ? -1 : 1));

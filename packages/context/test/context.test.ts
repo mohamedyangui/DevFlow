@@ -428,6 +428,9 @@ describe("WorkspaceRepository", () => {
     expect(top).toContain("backend");
     expect(top).not.toContain(".env");
     expect(top).not.toContain("node_modules");
+    const pom = (await repo.list("backend")).find((entry) => entry.path === "backend/pom.xml");
+    expect(pom).toMatchObject({ kind: "file", sizeBytes: expect.any(Number) as unknown });
+    expect(Math.abs((pom?.modifiedMs ?? 0) - Date.now())).toBeLessThan(24 * 3600 * 1000);
     expect(await repo.glob(["**/*.java"], { cwd: "backend" })).toEqual([
       "backend/src/main/java/com/shop/billing/InvoiceService.java",
       "backend/src/main/java/com/shop/orders/OrderController.java",
