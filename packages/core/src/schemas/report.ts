@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Finding } from "./findings.js";
-import { ImplementationPlan, Risk } from "./plan.js";
+import { Contradiction, Dependency, EdgeCase, ImplementationPlan, Risk } from "./plan.js";
 import {
   AcceptanceCriterionId,
   GitCommit,
@@ -115,6 +115,19 @@ export const EngineeringReport = z
     verdict: Verdict,
     task: z.strictObject({ id: TaskId, title: z.string().min(1), source: TaskSource }),
     plan: ImplementationPlan.optional(),
+    /** What requirements analysis found beyond risks and assumptions. */
+    analysis: z
+      .strictObject({
+        edgeCases: z.array(EdgeCase),
+        contradictions: z.array(
+          Contradiction.extend({
+            /** The person's answer to the linked question, or null while it is open. */
+            resolution: z.string().nullable(),
+          }),
+        ),
+        dependencies: z.array(Dependency),
+      })
+      .optional(),
     filesChanged: z.array(FileChange),
     acceptanceMatrix: z.array(AcceptanceMatrixRow),
     gates: z.array(GateResult),

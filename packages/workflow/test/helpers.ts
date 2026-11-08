@@ -89,6 +89,13 @@ export function analysisAnswer(
   overrides: Partial<{
     questions: { question: string; blocking: boolean; relatedIds: string[] }[];
     affectedFiles: { path: string; reason: string }[];
+    edgeCases: { description: string; relatedIds: string[]; coveredBy: string[] }[];
+    contradictions: { ids: string[]; description: string; question: string }[];
+    dependencies: {
+      kind: "requirement" | "module" | "external" | "data";
+      description: string;
+      relatedIds: string[];
+    }[];
   }> = {},
 ): string {
   return JSON.stringify({
@@ -107,6 +114,9 @@ export function analysisAnswer(
         mitigation: "Keep the old behaviour when no page is given.",
       },
     ],
+    edgeCases: overrides.edgeCases ?? [],
+    contradictions: overrides.contradictions ?? [],
+    dependencies: overrides.dependencies ?? [],
     affectedFiles: overrides.affectedFiles ?? [
       { path: "src/orders.ts", reason: "Defines listOrders." },
       { path: "src/missing.ts", reason: "Invented by the model." },

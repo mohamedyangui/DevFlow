@@ -147,6 +147,11 @@ Implemented and tested so far:
   and per-step model routing for analysis, planning, test design, implementation and review
   ([ADR 0010](adr/0010-llm-providers.md)). Tested through the real SDK against a local HTTP
   server standing in for the API; no live OpenAI call has been made.
+- Requirements analysis with edge cases (marked when no acceptance criterion covers them),
+  contradictions and dependencies (`EC-n`, `CT-n`, `DEP-n`). A contradiction always becomes a
+  blocking question for a person, so the run waits for clarification; the report gives each
+  contradiction with its resolution. Analyses written before this change still load. Tested
+  with the fake provider; not yet run against a live model.
 
 Planned:
 

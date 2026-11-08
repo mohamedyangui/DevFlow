@@ -51,6 +51,24 @@ export function buildReport(input: ReportInput): EngineeringReport {
       ),
   ];
 
+  // The analysis section is present only when the analysis found something to report.
+  const found =
+    analysis !== undefined &&
+    analysis.edgeCases.length + analysis.contradictions.length + analysis.dependencies.length > 0;
+  const analysisSection =
+    analysis === undefined || !found
+      ? undefined
+      : {
+          edgeCases: analysis.edgeCases,
+          contradictions: analysis.contradictions.map((contradiction) => ({
+            ...contradiction,
+            resolution:
+              questions.find((question) => question.id === contradiction.questionId)?.answer
+                ?.text ?? null,
+          })),
+          dependencies: analysis.dependencies,
+        };
+
   const manualChecks = [
     ...task.acceptanceCriteria
       .filter((criterion) => criterion.verification === "manual")
@@ -73,6 +91,7 @@ export function buildReport(input: ReportInput): EngineeringReport {
     verdict: "not_verified",
     task: { id: task.id, title: task.title, source: task.source },
     ...(plan === undefined ? {} : { plan }),
+    ...(analysisSection === undefined ? {} : { analysis: analysisSection }),
     filesChanged: [],
     acceptanceMatrix: task.acceptanceCriteria.map((criterion) => ({
       acId: criterion.id,
@@ -154,6 +173,40 @@ export function renderReportMarkdown(
 
   if (report.plan !== undefined) {
     lines.push("## Plan", "", renderPlanBody(report.plan, 3), "");
+  }
+
+  if (report.analysis !== undefined) {
+    const related = (ids: readonly string[]) => (ids.length > 0 ? ` (${ids.join(", ")})` : "");
+    section(
+      lines,
+      "Edge cases",
+      report.analysis.edgeCases.map(
+        (edge) =>
+          `${edge.id}${related(edge.relatedIds)}: ${edge.description} ` +
+          (edge.coveredBy.length > 0
+            ? `Covered by ${edge.coveredBy.join(", ")}.`
+            : "Not covered by any acceptance criterion."),
+      ),
+    );
+    section(
+      lines,
+      "Contradictions",
+      report.analysis.contradictions.map(
+        (conflict) =>
+          `${conflict.id} between ${conflict.ids.join(", ")}: ${conflict.description} ` +
+          (conflict.resolution === null
+            ? `Unresolved: question ${conflict.questionId} is not answered.`
+            : `Resolved by the answer to ${conflict.questionId}: ${conflict.resolution}`),
+      ),
+    );
+    section(
+      lines,
+      "Dependencies",
+      report.analysis.dependencies.map(
+        (dependency) =>
+          `${dependency.id} ${dependency.kind}${related(dependency.relatedIds)}: ${dependency.description}`,
+      ),
+    );
   }
 
   section(

@@ -22,6 +22,40 @@ export const ClarificationQuestion = z.strictObject({
 });
 export type ClarificationQuestion = z.infer<typeof ClarificationQuestion>;
 
+/** A boundary or unusual situation the task must handle, found by requirements analysis. */
+export const EdgeCase = z.strictObject({
+  id: z.string().regex(/^EC-[1-9][0-9]*$/),
+  description: z.string().min(1),
+  /** Requirement or acceptance-criterion ids it concerns. */
+  relatedIds: z.array(z.string()),
+  /** Acceptance criteria that already cover it; empty when none does. */
+  coveredBy: z.array(z.string()),
+});
+export type EdgeCase = z.infer<typeof EdgeCase>;
+
+/**
+ * Requirements, acceptance criteria or constraints that cannot all hold. A person resolves it
+ * by answering the blocking question it is linked to.
+ */
+export const Contradiction = z.strictObject({
+  id: z.string().regex(/^CT-[1-9][0-9]*$/),
+  /** The requirement or criterion ids that conflict; one id when it conflicts with a constraint. */
+  ids: z.array(z.string()).min(1),
+  description: z.string().min(1),
+  /** The blocking question that resolves it. */
+  questionId: z.string().regex(/^Q-[1-9][0-9]*$/),
+});
+export type Contradiction = z.infer<typeof Contradiction>;
+
+/** Something the task depends on: another requirement, a module, an external system or data. */
+export const Dependency = z.strictObject({
+  id: z.string().regex(/^DEP-[1-9][0-9]*$/),
+  kind: z.enum(["requirement", "module", "external", "data"]),
+  description: z.string().min(1),
+  relatedIds: z.array(z.string()),
+});
+export type Dependency = z.infer<typeof Dependency>;
+
 export const PlannedChange = z.strictObject({
   id: z.string().regex(/^CH-[1-9][0-9]*$/),
   module: ModuleId,

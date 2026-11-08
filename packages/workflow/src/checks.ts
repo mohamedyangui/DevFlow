@@ -1,6 +1,9 @@
 import { type ContextPack, moduleOf } from "@devflow/context";
 import {
   type ClarificationQuestion,
+  type Contradiction,
+  type Dependency,
+  type EdgeCase,
   ImplementationPlan,
   ModuleId,
   type PathGuard,
@@ -97,6 +100,70 @@ export function checkAnalysis(input: {
     next += 1;
   }
 
+  const acIds = new Set(task.acceptanceCriteria.map((criterion) => criterion.id));
+  const known = (list: readonly string[], label: string, allowed: ReadonlySet<string> = ids) => {
+    const kept = [...new Set(list.filter((id) => allowed.has(id)))];
+    if (kept.length !== new Set(list).size) checks.push(`${label}: removed unknown ids`);
+    return kept;
+  };
+
+  const edgeCases: EdgeCase[] = [];
+  for (const edge of wire.edgeCases) {
+    const id = `EC-${String(edgeCases.length + 1)}`;
+    edgeCases.push({
+      id,
+      description: edge.description,
+      relatedIds: known(edge.relatedIds, id),
+      coveredBy: known(edge.coveredBy, `${id} coveredBy`, acIds),
+    });
+  }
+
+  // Every contradiction is resolved by a person: it is linked to a blocking question, an
+  // existing one about the same ids when there is one, otherwise a new one.
+  const allQuestions = [...previous, ...newQuestions];
+  const contradictions: Contradiction[] = [];
+  for (const conflict of wire.contradictions) {
+    const id = `CT-${String(contradictions.length + 1)}`;
+    const conflicting = known(conflict.ids, id);
+    if (conflicting.length === 0) {
+      checks.push(
+        `dropped a contradiction that names no id of the task: "${conflict.description}"`,
+      );
+      continue;
+    }
+    const linked = allQuestions.find(
+      (question) =>
+        question.blocking && conflicting.every((ref) => question.relatedIds.includes(ref)),
+    );
+    let questionId = linked?.id;
+    if (questionId === undefined) {
+      questionId = `Q-${String(next)}`;
+      next += 1;
+      const question: ClarificationRecord = {
+        id: questionId,
+        question: `${conflicting.join(" and ")} conflict: ${conflict.description} ${conflict.question}`,
+        blocking: true,
+        relatedIds: conflicting,
+        askedInIteration: iteration,
+        answer: null,
+      };
+      newQuestions.push(question);
+      allQuestions.push(question);
+      checks.push(`${id}: added blocking question ${questionId} so that a person resolves it`);
+    }
+    contradictions.push({ id, ids: conflicting, description: conflict.description, questionId });
+  }
+
+  const dependencies: Dependency[] = wire.dependencies.map((dependency, index) => {
+    const id = `DEP-${String(index + 1)}`;
+    return {
+      id,
+      kind: dependency.kind,
+      description: dependency.description,
+      relatedIds: known(dependency.relatedIds, id),
+    };
+  });
+
   const affectedFiles: { path: string; reason: string }[] = [];
   for (const file of wire.affectedFiles) {
     if (RepoPath.safeParse(file.path).success && paths.has(file.path)) {
@@ -120,6 +187,9 @@ export function checkAnalysis(input: {
       questions,
       assumptions: wire.assumptions.filter((text) => text.trim() !== ""),
       risks: wire.risks,
+      edgeCases,
+      contradictions,
+      dependencies,
       affectedFiles,
       checks,
     },
