@@ -249,6 +249,14 @@ export {
 
 // Ports
 export type { RepositoryEntry, RepositoryView } from "./ports/repository-view.js";
+export type {
+  ParsedSource,
+  SourceFile,
+  SourceImport,
+  SourceParser,
+  SourceSymbol,
+  SourceSymbolKind,
+} from "./ports/source-parser.js";
 export {
   LANGUAGE_ADAPTER_API_VERSION,
   type LanguageAdapter,

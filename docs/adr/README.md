@@ -29,7 +29,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0006](0006-llm-output-is-data.md)          | Model output is data: command catalog and search/replace edits                        | Accepted                               |
 | [0007](0007-workspace-trust.md)             | Workspace trust outside the repository; local execution only for trusted repositories | Accepted                               |
 | [0008](0008-lexical-ranking.md)             | BM25 plus structural ranking, no embeddings                                           | Accepted (implementation in Phase 2)   |
-| [0009](0009-tree-sitter.md)                 | `web-tree-sitter` behind a `SourceParser` port                                        | Accepted, pending a Phase 3 spike      |
+| [0009](0009-tree-sitter.md)                 | `web-tree-sitter` behind a `SourceParser` port                                        | Accepted, confirmed by the spike       |
 | [0010](0010-llm-providers.md)               | Official provider SDKs behind `LlmProvider`                                           | Accepted (implementation in Phase 2/4) |
 | [0011](0011-zod-source-of-truth.md)         | Zod 4 as the single source of truth for schemas                                       | Accepted                               |
 | [0012](0012-git-isolation.md)               | Dedicated local branch, commits per phase, never push                                 | Accepted (implementation in Phase 4)   |

@@ -24,7 +24,22 @@ export {
 } from "./discover.js";
 export { isInstructionFile, languageOf, moduleOf, roleOf } from "./classify.js";
 export { looksLikeOpenApi, scanOpenApi, scanProtobuf } from "./contracts.js";
-export { importsOf, outlineOf, suffixIndexOf } from "./outline.js";
+export {
+  declarationLines,
+  importsOf,
+  outlineOf,
+  regexImports,
+  resolveImports,
+  suffixIndexOf,
+  type DeclarationLine,
+} from "./outline.js";
+export {
+  FallbackSourceParser,
+  TreeSitterSourceParser,
+  grammarFor,
+  regexParse,
+  renderOutline,
+} from "./source-parser.js";
 export { Bm25Index, tokenize, type Bm25Document, type Bm25Match } from "./bm25.js";
 export {
   rankFiles,

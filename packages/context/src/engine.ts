@@ -3,6 +3,8 @@ import type {
   PathGuard,
   ProjectConfig,
   SecretRedactor,
+  SourceImport,
+  SourceParser,
   TaskContract,
 } from "@devflow/core";
 import { languageOf, moduleOf, roleOf } from "./classify.js";
@@ -14,6 +16,7 @@ import { outlineOf } from "./outline.js";
 import { packFiles } from "./pack.js";
 import { rankFiles, type RankCandidate } from "./rank.js";
 import { WorkspaceRepository } from "./repository.js";
+import { FallbackSourceParser, TreeSitterSourceParser, renderOutline } from "./source-parser.js";
 import {
   ContextPack,
   type ContextModule,
@@ -28,6 +31,11 @@ const DEFAULT_MAX_FILE_BYTES = 524_288;
 /** Above this many bytes of text, further files are ranked by path and outline only. */
 const MAX_BYTES_LOADED = 64 * 1024 * 1024;
 const MAX_CONTRACTS = 50;
+/** Above this many bytes of parsed source, further files get regex outlines (ADR 0009). */
+const MAX_BYTES_PARSED = 32 * 1024 * 1024;
+
+/** One tree-sitter parser per process: the runtime and grammars are loaded once. */
+let sharedParser: TreeSitterSourceParser | undefined;
 
 export interface BuildContextOptions {
   readonly guard: PathGuard;
@@ -42,6 +50,12 @@ export interface BuildContextOptions {
   readonly adapters?: readonly LanguageAdapter[];
   readonly maxFiles?: number;
   readonly signal?: AbortSignal;
+  /**
+   * Reads declarations and imports for outlines and ranking. Defaults to tree-sitter for Java,
+   * TypeScript and JavaScript; other languages, and files the parser fails on, get the regex
+   * outline.
+   */
+  readonly sourceParser?: SourceParser;
 }
 
 /**
@@ -75,9 +89,16 @@ export async function buildContext(options: BuildContextOptions): Promise<Contex
 
   const modules = await resolveModules(options, maxFileBytes, warnings);
 
+  const parser = new FallbackSourceParser(
+    options.sourceParser ?? (sharedParser ??= new TreeSitterSourceParser()),
+    (reason) => {
+      warnings.push(`the source parser failed (${reason}); regex outlines are used instead`);
+    },
+  );
   const candidates = new Map<string, RankCandidate>();
   const contracts: ContractSummary[] = [];
   let loadedBytes = 0;
+  let parsedBytes = 0;
   for (const file of discovery.files) {
     options.signal?.throwIfAborted();
     let role = roleOf(file.path);
@@ -106,13 +127,29 @@ export async function buildContext(options: BuildContextOptions): Promise<Contex
         if (summary !== null) contracts.push(summary);
       }
     }
+    let outline: string;
+    let imports: readonly SourceImport[] | undefined;
+    if (
+      language !== null &&
+      text !== "" &&
+      parser.supports(language) &&
+      parsedBytes + file.sizeBytes <= MAX_BYTES_PARSED
+    ) {
+      const parsed = await parser.parse({ path: file.path, language, text });
+      parsedBytes += file.sizeBytes;
+      outline = renderOutline(parsed);
+      imports = parsed.imports;
+    } else {
+      outline = outlineOf(language, text);
+    }
     candidates.set(file.path, {
       path: file.path,
       role,
       language,
       module: moduleOf(file.path, modules),
       text,
-      outline: outlineOf(language, text),
+      outline,
+      ...(imports === undefined ? {} : { imports }),
     });
   }
   if (loadedBytes >= MAX_BYTES_LOADED) {
