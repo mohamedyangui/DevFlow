@@ -3,9 +3,10 @@
 - **Status:** Draft. The `LanguageAdapter` port (API version 1), `RepositoryView`,
   `ToolchainProbe` and the data schemas (`ModuleCandidate`, `ModuleProfile`,
   `ContractRelation`, `InferredConvention`, `TestInventory`, `TestAuthoringGuide`,
-  `CommandSpec`, `ParsedCommandResults`) exist in `@devflow/core` (Phase 1). The adapter SDK
-  helpers, registry, conformance kit, and the Java and JavaScript/TypeScript adapters arrive
-  in Phase 3. The interface may still change before Phase 3 completes.
+  `CommandSpec`, `ParsedCommandResults`) exist in `@devflow/core` (Phase 1). The adapter SDK,
+  output validation, registry, toolchain probe and conformance kit exist (Phase 3, section 8).
+  The Java and JavaScript/TypeScript adapters are planned for Phase 3 and do not exist yet. The
+  interface may still change before Phase 3 completes.
 
 ## 1. Role
 
@@ -94,3 +95,42 @@ acceptance-criterion marker style that survives into machine-readable reports:
 Example Java projects for integration tests get Maven and Gradle wrappers generated with the
 official Docker images, pinned to exact versions, with `distributionSha256Sum` set so the
 wrapper verifies the downloaded distribution (decision D5).
+
+## 8. SDK, validation and registry
+
+These exist in `@devflow/core`:
+
+- **`defineAdapter(definition)`** fills in the API version and a default `inferConventions`
+  (no conventions). Adapters are composed of `DetectionStrategy` objects (build tool,
+  framework, test runner, quality tool), run in order by `runDetectors`, and `ResultParser`
+  objects. Helpers build evidence that points at a file and line (`evidenceAt`), join and
+  compare repository paths, and derive module ids from module roots (`moduleIdFor`).
+- **Validation.** `validatedAdapter(adapter)` checks every value an adapter returns against
+  the core schemas, and also that: candidates and profiles name the adapter itself; a module
+  root is reported once; source roots, test roots, wrappers, test files and command working
+  directories stay inside the module root; command ids are unique; commands have origin
+  `adapter`; no command is on the hard deny list of the command policy; and each purpose has
+  at most one command without parameters, which is the command a gate with that purpose runs
+  (commands with parameters, such as a test filter, are for targeted runs). Invalid output is
+  `ADAPTER_OUTPUT_INVALID`; an exception thrown by an adapter is `ADAPTER_FAILED`, naming the
+  adapter and the operation.
+- **Registry.** `AdapterRegistry` registers adapters (id `^[a-z][a-z0-9-]{0,31}$`, API
+  version 1, no duplicates: otherwise `ADAPTER_INVALID`) and discovers modules: from the
+  `modules` of the project configuration when it declares any, otherwise from every adapter's
+  `detectModules`. A failing adapter or module becomes a warning instead of hiding the other
+  modules. Detected module ids are derived from the module root; when two adapters claim the
+  same root, the second id gets the adapter id appended.
+- **Toolchain.** `PathToolchainProbe` answers whether a tool is on PATH by looking at the
+  absolute PATH entries only, so a repository cannot make a tool appear by shipping a file with
+  its name. It never starts a process, so it does not report versions.
+- **Fresh reports.** Build tools leave old reports behind (`target/surefire-reports` keeps
+  files from earlier runs). `freshReportFiles` lists report files whose modification time is
+  at most two seconds before the execution started (`RepositoryEntry.modifiedMs`); older files
+  are ignored, so a build that failed before running its tests cannot be read as a pass from a
+  previous run's reports.
+- **Conformance kit.** `checkAdapterConformance(adapter, fixtures)` from
+  `@devflow/core/testing` runs the shared checks: identity, valid and deterministic output of
+  every operation, the expected module roots, evidence and test files that exist, catalogs
+  that are valid with every tool available and with none, and `parseResults` that never
+  reports a passed test when no report file was written. `MemoryRepository` and
+  `StaticToolchainProbe` make fixtures easy to write. Every adapter's tests run the kit.

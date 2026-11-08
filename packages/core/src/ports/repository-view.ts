@@ -29,4 +29,9 @@ export interface RepositoryEntry {
   readonly path: string;
   readonly kind: "file" | "directory";
   readonly sizeBytes?: number;
+  /**
+   * Last modification time of a file, in milliseconds since the epoch. Adapters use it to
+   * ignore test reports older than the execution they are parsing.
+   */
+  readonly modifiedMs?: number;
 }
