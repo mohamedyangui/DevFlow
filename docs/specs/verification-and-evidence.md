@@ -4,9 +4,10 @@
   `TestOutcome`, `ResultStatus`, `assessTestEvidence` and `statusForOutcome`
   (`verification/test-evidence.ts`), `TestEvidence`, `TestCaseResult`, `GateResult`,
   `ParsedCommandResults` (`schemas/verification.ts`), `Finding` (`schemas/findings.ts`),
-  `AcceptanceMatrixRow` and `EngineeringReport` (`schemas/report.ts`). Nothing executes
-  verification yet: the executor arrives in Phase 2, adapters and `devflow verify` in Phase 3,
-  the red/green workflow in Phase 4.
+  `AcceptanceMatrixRow` and `EngineeringReport` (`schemas/report.ts`). The verification
+  engine (section 4.1, `verification/engine.ts` and `verification/snapshot.ts`) exists since
+  Phase 3, and `devflow verify` runs it ([CLI spec](cli.md)). The red/green workflow comes in
+  Phase 4.
 
 ## 1. Statuses
 
@@ -65,6 +66,47 @@ invariants:
 - `not_executed` → no execution record, and a reason;
 - `unverified` → a reason;
 - `passed` → exit code 0, no timeout, and every parsed test `passed` or `skipped`.
+
+### 4.1 The verification engine
+
+`runGates` runs the gates one after the other. For each gate, `runGate`:
+
+1. finds the module and the module's command for the gate's purpose that takes no
+   parameter. A missing module or command is `not_executed`, with the reason;
+2. checks that the executable is on `PATH` (not for wrappers inside the workspace), else
+   `not_executed`;
+3. asks the command policy. A denial (workspace not trusted, approval required, rejected) is
+   `not_executed` "denied by the command policy", and is recorded as a denial with the
+   command and its fingerprint;
+4. runs the approved command with the executor; a command that cannot be started is
+   `not_executed`;
+5. has the adapter parse the results. The parser reads the redacted output of this execution
+   and only reports written by it. A parser failure makes the results unreadable; it is never
+   taken as a pass;
+6. redacts every message, note and evidence excerpt, then decides the status (`decideGate`),
+   in this order:
+
+| Condition                                                                 | Status       |
+| ------------------------------------------------------------------------- | ------------ |
+| the command timed out, or ended without an exit code                      | `unverified` |
+| a non-zero exit code, whatever the parsed results say                     | `failed`     |
+| exit code 0, but the results could not be read                            | `unverified` |
+| exit code 0, but a test failed or the tool reported an error              | `failed`     |
+| exit code 0, but a test has no trustworthy result (timeout, did not load) | `unverified` |
+| a test command that ran no tests                                          | `unverified` |
+| a test command whose tests were all skipped                               | `skipped`    |
+| otherwise                                                                 | `passed`     |
+
+`verificationOutcome` sums a run up: `passed` when every required gate passed, `denied` when
+the required gates that did not pass were all stopped by the command policy, otherwise
+`failed`. When only optional gates ran, they count as required; no gate at all is `failed`.
+
+A run is saved as a `VerificationSnapshot` (`verification.json`). `compareSnapshots` compares
+two snapshots test by test, by gate id and test id: regressions (passed, now failed), fixed
+tests, tests still failing, other status changes, new tests, tests no longer reported, gates
+whose status changed, and gates that ran a different command. A test that did not run in one
+of the two runs is never counted as a regression or a fix. Flaky tests are not detected; the
+workflow (Phase 4) reruns failures.
 
 ## 5. Acceptance criteria
 

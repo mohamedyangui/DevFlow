@@ -16,6 +16,11 @@ export const ExitCode = {
   WaitingForInput: 3,
   /** A token or call budget was reached; `devflow resume` with a higher limit continues. */
   BudgetExceeded: 4,
+  /**
+   * The command policy did not let a required command run: the workspace is not trusted, or
+   * the command was not approved or was rejected. Nothing negative is known about the code.
+   */
+  PolicyDenied: 5,
   /** An unexpected internal error (a bug in DevFlow). */
   InternalError: 70,
   /** Interrupted by Ctrl+C; `devflow resume` continues. */

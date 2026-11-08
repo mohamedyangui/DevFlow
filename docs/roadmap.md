@@ -68,8 +68,8 @@ Implemented and tested:
   executed, written or approved.
 
 Not done in Phase 2: no run against a real model has been made (the live Anthropic test is
-skipped without an API key), and exit code 5 (policy denial) waits for the commands that run
-builds in Phase 3.
+skipped without an API key), and exit code 5 (policy denial) waited for the commands that run
+builds; it came with `devflow verify` in Phase 3.
 
 ## Phase 3: Language adapters and verification — in progress
 
@@ -97,11 +97,20 @@ Implemented and tested so far:
   Prettier 3.9, and their output parsed as specified; Jest has not been run against it.
 - Command policy: a `node` script must be an existing file inside the workspace, and is bound
   into the approval fingerprint by its hash.
+- Verification engine (`@devflow/core`, [spec](specs/verification-and-evidence.md) section
+  4.1) and `devflow verify` ([CLI spec](specs/cli.md)): the configured gates, or a test gate
+  per module; every command through the command policy (interactive approval, or
+  `--allow <fingerprint>`); statuses decided from the exit code and the parsed results, never
+  upgraded; results saved with redacted logs and an audit log; comparison with a baseline
+  run; exit code 5 when the policy stopped a required command. Tested with fake executions,
+  with the real policy and executor running a node script, and in the CLI tests with a
+  stand-in Vitest package. Also run once by hand with Vitest 5.1 on a sample project: a
+  failing test was reported as failed, and after the fix the comparison with the failed run
+  reported it as fixed. No Maven or Gradle build has been run through it yet.
 
 Planned:
 
 - `SourceParser` spike with `web-tree-sitter` ([ADR 0009](adr/0009-tree-sitter.md)).
-- Verification engine and `devflow verify`.
 - Example repositories. **Decision D5:** Maven and Gradle wrappers are generated once with the
   official Docker images at pinned versions, and `distributionSha256Sum` is set so wrappers
   verify their downloads. Wrapper JAR hashes are recorded for command fingerprints.

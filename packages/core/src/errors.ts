@@ -75,6 +75,10 @@ export const ErrorCode = {
   AdapterFailed: "ADAPTER_FAILED",
   /** No module matches a module id, or no adapter is registered for it. */
   ModuleNotFound: "MODULE_NOT_FOUND",
+  /** A gate named on the command line is not one of the workspace's gates. */
+  GateNotFound: "GATE_NOT_FOUND",
+  /** A baseline given to `devflow verify` cannot be read or is not a saved verification. */
+  VerificationBaselineInvalid: "VERIFICATION_BASELINE_INVALID",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 

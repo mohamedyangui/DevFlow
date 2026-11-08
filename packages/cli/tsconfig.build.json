@@ -10,7 +10,10 @@
   "include": ["src"],
   "references": [
     { "path": "../core/tsconfig.build.json" },
+    { "path": "../adapter-java/tsconfig.build.json" },
+    { "path": "../adapter-javascript/tsconfig.build.json" },
     { "path": "../ai/tsconfig.build.json" },
+    { "path": "../context/tsconfig.build.json" },
     { "path": "../workflow/tsconfig.build.json" }
   ]
 }

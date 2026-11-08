@@ -37,7 +37,8 @@ planned, tested and verified change, and reports what was actually verified, wit
 | Context engine: discovery, classification, OpenAPI and Protobuf discovery, ranking, packing                               | Implemented      |
 | LLM gateway with redaction, budgets, retries and validated JSON answers; Anthropic, Fake and Replay providers             | Implemented      |
 | Assist workflow: `devflow init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report` | Implemented      |
-| Java and JS/TS adapters, `devflow verify`                                                                                 | Planned, Phase 3 |
+| Java and JS/TS adapters, verification engine, `devflow verify` (no Maven or Gradle build run yet)                         | Implemented      |
+| Source parser (tree-sitter), example repositories with real builds                                                        | Planned, Phase 3 |
 | Test generation, implementation, review, `devflow run`                                                                    | Planned, Phase 4 |
 | GitHub issues and pull requests                                                                                           | Planned, Phase 5 |
 | OpenAPI and Protobuf compatibility, container sandbox                                                                     | Planned, Phase 6 |

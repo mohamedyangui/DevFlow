@@ -121,10 +121,10 @@ one input the executor accepts. The checks run in this order; the first failure 
    argument template, the working directory, the environment additions, the parameter
    definitions, the network requirement and the bound files (a `package.json` script is bound
    by its body). The fingerprint is approved by the trust store, else by an explicit allowlist
-   of fingerprints (for CI), else by an interactive approver. The approver sees the argv,
-   working directory and bound files, and answers "approve once", "approve always" (stored in
-   the trust store) or "reject". With no approver, the command is denied as
-   `approval-required`.
+   of fingerprints (for CI: `devflow verify --allow <fingerprint>`), else by an interactive
+   approver. The approver sees the argv, working directory and bound files, and answers
+   "approve once", "approve always" (stored in the trust store) or "reject". With no
+   approver, the command is denied as `approval-required`.
 
 Every denial and every interactive decision is written to the audit log. A denied command makes
 its gate `not_executed`.
