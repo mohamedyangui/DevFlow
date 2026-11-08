@@ -60,11 +60,14 @@ export const FileWriteAuditEntry = z.strictObject({
   planChangeId: z.string().min(1).nullable(),
 });
 
-/** A human decision: trust, command approval, plan approval or rejection, clarification answer. */
+/**
+ * A human decision: trust, command approval, plan or test approval or rejection, clarification
+ * answer.
+ */
 export const DecisionAuditEntry = z.strictObject({
   ...base,
   type: z.literal("decision"),
-  subject: z.enum(["workspace-trust", "command", "plan", "clarification"]),
+  subject: z.enum(["workspace-trust", "command", "plan", "clarification", "tests"]),
   decision: z.enum(["approved", "rejected", "revoked", "answered"]),
   by: z.string().min(1),
   reference: z.string().min(1).optional(),

@@ -248,7 +248,7 @@ async function readBaseline(file: string, cwd: string): Promise<VerificationSnap
 }
 
 /** Shows the command about to run, then asks once, always (for this workspace) or no. */
-async function askApproval(
+export async function askApproval(
   request: CommandApprovalRequest,
   io: CliIo,
 ): Promise<CommandApprovalAnswer> {

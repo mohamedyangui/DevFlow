@@ -1,7 +1,13 @@
 import { UNTRUSTED_CONTENT_RULE, untrustedBlock } from "@devflow/ai";
 import type { ContextPack } from "@devflow/context";
 import type { ImplementationPlan, TaskContract } from "@devflow/core";
-import type { ClarificationRecord, PlanCheck, RequirementsAnalysis } from "./schemas.js";
+import type {
+  ClarificationRecord,
+  DesignedTest,
+  PlanCheck,
+  RequirementsAnalysis,
+} from "./schemas.js";
+import type { TestModule } from "./test-design.js";
 
 /**
  * Versioned prompt templates. The template id and version are recorded in every llm-call
@@ -15,6 +21,7 @@ export interface PromptTemplate {
 
 export const ANALYSIS_TEMPLATE: PromptTemplate = { id: "requirements-analysis", version: "2" };
 export const PLAN_TEMPLATE: PromptTemplate = { id: "implementation-plan", version: "1" };
+export const TEST_DESIGN_TEMPLATE: PromptTemplate = { id: "test-design", version: "1" };
 
 export interface RenderedPrompt {
   readonly system: string;
@@ -123,6 +130,114 @@ export function planPrompt(input: {
     user: sections.filter((s) => s !== "").join("\n\n"),
     files: promptFiles(input.pack),
   };
+}
+
+/** An existing test file shown to the model in full, so that it can edit it. */
+export interface ExistingTestFile {
+  readonly path: string;
+  /** Redacted content. */
+  readonly content: string;
+}
+
+export function testDesignPrompt(input: {
+  task: TaskContract;
+  pack: ContextPack;
+  analysis: RequirementsAnalysis | undefined;
+  plan: ImplementationPlan;
+  clarifications: readonly ClarificationRecord[];
+  modules: readonly TestModule[];
+  existing: readonly ExistingTestFile[];
+  previous?: { tests: readonly DesignedTest[]; feedback: string } | undefined;
+  failedChecks?: readonly PlanCheck[] | undefined;
+}): RenderedPrompt {
+  const system = [
+    "You are the test engineer of DevFlow, an engineering workflow for software projects.",
+    "Write automated tests for the acceptance criteria of the task, following the plan's test " +
+      "strategy. The tests run against the current code before anything is implemented: a " +
+      "feature test must fail on an assertion because the behaviour does not exist yet; a " +
+      "regression or characterization test must pass because it describes behaviour that " +
+      "exists. Each criterion's testIntent says which one it is.",
+    "Write test files only, inside a module's test roots, never production code. Create a new " +
+      "file with its whole content, or modify an existing test file with exact search and " +
+      "replace edits: each search text must occur exactly once in the file shown to you.",
+    "Every test must carry the marker of the criterion it covers, as the module's guide says " +
+      '(for example a title starting with "AC-1:" or a method named ac1_...): DevFlow links ' +
+      "test results to criteria by this marker. List the criteria each file covers in acIds.",
+    "Assert observable behaviour with concrete values from the criteria. Do not weaken an " +
+      "assertion so that it passes, and do not test private details. Use only the test " +
+      "framework and libraries the module already uses.",
+    "A person reviews the tests before DevFlow runs them.",
+    SAFETY,
+  ].join("\n\n");
+
+  const sections = [
+    renderTask(input.task),
+    input.analysis === undefined ? "" : renderAnalysis(input.analysis),
+    renderClarifications(input.clarifications),
+    [
+      "## Approved plan",
+      "Write the tests its test strategy describes; the changes are implemented later.",
+      "```json",
+      JSON.stringify(input.plan, null, 2),
+      "```",
+    ].join("\n"),
+    renderModules(input.modules),
+    input.existing.length === 0
+      ? ""
+      : [
+          "## Existing test files (full content, for search and replace edits)",
+          ...input.existing.map(
+            (file) => `### ${file.path}\n${untrustedBlock(file.path, file.content)}`,
+          ),
+        ].join("\n\n"),
+    input.previous === undefined
+      ? ""
+      : [
+          "## Previous tests, rejected by the reviewer",
+          "Write them again to address the reviewer's feedback. The previous files were removed " +
+            "or restored, so the files shown above are as they were before.",
+          "```json",
+          JSON.stringify(input.previous.tests, null, 2),
+          "```",
+          "Reviewer feedback (from the user):",
+          input.previous.feedback,
+        ].join("\n"),
+    input.failedChecks === undefined || input.failedChecks.length === 0
+      ? ""
+      : [
+          "## Your previous draft failed these deterministic checks",
+          "Fix every one of them.",
+          ...input.failedChecks.map(
+            (check) =>
+              `- ${check.location === undefined ? "" : `${check.location}: `}${check.message}`,
+          ),
+        ].join("\n"),
+    renderContext(input.pack),
+  ];
+  const files = new Set(promptFiles(input.pack));
+  for (const file of input.existing) files.add(file.path);
+  return {
+    system,
+    user: sections.filter((s) => s !== "").join("\n\n"),
+    files: [...files],
+  };
+}
+
+function renderModules(modules: readonly TestModule[]): string {
+  return [
+    "## Modules and how to write their tests",
+    ...modules.map(({ profile, guide }) =>
+      [
+        `### Module ${profile.moduleId} (${profile.adapterId}, root ${profile.root})`,
+        `- Test roots: ${profile.testRoots.join(", ") || "none"}`,
+        `- Source roots: ${profile.sourceRoots.join(", ") || "none"}`,
+        `- Test framework: ${guide.framework}`,
+        `- New tests go in ${guide.testRoot}, named like ${guide.fileNamePattern}`,
+        `- Criterion marker (${guide.acMarker.style}): ${guide.acMarker.example}`,
+        ...guide.notes.map((note) => `- ${note}`),
+      ].join("\n"),
+    ),
+  ].join("\n\n");
 }
 
 function renderTask(task: TaskContract): string {

@@ -67,6 +67,12 @@ export const ErrorCode = {
   TaskInvalid: "TASK_INVALID",
   /** The plan still fails the deterministic plan checks after a revision. */
   PlanInvalid: "PLAN_INVALID",
+  /** The test design still fails the deterministic test checks after a revision. */
+  TestDesignInvalid: "TEST_DESIGN_INVALID",
+  /** Test files written by a run were changed after they were written or approved. */
+  TestFilesChanged: "TEST_FILES_CHANGED",
+  /** The caller did not provide what is needed to run tests (modules, command policy). */
+  TestRunnerUnavailable: "TEST_RUNNER_UNAVAILABLE",
   /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */
   AdapterInvalid: "ADAPTER_INVALID",
   /** A language adapter returned data that does not match the core schemas. */

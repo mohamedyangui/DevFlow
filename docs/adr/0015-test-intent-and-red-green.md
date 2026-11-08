@@ -2,8 +2,8 @@
 
 - **Status:** Accepted, 2026-11-06. Implements refinement 2 of the architecture review. The
   classification rules exist in `@devflow/core` (`assessTestEvidence`,
-  `verification/test-evidence.ts`) with tests. They are applied by the verification engine in
-  Phases 3–4.
+  `verification/test-evidence.ts`) with tests. Test mode (`devflow test`, Phase 4) applies
+  them to the baseline run; the after-change half arrives with the implementation step.
 - **Deciders:** Mohamed Yangui
 
 ## Context
@@ -51,6 +51,25 @@ assessment disagrees with these rules.
 
 In Markdown tasks, intent is written as a trailing tag: `(regression)` or
 `(characterization)`. In YAML and JSON it is `testIntent`.
+
+## Test mode (Phase 4)
+
+`devflow test` produces the baseline half of the evidence:
+
+1. The model writes tests for the automated criteria. Deterministic checks keep them to test
+   files inside a module's test roots and require the criterion's marker in the new code, so
+   that results can be linked to criteria without trusting the model.
+2. A person approves the written files. The approval is bound to the hash of every file; a
+   file changed after it was written cannot be approved.
+3. The test gate of each affected module runs once, through the command policy, against the
+   unchanged code.
+4. Each result in a designed file that carries a criterion's marker becomes one evidence
+   entry. A designed test without a result is never given an outcome it did not have: it is
+   `not_executed` (the gate did not run), `timeout`, `compile_error` (an error diagnostic in
+   the file), `infrastructure_error` (unreadable results) or `not_found`, all `invalid`.
+5. The after-change outcome is `not_executed`, so nothing is `established` and no criterion is
+   verified. Deterministic findings report every assessment other than `expected`, and every
+   automated criterion without a test.
 
 ## Consequences
 

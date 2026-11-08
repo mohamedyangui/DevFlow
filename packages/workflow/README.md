@@ -4,13 +4,15 @@ The workflow orchestrator: the typed state machine, the run store, the requireme
 planning steps, the deterministic checks of model answers, and the engineering report. The CLI
 and future IDE integrations call the same functions.
 
-**Status: assist mode is implemented (Phase 2).** The `test`, `implement` and `review` modes
-arrive in Phase 4; starting a run in those modes fails with `WORKFLOW_MODE_NOT_IMPLEMENTED`
-and creates nothing.
+**Status: assist mode (Phase 2) and test mode (Phase 4) are implemented.** The `implement`
+and `review` modes arrive later in Phase 4; starting a run in those modes fails with
+`WORKFLOW_MODE_NOT_IMPLEMENTED` and creates nothing.
 
 The package may depend on `@devflow/core`, `@devflow/context` and `@devflow/ai`. It never starts
-processes, and in assist mode it never changes a repository file: it only writes its own run
-directory.
+processes itself: test mode runs gates through the `testRunner` its caller provides, which
+goes through the command policy. In assist mode it never changes a repository file: it only
+writes its own run directory. In test mode it writes only test files, after deterministic
+checks, and restores them on rejection.
 
 ## Assist mode
 
@@ -21,6 +23,22 @@ TASK_RECEIVED → CONTEXT_LOADING → REQUIREMENTS_ANALYSIS (⇄ CLARIFICATION_R
                                       → PLANNING  (rejected with feedback)
   → PLANNING → COMPLETED                        (plan approval not required)
 ```
+
+## Test mode
+
+```text
+... → PLANNING (→ AWAITING_PLAN_APPROVAL) → TEST_DESIGN (waits for test approval)
+  → VERIFICATION (the red run) → REVIEW (deterministic findings) → COMPLETED
+```
+
+In `TEST_DESIGN` the model writes tests (`artifacts/test-design.json`), checked by
+`checkTestDesign`: test files of a module only, writable paths, exact search and replace edits,
+the criterion marker in the new code. The files are written and recorded with their hashes
+(`artifacts/test-files.json`); the run waits with `pending.kind` `test-approval`. Approval runs
+the test gate of each affected module once against the current code; the results become
+red/green evidence (`artifacts/test-evidence.json`, [ADR 0015](../../docs/adr/0015-test-intent-and-red-green.md))
+and findings (`artifacts/findings.json`). A command the policy refuses interrupts the run with
+`COMMAND_NOT_APPROVED`; `resumeRun` with an approved runner continues it.
 
 Any non-terminal state can move to `FAILED` or `CANCELLED`. The transition table and the edges
 each mode may take are in `src/transitions.ts`
@@ -33,6 +51,8 @@ fails with `INVALID_TRANSITION`.
 | `answerQuestions`    | Records answers to clarification questions; analyses again once no blocking question is open   |
 | `approvePlan`        | Approves the plan awaiting approval (optionally only if its hash matches the reviewed one)     |
 | `rejectPlan`         | Rejects the plan with feedback; plans again with the previous plan and the feedback            |
+| `approveTests`       | Test mode: approves the written tests (optionally only if their hash matches), then runs them  |
+| `rejectTests`        | Test mode: restores the files and writes the tests again with the feedback                     |
 | `resumeRun`          | Continues an interrupted run from its current step; budgets, model and provider can be changed |
 | `cancelRun`          | Cancels an unfinished run and writes its report                                                |
 | `getRun`             | Reads a run and its outcome without changing it                                                |

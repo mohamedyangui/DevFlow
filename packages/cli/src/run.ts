@@ -132,8 +132,8 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         )
         .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)")
         .addOption(
-          new Option("--mode <mode>", "workflow mode")
-            .choices(["assist", "test", "implement", "review"])
+          new Option("--mode <mode>", "workflow mode (devflow test runs test mode)")
+            .choices(["assist", "implement", "review"])
             .default("assist"),
         ),
     ).action(async (options: RawModelOptions & { task: string; mode: string }) => {
@@ -142,31 +142,62 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         {
           ...modelOptions(options),
           task: options.task,
-          mode: options.mode as "assist" | "test" | "implement" | "review",
+          mode: options.mode as "assist" | "implement" | "review",
         },
         io,
       );
     });
   }
 
-  program
-    .command("approve")
-    .description("approve the plan a run is waiting on")
-    .argument("<run>", "run id")
-    .option("--plan-sha <sha256>", "approve only if the plan still has this hash")
-    .option("--json", "print a machine-readable result")
-    .action(async (run: string, options: { planSha?: string; json?: boolean }) => {
+  withAllowOption(
+    withModelOptions(
+      program
+        .command("test")
+        .description(
+          "write tests for a task's acceptance criteria and run them against the current code (test mode)",
+        )
+        .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)"),
+    ),
+  ).action(async (options: RawModelOptions & { task: string; allow: string[] }) => {
+    exitCode = await startCommand(
+      "test",
+      { ...modelOptions(options), task: options.task, mode: "test", allow: options.allow },
+      io,
+    );
+  });
+
+  withAllowOption(
+    program
+      .command("approve")
+      .description("approve the plan or the tests a run is waiting on")
+      .argument("<run>", "run id")
+      .option("--plan-sha <sha256>", "approve only if the plan still has this hash")
+      .option("--tests-sha <sha256>", "approve only if the written tests still have this hash")
+      .option("--json", "print a machine-readable result"),
+  ).action(
+    async (
+      run: string,
+      options: { planSha?: string; testsSha?: string; allow: string[]; json?: boolean },
+    ) => {
       exitCode = await approveCommand(
         run,
-        { planSha: options.planSha, json: options.json === true },
+        {
+          planSha: options.planSha,
+          testsSha: options.testsSha,
+          allow: options.allow,
+          json: options.json === true,
+        },
         io,
       );
-    });
+    },
+  );
 
   withModelOptions(
     program
       .command("reject")
-      .description("reject the plan with feedback; DevFlow plans again")
+      .description(
+        "reject the plan or the tests with feedback; DevFlow plans or writes the tests again",
+      )
       .argument("<run>", "run id")
       .option("--feedback <text>", "what to change")
       .option("--feedback-file <file>", "read the feedback from a file"),
@@ -207,13 +238,17 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
     );
   });
 
-  withModelOptions(
-    program
-      .command("resume")
-      .description("continue an interrupted run; limits, model and provider can be changed")
-      .argument("<run>", "run id"),
-  ).action(async (run: string, options: RawModelOptions) => {
-    exitCode = await resumeCommand(run, modelOptions(options), io);
+  withAllowOption(
+    withModelOptions(
+      program
+        .command("resume")
+        .description(
+          "continue an interrupted run; limits, model, provider and command approvals can be given",
+        )
+        .argument("<run>", "run id"),
+    ),
+  ).action(async (run: string, options: RawModelOptions & { allow: string[] }) => {
+    exitCode = await resumeCommand(run, { ...modelOptions(options), allow: options.allow }, io);
   });
 
   program
@@ -280,6 +315,15 @@ function withModelOptions(command: Command): Command {
     .option("--max-output-tokens <n>", "output token budget of the run", positiveInteger)
     .option("--max-calls-per-step <n>", "model call budget of each step", positiveInteger)
     .option("--json", "print a machine-readable result");
+}
+
+function withAllowOption(command: Command): Command {
+  return command.option(
+    "--allow <fingerprint>",
+    "approve the command with this fingerprint for this invocation, after reviewing it (repeatable)",
+    fingerprints,
+    [],
+  );
 }
 
 function modelOptions(options: RawModelOptions): ModelOptions {

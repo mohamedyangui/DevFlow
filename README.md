@@ -106,6 +106,21 @@ devflow report <run id>
 the report's verdict is `not_verified`. Every command is described in the
 [CLI specification](docs/specs/cli.md).
 
+### Write tests and record the red baseline (test mode)
+
+```bash
+devflow trust                                  # test commands run only in a trusted workspace
+devflow test --task tasks/TASK-142.yaml --model <model id>
+devflow approve <run id>                       # the plan
+devflow approve <run id>                       # the test files, after reviewing them
+devflow report <run id>
+```
+
+The model writes test files only; they run after you approve them, once, against the current
+code. The report shows for each acceptance criterion whether its tests failed as a feature test
+should before the change, or passed as a regression test should. Nothing is implemented, so no
+criterion is verified yet.
+
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)

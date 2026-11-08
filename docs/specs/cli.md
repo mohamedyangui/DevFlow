@@ -22,21 +22,23 @@ node packages/cli/dist/bin.js --help
 
 ## 2. Exit codes
 
-| Code | Meaning                                                                        |
-| ---- | ------------------------------------------------------------------------------ |
-| 0    | Success                                                                        |
-| 1    | The command ran and the result is negative (e.g. the task is invalid)          |
-| 2    | Usage error: unknown command or option, missing argument, unusable input file  |
-| 3    | The run is waiting for a person: plan approval or clarification answers        |
-| 4    | A token or call budget was reached; `devflow resume` with a higher limit       |
-| 5    | Denied by policy: a required command was not allowed to run (`devflow verify`) |
-| 70   | Internal error (a bug in DevFlow)                                              |
-| 130  | Interrupted by Ctrl+C; `devflow resume` continues the run                      |
+| Code | Meaning                                                                       |
+| ---- | ----------------------------------------------------------------------------- |
+| 0    | Success                                                                       |
+| 1    | The command ran and the result is negative (e.g. the task is invalid)         |
+| 2    | Usage error: unknown command or option, missing argument, unusable input file |
+| 3    | The run is waiting for a person: plan or test approval, clarification answers |
+| 4    | A token or call budget was reached; `devflow resume` with a higher limit      |
+| 5    | Denied by policy: a required command was not allowed to run                   |
+| 70   | Internal error (a bug in DevFlow)                                             |
+| 130  | Interrupted by Ctrl+C; `devflow resume` continues the run                     |
 
 For workflow commands, 1 also means a failed run (for example `PLAN_INVALID`), a run
 interrupted by a provider failure (resumable), or a locked or corrupt run. For
-`devflow verify`, 5 means the workspace is not trusted, or a command was not approved or was
-rejected: nothing negative is known about the code.
+`devflow verify`, and for a test-mode run that stops before its tests run
+(`COMMAND_NOT_APPROVED`, resumable), 5 means the workspace is not trusted, a command was not
+approved or was rejected, or the policy refused it (for example because the project's
+dependencies are not installed): nothing negative is known about the code.
 
 ## 3. Implemented commands
 
@@ -241,16 +243,17 @@ Result: PASSED (1 of 1 gate passed)
 Only the workspace path and the fingerprints were changed (real fingerprints have 64
 hexadecimal characters).
 
-### Assist workflow
+### Assist and test workflows
 
 ```text
 devflow init [--json]
 devflow analyze --task <file> [model options]
 devflow plan    --task <file> [model options]
-devflow approve <run> [--plan-sha <sha256>] [--json]
+devflow test    --task <file> [model options] [--allow <fingerprint> ...]
+devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256>] [--allow <fingerprint> ...] [--json]
 devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
 devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
-devflow resume  <run> [model options]
+devflow resume  <run> [model options] [--allow <fingerprint> ...]
 devflow cancel  <run> [--reason <text>] [--json]
 devflow status  [run] [--json]
 devflow report  <run> [--json]
@@ -276,8 +279,33 @@ acceptance criterion is reported as passed.
   the same ids, or DevFlow adds one, so the run waits for clarification; the report shows each
   contradiction with the answer that resolved it. **`plan`** continues with an implementation plan, checked deterministically (paths,
   scope, protected files, acceptance-criterion coverage), and waits for approval unless the
-  trusted configuration sets `workflow.requirePlanApproval: false`. `--mode` accepts `assist`
-  only for now; other modes fail with `WORKFLOW_MODE_NOT_IMPLEMENTED` (exit 2).
+  trusted configuration sets `workflow.requirePlanApproval: false`. `--mode` accepts `assist`;
+  `implement` and `review` fail with `WORKFLOW_MODE_NOT_IMPLEMENTED` (exit 2), and test mode
+  runs only through `devflow test`.
+- **`test`** runs test mode ([ADR 0015](../adr/0015-test-intent-and-red-green.md)): analysis
+  and plan as above, then the model writes tests for the automated acceptance criteria. The
+  tests are checked before anything is written: test files only, inside a module's test roots
+  (never production code), writable by the path guard, a new file must not exist, each search
+  and replace edit must match exactly once, and every test carries its criterion's marker
+  (`AC-1: ...` in the title, or a method named `ac1_...`). A design that fails a check gets one
+  revision, then the run fails with `TEST_DESIGN_INVALID`. The files are written, recorded with
+  their hashes in `artifacts/test-files.json`, and the run **waits for a person to approve the
+  tests** (exit 3, `artifacts/test-design.md`): model-written code runs with the user's
+  privileges, so it never runs unreviewed. `approve` then runs the test gate of each affected
+  module once, against the current code, through the command policy (trust, then approval on
+  the terminal, an earlier "always", or `--allow`). A command that is not allowed stops the run
+  (exit 5, resumable with `resume --allow <fingerprint>` or after `devflow trust`). The results
+  become red/green evidence per criterion (`artifacts/test-evidence.json`) and deterministic
+  findings (a feature test that already passes, a regression test that fails, a test that did
+  not run, a criterion without a test). No production code changes, so no criterion is
+  verified and the verdict is `not_verified`; the report lists the evidence, the gates, the
+  findings and the test files.
+- **`approve`** approves whatever the run waits for: the plan (`--plan-sha`) or the tests
+  (`--tests-sha`, the approval hash in `test-design.md`). A test file changed after DevFlow
+  wrote it cannot be approved (`TEST_FILES_CHANGED`). **`reject`** of the tests restores the
+  files as they were before the run (never overwriting a file someone changed) and writes the
+  tests again with the feedback. Cancelling a run leaves the files; the report lists the
+  unapproved test files to review or remove.
 - **Model selection.** There is no default model. The model comes from `--model`, then from
   `ai.models` of a **trusted** configuration, then from `DEVFLOW_MODEL`; the provider from
   `--provider`, the trusted configuration, `DEVFLOW_PROVIDER`, or `anthropic`. The Anthropic
@@ -299,8 +327,9 @@ acceptance criterion is reported as passed.
   warnings and next step. **`report`** prints `report.md` (or `report.json` with `--json`) of a
   finished run, and exits 1 for a run that has not finished.
 - Progress lines are written to stderr; with `--json`, stdout holds one JSON document:
-  the outcome `{ runId, state, status, waitingFor?, questions?, error?, runDir, planPath?,
-reportPath?, exitCode }`, or `{ error: { code, message } }`.
+  the outcome `{ runId, mode, state, status, waitingFor?, questions?, error?, runDir,
+planPath?, testsPath?, testFiles?, denials?, reportPath?, exitCode }`, or
+  `{ error: { code, message } }`.
 - Ctrl+C stops the run after saving its state (exit 130); `devflow resume` continues it. A
   second Ctrl+C ends the process at once.
 
@@ -324,14 +353,16 @@ $ echo $?
 
 ## 4. Planned commands
 
-| Command                                                 | Phase | Purpose                                            |
-| ------------------------------------------------------- | ----- | -------------------------------------------------- |
-| `devflow test --task <file>`                            | 4     | Generate and run tests for the acceptance criteria |
-| `devflow implement --task <file>` / `run --task <file>` | 4     | Full workflow                                      |
-| `devflow review`                                        | 4     | Review a local diff                                |
-| `devflow run --issue <n>`, `review --pr <n>`            | 5     | GitHub sources                                     |
+| Command                                                 | Phase | Purpose             |
+| ------------------------------------------------------- | ----- | ------------------- |
+| `devflow implement --task <file>` / `run --task <file>` | 4     | Full workflow       |
+| `devflow review`                                        | 4     | Review a local diff |
+| `devflow run --issue <n>`, `review --pr <n>`            | 5     | GitHub sources      |
 
-Module detection by `devflow init` waits for the Phase 3 adapters. Workflow commands accept
-`--mode assist|test|implement|review`; only `assist` is implemented. The functions exported by
-`@devflow/workflow` (`startRun`, `approvePlan`, `rejectPlan`, `answerQuestions`, `resumeRun`,
-`cancelRun`, `getRun`, `listRuns`) expose the same operations programmatically.
+Module detection by `devflow init` waits for the Phase 3 adapters. `analyze` and `plan`
+accept `--mode assist|implement|review`; only `assist` is implemented, and test mode has its
+own command. The functions exported by `@devflow/workflow` (`startRun`, `approvePlan`,
+`rejectPlan`, `approveTests`, `rejectTests`, `answerQuestions`, `resumeRun`, `cancelRun`,
+`getRun`, `listRuns`) expose the same operations programmatically; test mode needs a
+`testRunner` in the services, which supplies the modules and runs gates through the command
+policy.

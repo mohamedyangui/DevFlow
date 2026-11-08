@@ -16,6 +16,7 @@ import {
 } from "@devflow/core";
 import type { ProgressEvent, WorkflowServices } from "@devflow/workflow";
 import type { CliIo, Interruption } from "./io.js";
+import { testRunnerFactory } from "./test-runner.js";
 import { readCliVersion } from "./version.js";
 
 /** The workspace a workflow command runs in: the current directory (run it from the root). */
@@ -81,6 +82,12 @@ export interface ServiceOptions {
   readonly cassette?: string | undefined;
   readonly onProgress?: (event: ProgressEvent) => void;
   readonly interruption?: Interruption | undefined;
+  /** Command fingerprints approved for this invocation (`--allow`), for test mode. */
+  readonly allow?: readonly string[] | undefined;
+  /** Ask on the terminal before running a command that is not approved yet. */
+  readonly interactiveApproval?: boolean | undefined;
+  /** Reports each verification gate as it starts. */
+  readonly onGate?: ((gateId: string, commandId: string | undefined) => void) | undefined;
 }
 
 export function workflowServices(
@@ -113,6 +120,11 @@ export function workflowServices(
     trusted: workspace.trusted,
     devflowVersion: readCliVersion(),
     provider,
+    testRunner: testRunnerFactory(workspace, io, {
+      allow: options.allow ?? [],
+      interactive: options.interactiveApproval === true,
+      onGate: options.onGate,
+    }),
     ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
     ...(options.interruption === undefined ? {} : { signal: options.interruption.signal }),
   };

@@ -8,7 +8,14 @@ export const DEFAULT_PROVIDER = "anthropic";
 /** The default of `ai.budgets.maxCostUsdPerRun`. */
 export const DEFAULT_MAX_COST_USD = 5;
 
-export const DEFAULT_MAX_OUTPUT_TOKENS = Object.freeze({ analysis: 8_000, planning: 16_000 });
+/** Output token limit of a test-design call: it writes whole test files. */
+export const DEFAULT_TEST_DESIGN_OUTPUT_TOKENS = 32_000;
+
+export const DEFAULT_MAX_OUTPUT_TOKENS = Object.freeze({
+  analysis: 8_000,
+  planning: 16_000,
+  testDesign: DEFAULT_TEST_DESIGN_OUTPUT_TOKENS,
+});
 
 /** Command-line choices; they win over configuration and environment. */
 export interface SettingsOverrides {
