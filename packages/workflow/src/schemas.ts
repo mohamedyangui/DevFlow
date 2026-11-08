@@ -1,5 +1,8 @@
 import {
   ClarificationQuestion,
+  Contradiction,
+  Dependency,
+  EdgeCase,
   IsoDateTime,
   RepoPath,
   Risk,
@@ -177,6 +180,10 @@ export const RequirementsAnalysis = z.strictObject({
   questions: z.array(ClarificationQuestion),
   assumptions: z.array(z.string()),
   risks: z.array(Risk),
+  /** Absent in analyses written before Phase 4. */
+  edgeCases: z.array(EdgeCase).default([]),
+  contradictions: z.array(Contradiction).default([]),
+  dependencies: z.array(Dependency).default([]),
   affectedFiles: z.array(z.strictObject({ path: RepoPath, reason: z.string().min(1) })),
   /** What the deterministic checks changed or dropped in the model's answer. */
   checks: z.array(z.string()),
@@ -260,6 +267,27 @@ export const AnalysisWire = z.strictObject({
   questions: z.array(WireQuestion),
   assumptions: z.array(z.string()),
   risks: z.array(WireRisk),
+  edgeCases: z.array(
+    z.strictObject({
+      description: z.string().min(1),
+      relatedIds: z.array(z.string()),
+      coveredBy: z.array(z.string()),
+    }),
+  ),
+  contradictions: z.array(
+    z.strictObject({
+      ids: z.array(z.string()),
+      description: z.string().min(1),
+      question: z.string().min(1),
+    }),
+  ),
+  dependencies: z.array(
+    z.strictObject({
+      kind: z.enum(["requirement", "module", "external", "data"]),
+      description: z.string().min(1),
+      relatedIds: z.array(z.string()),
+    }),
+  ),
   affectedFiles: z.array(z.strictObject({ path: z.string().min(1), reason: z.string().min(1) })),
 });
 export type AnalysisWire = z.infer<typeof AnalysisWire>;

@@ -353,6 +353,50 @@ describe("assist mode: clarification", () => {
     );
   });
 
+  it("asks a person to resolve a contradiction and reports the resolution", async () => {
+    const root = await workspace();
+    const conflict = {
+      ids: ["FR-1", "AC-1"],
+      description: "FR-1 allows any page size but AC-1 fixes it at 10.",
+      question: "Which page sizes are allowed?",
+    };
+    const provider = scripted({
+      analysis: [
+        analysisAnswer({ contradictions: [conflict] }),
+        analysisAnswer({ contradictions: [conflict] }),
+      ],
+    });
+    const { svc, outcome, store } = await start(root, provider);
+    expect(outcome).toMatchObject({ status: "waiting", waitingFor: "clarification" });
+    expect(outcome.questions).toEqual([
+      expect.objectContaining({ id: "Q-1", blocking: true, relatedIds: ["FR-1", "AC-1"] }),
+    ]);
+
+    const next = await answerQuestions(
+      outcome.runId,
+      { by: "mohamed", answers: { "Q-1": "Any size from 1 to 100." } },
+      svc,
+    );
+    // The same contradiction reported again is linked to the answered question.
+    expect(next).toMatchObject({ status: "waiting", waitingFor: "plan-approval" });
+    await approvePlan(outcome.runId, { by: "mohamed" }, svc);
+
+    const report = EngineeringReport.parse(JSON.parse(await store.readText("report.json")));
+    expect(report.analysis?.contradictions).toEqual([
+      {
+        id: "CT-1",
+        ids: ["FR-1", "AC-1"],
+        description: conflict.description,
+        questionId: "Q-1",
+        resolution: "Any size from 1 to 100.",
+      },
+    ]);
+    const registry = Clarifications.parse(
+      JSON.parse(await store.readText("artifacts/clarifications.json")),
+    );
+    expect(registry.questions).toHaveLength(1);
+  });
+
   it("keeps waiting while a blocking question is unanswered", async () => {
     const root = await workspace();
     const provider = scripted({

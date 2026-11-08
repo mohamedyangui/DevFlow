@@ -79,6 +79,9 @@ export {
 export { Finding, Severity } from "./schemas/findings.js";
 export {
   ClarificationQuestion,
+  Contradiction,
+  Dependency,
+  EdgeCase,
   ImplementationPlan,
   PlannedChange,
   Risk,

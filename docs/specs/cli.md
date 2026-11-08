@@ -269,7 +269,12 @@ acceptance criterion is reported as passed.
   when they do not exist, and adds `.devflow/runs/` to `.gitignore`. Existing files are never
   overwritten. The configuration is untrusted until `devflow trust`.
 - **`analyze`** loads the context and analyses the requirements; it completes after the
-  analysis. **`plan`** continues with an implementation plan, checked deterministically (paths,
+  analysis. The analysis lists edge cases (with the acceptance criteria that cover them),
+  contradictions between requirements, criteria and constraints, and dependencies on other
+  requirements, modules, external systems and data. Ids the task does not define are removed.
+  Every contradiction is resolved by a person: it is linked to an open blocking question about
+  the same ids, or DevFlow adds one, so the run waits for clarification; the report shows each
+  contradiction with the answer that resolved it. **`plan`** continues with an implementation plan, checked deterministically (paths,
   scope, protected files, acceptance-criterion coverage), and waits for approval unless the
   trusted configuration sets `workflow.requirePlanApproval: false`. `--mode` accepts `assist`
   only for now; other modes fail with `WORKFLOW_MODE_NOT_IMPLEMENTED` (exit 2).

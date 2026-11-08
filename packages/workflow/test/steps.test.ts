@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   AnalysisWire,
   PlanWire,
+  RequirementsAnalysis,
   type RunRecord,
   analysisPrompt,
   buildReport,
@@ -88,6 +89,173 @@ describe("analysis checks", () => {
     expect(analysis.requirementNotes.map((note) => note.id)).toEqual(["FR-1"]);
     expect(analysis.affectedFiles.map((file) => file.path)).toEqual(["src/orders.ts"]);
     expect(analysis.checks).toHaveLength(5);
+  });
+
+  const conflict = {
+    ids: ["FR-1", "AC-1", "FR-9"],
+    description: "FR-1 allows any page size but AC-1 fixes it at 10.",
+    question: "Which page sizes are allowed?",
+  };
+
+  it("assigns ids to edge cases and dependencies and drops unknown ids", async () => {
+    const { pack, task: contract } = await setup();
+    const wire = AnalysisWire.parse(
+      JSON.parse(
+        analysisAnswer({
+          edgeCases: [
+            { description: "A page past the end.", relatedIds: ["FR-1"], coveredBy: [] },
+            {
+              description: "Page 2 of 25 orders.",
+              relatedIds: ["AC-1", "NOPE"],
+              coveredBy: ["AC-1", "FR-1"],
+            },
+          ],
+          dependencies: [
+            { kind: "module", description: "src/orders.ts defines Order.", relatedIds: ["FR-1"] },
+            { kind: "external", description: "The order database.", relatedIds: ["X-1"] },
+          ],
+        }),
+      ),
+    );
+    const { analysis, newQuestions } = checkAnalysis({
+      wire,
+      task: contract,
+      pack,
+      iteration: 1,
+      previous: [],
+      taskIssues: [],
+    });
+    expect(analysis.edgeCases).toEqual([
+      { id: "EC-1", description: "A page past the end.", relatedIds: ["FR-1"], coveredBy: [] },
+      // coveredBy keeps acceptance criteria only.
+      {
+        id: "EC-2",
+        description: "Page 2 of 25 orders.",
+        relatedIds: ["AC-1"],
+        coveredBy: ["AC-1"],
+      },
+    ]);
+    expect(analysis.dependencies).toEqual([
+      {
+        id: "DEP-1",
+        kind: "module",
+        description: "src/orders.ts defines Order.",
+        relatedIds: ["FR-1"],
+      },
+      { id: "DEP-2", kind: "external", description: "The order database.", relatedIds: [] },
+    ]);
+    expect(analysis.contradictions).toEqual([]);
+    expect(newQuestions).toEqual([]);
+    // The default answer also has a note and a file the checks drop.
+    expect(analysis.checks.filter((check) => /^(EC|DEP)-/.test(check))).toEqual([
+      "EC-2: removed unknown ids",
+      "EC-2 coveredBy: removed unknown ids",
+      "DEP-2: removed unknown ids",
+    ]);
+  });
+
+  it("turns a contradiction into a blocking question for a person", async () => {
+    const { pack, task: contract } = await setup();
+    const wire = AnalysisWire.parse(
+      JSON.parse(
+        analysisAnswer({
+          contradictions: [
+            conflict,
+            { ids: ["NFR-3"], description: "Names nothing known.", question: "?" },
+          ],
+        }),
+      ),
+    );
+    const { analysis, newQuestions } = checkAnalysis({
+      wire,
+      task: contract,
+      pack,
+      iteration: 1,
+      previous: [],
+      taskIssues: [],
+    });
+    expect(newQuestions).toEqual([
+      {
+        id: "Q-1",
+        question:
+          "FR-1 and AC-1 conflict: FR-1 allows any page size but AC-1 fixes it at 10. " +
+          "Which page sizes are allowed?",
+        blocking: true,
+        relatedIds: ["FR-1", "AC-1"],
+        askedInIteration: 1,
+        answer: null,
+      },
+    ]);
+    expect(analysis.contradictions).toEqual([
+      {
+        id: "CT-1",
+        ids: ["FR-1", "AC-1"],
+        description: "FR-1 allows any page size but AC-1 fixes it at 10.",
+        questionId: "Q-1",
+      },
+    ]);
+    expect(analysis.questions.map((question) => question.id)).toEqual(["Q-1"]);
+    expect(analysis.checks).toEqual(
+      expect.arrayContaining([
+        "CT-1: removed unknown ids",
+        "CT-1: added blocking question Q-1 so that a person resolves it",
+        'dropped a contradiction that names no id of the task: "Names nothing known."',
+      ]),
+    );
+  });
+
+  it("links a contradiction to a blocking question already asked about the same ids", async () => {
+    const { pack, task: contract } = await setup();
+    const wire = AnalysisWire.parse(JSON.parse(analysisAnswer({ contradictions: [conflict] })));
+    const { analysis, newQuestions } = checkAnalysis({
+      wire,
+      task: contract,
+      pack,
+      iteration: 2,
+      previous: [
+        {
+          id: "Q-1",
+          question: "Is the page size fixed?",
+          blocking: false,
+          relatedIds: ["FR-1", "AC-1"],
+          askedInIteration: 1,
+          answer: null,
+        },
+        {
+          id: "Q-2",
+          question: "Which page sizes are allowed?",
+          blocking: true,
+          relatedIds: ["AC-1", "FR-1", "AC-2"],
+          askedInIteration: 1,
+          answer: {
+            text: "Any size from 1 to 100.",
+            by: "mohamed",
+            at: "2026-11-07T10:00:00.000Z",
+          },
+        },
+      ],
+      taskIssues: [],
+    });
+    // A non-blocking question does not resolve a contradiction; the blocking one does.
+    expect(newQuestions).toEqual([]);
+    expect(analysis.contradictions[0]?.questionId).toBe("Q-2");
+  });
+
+  it("reads analyses written before edge cases, contradictions and dependencies", () => {
+    const parsed = RequirementsAnalysis.parse({
+      schemaVersion: 1,
+      taskId: "TASK-7",
+      iteration: 1,
+      summary: "s",
+      taskIssues: [],
+      requirementNotes: [],
+      questions: [],
+      assumptions: [],
+      risks: [],
+      affectedFiles: [],
+      checks: [],
+    });
+    expect(parsed).toMatchObject({ edgeCases: [], contradictions: [], dependencies: [] });
   });
 });
 
@@ -202,6 +370,9 @@ describe("prompts", () => {
         questions: [],
         assumptions: [],
         risks: [],
+        edgeCases: [],
+        contradictions: [],
+        dependencies: [],
         affectedFiles: [],
         checks: [],
       },
@@ -216,6 +387,14 @@ describe("prompts", () => {
       ],
     });
     expect(prompt.user).toContain("changes[0].path: src/x.ts does not exist");
+  });
+
+  it("asks for edge cases, contradictions and dependencies", async () => {
+    const { pack } = await setup();
+    const prompt = analysisPrompt({ task: task(), pack, clarifications: [], taskIssues: [] });
+    expect(prompt.system).toContain("Edge cases:");
+    expect(prompt.system).toContain("Contradictions:");
+    expect(prompt.system).toContain("Dependencies:");
   });
 });
 
@@ -264,6 +443,81 @@ describe("report", () => {
     expect(usage({ ...base, costUsd: 0.12 })).toEqual({ ...omitSteps(base), costUsd: 0.12 });
     expect(usage({ ...base, costUsd: 0.12, unpricedCalls: 1 })).toEqual(omitSteps(base));
     expect(usage({ ...base, unpricedCalls: 2 })).toEqual(omitSteps(base));
+  });
+
+  it("reports edge cases, contradictions with their resolution, and dependencies", async () => {
+    const { pack, task: contract } = await setup();
+    const { analysis } = checkAnalysis({
+      wire: AnalysisWire.parse(
+        JSON.parse(
+          analysisAnswer({
+            edgeCases: [
+              { description: "A page past the end.", relatedIds: ["FR-1"], coveredBy: [] },
+              { description: "Page 2 of 25.", relatedIds: [], coveredBy: ["AC-1"] },
+            ],
+            contradictions: [
+              { ids: ["FR-1", "AC-1"], description: "Sizes <differ>.", question: "Which?" },
+              { ids: ["AC-2"], description: "UI check conflicts.", question: "Keep it?" },
+            ],
+            dependencies: [{ kind: "data", description: "Order history.", relatedIds: [] }],
+          }),
+        ),
+      ),
+      task: contract,
+      pack,
+      iteration: 1,
+      previous: [],
+      taskIssues: [],
+    });
+    const clarifications = {
+      schemaVersion: 1 as const,
+      questions: [
+        {
+          id: "Q-1",
+          question: "Which?",
+          blocking: true,
+          relatedIds: ["FR-1", "AC-1"],
+          askedInIteration: 1,
+          answer: { text: "Any size.", by: "mohamed", at: "2026-11-07T10:01:00.000Z" },
+        },
+        {
+          id: "Q-2",
+          question: "Keep it?",
+          blocking: true,
+          relatedIds: ["AC-2"],
+          askedInIteration: 1,
+          answer: null,
+        },
+      ],
+    };
+    const report = buildReport({
+      record: record("COMPLETED"),
+      task: contract,
+      analysis,
+      clarifications,
+    });
+    expect(EngineeringReport.parse(report).analysis?.contradictions).toEqual([
+      expect.objectContaining({ id: "CT-1", questionId: "Q-1", resolution: "Any size." }),
+      expect.objectContaining({ id: "CT-2", questionId: "Q-2", resolution: null }),
+    ]);
+    const markdown = renderReportMarkdown(report);
+    expect(markdown).toContain(
+      "- EC-1 (FR-1): A page past the end. Not covered by any acceptance criterion.",
+    );
+    expect(markdown).toContain("- EC-2: Page 2 of 25. Covered by AC-1.");
+    expect(markdown).toContain(
+      "- CT-1 between FR-1, AC-1: Sizes &lt;differ&gt;. Resolved by the answer to Q-1: Any size.",
+    );
+    expect(markdown).toContain("Unresolved: question Q-2 is not answered.");
+    expect(markdown).toContain("- DEP-1 data: Order history.");
+
+    // Nothing found, no section.
+    const empty = buildReport({
+      record: record("COMPLETED"),
+      task: contract,
+      analysis: { ...analysis, edgeCases: [], contradictions: [], dependencies: [] },
+    });
+    expect(empty.analysis).toBeUndefined();
   });
 
   it("neutralizes HTML from model text", async () => {

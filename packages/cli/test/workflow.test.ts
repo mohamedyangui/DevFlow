@@ -121,6 +121,9 @@ function analysis(questions: Question[] = []): string {
     questions,
     assumptions: ["Pages are numbered from 1."],
     risks: [],
+    edgeCases: [],
+    contradictions: [],
+    dependencies: [],
     affectedFiles: [{ path: "src/orders.ts", reason: "Defines listOrders." }],
   });
 }
