@@ -176,6 +176,39 @@ describe("structural validation", () => {
     });
     expect(decision).toMatchObject({ allowed: false, reason: "executable-rejected" });
   });
+
+  it("rejects a node script that is missing, outside the workspace or not a relative path", async () => {
+    const cases: [string[], string][] = [
+      [["node_modules/vitest/vitest.mjs", "run"], "install the project's dependencies first"],
+      [["../outside.mjs"], "outside the workspace"],
+      [["scripts\\test.mjs"], "relative path with forward slashes"],
+      [["/abs/test.mjs"], "relative path with forward slashes"],
+      [["--max-old-space-size=64", "scripts"], "is not a file"],
+    ];
+    for (const [args, message] of cases) {
+      const decision = await policy().evaluate({ spec: spec({ args, parameters: [] }) });
+      expect(decision, args.join(" ")).toMatchObject({
+        allowed: false,
+        reason: "executable-rejected",
+        message: expect.stringContaining(message) as unknown,
+      });
+    }
+  });
+
+  it("accepts node without a script, and a script reached from a subdirectory", async () => {
+    await trust.trustWorkspace(guard.root, CONFIG, "dev");
+    const approver = () => Promise.resolve<CommandApprovalAnswer>("approve-once");
+    const version = await policy({ approver }).evaluate({
+      spec: spec({ args: ["--version"], parameters: [] }),
+    });
+    expect(version.allowed && version.command.bindings).toEqual([]);
+    const nested = await policy({ approver }).evaluate({
+      spec: spec({ cwd: "scripts", args: ["../scripts/test.mjs"], parameters: [] }),
+    });
+    expect(nested.allowed && nested.command.bindings.map((b) => b.path)).toEqual([
+      "scripts/test.mjs",
+    ]);
+  });
 });
 
 describe("trust and approval", () => {
@@ -289,6 +322,22 @@ describe("trust and approval", () => {
 
     await writeFile(path.join(root, "gradle", "wrapper", "gradle-wrapper.jar"), "jar-v2");
     expect(await policy().evaluate({ spec: gradle })).toMatchObject({
+      allowed: false,
+      reason: "approval-required",
+    });
+  });
+
+  it("asks again when the node script changes", async () => {
+    await trust.trustWorkspace(guard.root, CONFIG, "dev");
+    await policy({ approver: () => Promise.resolve("approve-always") }).evaluate({
+      spec: spec(),
+      params: { filter: "a" },
+    });
+    expect(await policy().evaluate({ spec: spec(), params: { filter: "a" } })).toMatchObject({
+      allowed: true,
+    });
+    await writeFile(path.join(root, "scripts", "test.mjs"), "console.log('changed')\n");
+    expect(await policy().evaluate({ spec: spec(), params: { filter: "a" } })).toMatchObject({
       allowed: false,
       reason: "approval-required",
     });
