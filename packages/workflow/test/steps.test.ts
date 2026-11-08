@@ -21,6 +21,11 @@ import {
 } from "../src/index.js";
 import { analysisAnswer, planAnswer, settings, task, workspace } from "./helpers.js";
 
+/** The report's usage summary has no per-step breakdown. */
+function omitSteps(usage: { calls: number; inputTokens: number; outputTokens: number }) {
+  return { calls: usage.calls, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens };
+}
+
 async function setup(contract: TaskContract = task()) {
   const root = await workspace();
   const guard = await PathGuard.create(root);
@@ -244,6 +249,21 @@ describe("report", () => {
     expect(report.acceptanceMatrix.map((row) => row.status)).toEqual(["not_executed", "manual"]);
     const markdown = renderReportMarkdown(report);
     expect(markdown).toContain("no test was executed");
+  });
+
+  it("reports a cost only when every call was priced", async () => {
+    const { guard, pack, task: contract } = await setup();
+    const { plan: checked } = await checkPlan({ wire: plan(), task: contract, pack, guard });
+    const usage = (budgetUsage: RunRecord["budgetUsage"]) =>
+      buildReport({
+        record: { ...record("COMPLETED"), budgetUsage },
+        task: contract,
+        plan: checked,
+      }).usage;
+    const base = { calls: 2, inputTokens: 100, outputTokens: 50, callsByStep: {} };
+    expect(usage({ ...base, costUsd: 0.12 })).toEqual({ ...omitSteps(base), costUsd: 0.12 });
+    expect(usage({ ...base, costUsd: 0.12, unpricedCalls: 1 })).toEqual(omitSteps(base));
+    expect(usage({ ...base, unpricedCalls: 2 })).toEqual(omitSteps(base));
   });
 
   it("neutralizes HTML from model text", async () => {

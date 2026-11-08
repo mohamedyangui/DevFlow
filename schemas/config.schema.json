@@ -96,6 +96,46 @@
           },
           "additionalProperties": false
         },
+        "prices": {
+          "default": {},
+          "description": "Prices by model id, in US dollars per million tokens. Costs and the cost budget are counted only for models listed here.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "inputUsdPerMTok": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "outputUsdPerMTok": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "cachedInputUsdPerMTok": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "cacheWriteUsdPerMTok": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10000
+              }
+            },
+            "required": [
+              "inputUsdPerMTok",
+              "outputUsdPerMTok"
+            ],
+            "additionalProperties": false
+          }
+        },
         "budgets": {
           "default": {
             "maxCostUsdPerRun": 5,

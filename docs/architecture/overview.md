@@ -53,7 +53,7 @@ flowchart LR
 | ----------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `@devflow/core`               | Schemas, domain rules, ports, errors, task loading, security layer, verification engine | Implemented                                                                                |
 | `@devflow/context`            | Discovery, classification, instructions, ranking, packing, contract discovery           | Implemented, with tree-sitter outlines and imports                                         |
-| `@devflow/ai`                 | Model gateway; Anthropic, Fake and Replay providers                                     | Implemented (OpenAI planned)                                                               |
+| `@devflow/ai`                 | Model gateway; Anthropic, OpenAI, Fake and Replay providers; costs                      | Implemented                                                                                |
 | `@devflow/adapter-java`       | Maven, Gradle, Spring Boot, JUnit, Mockito, Checkstyle, SpotBugs                        | Implemented, run against real Maven and Gradle builds                                      |
 | `@devflow/adapter-javascript` | npm, pnpm, Yarn, Bun, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc        | Implemented, run against real npm, Vitest and tsc runs                                     |
 | `@devflow/workflow`           | State machine, steps, run store, reports, SDK entry point                               | Assist workflow implemented; test, implement and review modes planned (Phase 4)            |

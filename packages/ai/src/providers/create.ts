@@ -1,5 +1,6 @@
 import { DevflowError, ErrorCode, type LlmProvider } from "@devflow/core";
 import { AnthropicProvider } from "./anthropic.js";
+import { OpenAiProvider } from "./openai.js";
 import { ReplayProvider } from "./replay.js";
 
 /** Providers that can be selected by name (configuration or `--provider`). */
@@ -28,11 +29,7 @@ export async function createProvider(options: CreateProviderOptions): Promise<Ll
       }
       return ReplayProvider.load(options.cassette);
     case "openai":
-      throw new DevflowError(
-        ErrorCode.LlmProviderNotConfigured,
-        "the openai provider is not implemented yet (planned for Phase 4)",
-        { details: { provider: "openai" } },
-      );
+      return new OpenAiProvider({ ...(options.env === undefined ? {} : { env: options.env }) });
     default:
       throw new DevflowError(
         ErrorCode.LlmProviderNotConfigured,

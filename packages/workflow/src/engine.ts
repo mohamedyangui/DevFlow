@@ -4,6 +4,7 @@ import {
   type LlmExchange,
   LlmGateway,
   type LlmGatewayOptions,
+  PriceTable,
   canonicalJson,
   sha256Hex,
 } from "@devflow/ai";
@@ -222,7 +223,16 @@ export async function resumeRun(
     if (overrides.model !== undefined && overrides.model.trim() !== "") {
       const model = overrides.model.trim();
       changes.push(`model -> ${model}`);
-      record.settings = { ...record.settings, models: { analysis: model, planning: model } };
+      record.settings = {
+        ...record.settings,
+        models: {
+          analysis: model,
+          planning: model,
+          testDesign: model,
+          implementation: model,
+          review: model,
+        },
+      };
     }
     if (overrides.provider !== undefined && overrides.provider.trim() !== "") {
       changes.push(`provider -> ${overrides.provider.trim()}`);
@@ -723,6 +733,7 @@ class Session {
         provider,
         redactor: this.services.redactor,
         budget: this.budget,
+        prices: new PriceTable(this.record.settings.prices ?? {}),
         audit: await this.audit(),
         observer: (exchange) => this.logExchange(exchange),
         ...this.services.gateway,

@@ -14,6 +14,16 @@ import { ModuleId, RepoGlob, RepoPath } from "./primitives.js";
 
 const ModelId = z.string().min(1).max(200);
 
+const UsdPerMTok = z.number().nonnegative().max(10_000);
+
+/** What a model costs, in US dollars per million tokens (no built-in price list, ADR 0010). */
+const ModelPrice = z.strictObject({
+  inputUsdPerMTok: UsdPerMTok,
+  outputUsdPerMTok: UsdPerMTok,
+  cachedInputUsdPerMTok: UsdPerMTok.optional(),
+  cacheWriteUsdPerMTok: UsdPerMTok.optional(),
+});
+
 export const ProjectConfig = z
   .strictObject({
     $schema: z.string().optional(),
@@ -42,6 +52,13 @@ export const ProjectConfig = z
             review: ModelId.optional(),
           })
           .default({}),
+        prices: z
+          .record(ModelId, ModelPrice)
+          .default({})
+          .meta({
+            description:
+              "Prices by model id, in US dollars per million tokens. Costs and the cost budget are counted only for models listed here.",
+          }),
         budgets: z
           .strictObject({
             maxCostUsdPerRun: z.number().positive().max(1000).default(5),

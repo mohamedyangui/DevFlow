@@ -35,13 +35,35 @@ export const RunBudgets = z.strictObject({
   maxInputTokens: z.int().positive(),
   maxOutputTokens: z.int().positive(),
   maxCallsPerStep: z.int().positive(),
+  /** Counts only calls to models with a price (`prices`). Absent in runs before Phase 4. */
+  maxCostUsd: z.number().positive().optional(),
 });
+
+/** US dollars per million tokens, by model id. */
+export const RunPrices = z.record(
+  z.string().min(1),
+  z.strictObject({
+    inputUsdPerMTok: z.number().nonnegative(),
+    outputUsdPerMTok: z.number().nonnegative(),
+    cachedInputUsdPerMTok: z.number().nonnegative().optional(),
+    cacheWriteUsdPerMTok: z.number().nonnegative().optional(),
+  }),
+);
+export type RunPrices = z.infer<typeof RunPrices>;
 export type RunBudgets = z.infer<typeof RunBudgets>;
 
 /** The effective settings of a run, fixed when it starts; `resume` can raise budgets. */
 export const RunSettings = z.strictObject({
   provider: z.string().min(1),
-  models: z.strictObject({ analysis: z.string().min(1), planning: z.string().min(1) }),
+  /** The model of each step. The Phase 4 steps are absent in runs created before them. */
+  models: z.strictObject({
+    analysis: z.string().min(1),
+    planning: z.string().min(1),
+    testDesign: z.string().min(1).optional(),
+    implementation: z.string().min(1).optional(),
+    review: z.string().min(1).optional(),
+  }),
+  prices: RunPrices.optional(),
   requirePlanApproval: z.boolean(),
   budgets: RunBudgets,
   contextBudgetTokens: z.int().positive(),
@@ -73,6 +95,8 @@ export const BudgetUsageRecord = z.strictObject({
   inputTokens: z.int().nonnegative(),
   outputTokens: z.int().nonnegative(),
   callsByStep: z.record(z.string(), z.int().nonnegative()),
+  costUsd: z.number().nonnegative().optional(),
+  unpricedCalls: z.int().nonnegative().optional(),
 });
 
 /** `run.json`: the run's current state. */

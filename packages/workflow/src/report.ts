@@ -94,6 +94,12 @@ export function buildReport(input: ReportInput): EngineeringReport {
       calls: record.budgetUsage.calls,
       inputTokens: record.budgetUsage.inputTokens,
       outputTokens: record.budgetUsage.outputTokens,
+      // A cost is reported only when every call was priced; a partial sum would understate it.
+      ...(record.budgetUsage.calls > 0 &&
+      (record.budgetUsage.unpricedCalls ?? 0) === 0 &&
+      record.budgetUsage.costUsd !== undefined
+        ? { costUsd: record.budgetUsage.costUsd }
+        : {}),
     },
   });
 }

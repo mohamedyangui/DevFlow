@@ -11,6 +11,7 @@ import {
 } from "@devflow/core";
 import type { z } from "zod";
 import type { BudgetTracker } from "./budget.js";
+import type { PriceTable } from "./prices.js";
 import { canonicalJson, requestFingerprint } from "./hash.js";
 import { LlmProviderError } from "./provider-error.js";
 import { describeIssues, extractJson, jsonSchemaFor } from "./structured.js";
@@ -48,6 +49,8 @@ export interface LlmGatewayOptions {
   readonly provider: LlmProvider;
   readonly redactor: SecretRedactor;
   readonly budget: BudgetTracker;
+  /** Prices for cost budgets and audit records. Without one, costs are unknown (null). */
+  readonly prices?: PriceTable;
   /** Receives llm-call and redaction entries. */
   readonly audit?: AuditLog;
   readonly retry?: Partial<RetryOptions>;
@@ -233,9 +236,13 @@ export class LlmGateway {
     purpose: "initial" | "repair",
   ): Promise<{ value: LlmResponse; fingerprint: string }> {
     const fingerprint = requestFingerprint(request);
-    this.options.budget.check(call.step, {
+    const estimate = {
       inputTokens: estimateInputTokens(request),
       outputTokens: request.maxOutputTokens,
+    };
+    this.options.budget.check(call.step, {
+      ...estimate,
+      costUsd: this.options.prices?.cost(estimate, request.model),
     });
 
     const signal = call.signal ?? new AbortController().signal;
@@ -243,7 +250,7 @@ export class LlmGateway {
       throwIfCancelled(signal);
       try {
         const response = await this.attempt(request, signal);
-        this.options.budget.record(call.step, response.usage);
+        this.options.budget.record(call.step, response.usage, this.costOf(request, response));
         await this.observe({ call, purpose, attempt, fingerprint, request, response });
         await this.auditCall(call, request, fingerprint, response, auditOutcome(response));
         return { value: response, fingerprint };
@@ -371,9 +378,14 @@ export class LlmGateway {
       files: [...call.files],
       inputTokens: response?.usage.inputTokens ?? 0,
       outputTokens: response?.usage.outputTokens ?? 0,
-      costUsd: null,
+      costUsd: response === undefined ? null : (this.costOf(request, response) ?? null),
       outcome,
     });
+  }
+
+  /** The cost of a call, priced by the served model, else the requested one. */
+  private costOf(request: LlmRequest, response: LlmResponse): number | undefined {
+    return this.options.prices?.cost(response.usage, response.model, request.model);
   }
 
   private async observe<T>(input: {

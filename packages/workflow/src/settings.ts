@@ -5,6 +5,9 @@ import type { RunBudgets, RunSettings } from "./schemas.js";
 
 export const DEFAULT_PROVIDER = "anthropic";
 
+/** The default of `ai.budgets.maxCostUsdPerRun`. */
+export const DEFAULT_MAX_COST_USD = 5;
+
 export const DEFAULT_MAX_OUTPUT_TOKENS = Object.freeze({ analysis: 8_000, planning: 16_000 });
 
 /** Command-line choices; they win over configuration and environment. */
@@ -58,10 +61,14 @@ export function resolveRunSettings(input: ResolveSettingsInput): {
     DEFAULT_PROVIDER;
   const fallbackModel = nonEmpty(overrides.model) ?? undefined;
   const envModel = nonEmpty(input.env.DEVFLOW_MODEL);
-  const analysis =
-    fallbackModel ?? nonEmpty(ai?.models.analysis) ?? nonEmpty(ai?.models.default) ?? envModel;
-  const planning =
-    fallbackModel ?? nonEmpty(ai?.models.planning) ?? nonEmpty(ai?.models.default) ?? envModel;
+  // Per-step routing: --model, then ai.models.<step>, then ai.models.default, then DEVFLOW_MODEL.
+  const modelFor = (step: Exclude<keyof NonNullable<typeof ai>["models"], "default">) =>
+    fallbackModel ?? nonEmpty(ai?.models[step]) ?? nonEmpty(ai?.models.default) ?? envModel;
+  const analysis = modelFor("analysis");
+  const planning = modelFor("planning");
+  const testDesign = modelFor("testDesign");
+  const implementation = modelFor("implementation");
+  const review = modelFor("review");
   if (analysis === undefined || planning === undefined) {
     throw new DevflowError(
       ErrorCode.LlmProviderNotConfigured,
@@ -85,12 +92,33 @@ export function resolveRunSettings(input: ResolveSettingsInput): {
       overrides.budgets?.maxCallsPerStep ??
       configured?.maxCallsPerStep ??
       DEFAULT_BUDGET_LIMITS.maxCallsPerStep,
+    maxCostUsd:
+      overrides.budgets?.maxCostUsd ?? configured?.maxCostUsdPerRun ?? DEFAULT_MAX_COST_USD,
   };
+
+  const prices = ai?.prices ?? {};
+  const models = { analysis, planning, testDesign, implementation, review };
+  const unpriced = [...new Set(Object.values(models).filter((m) => m !== undefined))].filter(
+    (model) => prices[model] === undefined,
+  );
+  if (unpriced.length > 0) {
+    warnings.push(
+      `no price is configured for ${unpriced.join(", ")} (ai.prices in .devflow/config.yaml), ` +
+        `so the cost of its calls is unknown and the cost budget of $${String(budgets.maxCostUsd)} does not limit them`,
+    );
+  }
 
   return {
     settings: {
       provider,
-      models: { analysis, planning },
+      models: {
+        analysis,
+        planning,
+        ...(testDesign === undefined ? {} : { testDesign }),
+        ...(implementation === undefined ? {} : { implementation }),
+        ...(review === undefined ? {} : { review }),
+      },
+      ...(Object.keys(prices).length > 0 ? { prices } : {}),
       requirePlanApproval: overrides.requirePlanApproval ?? workflow?.requirePlanApproval ?? true,
       budgets,
       contextBudgetTokens: overrides.contextBudgetTokens ?? DEFAULT_CONTEXT_BUDGET_TOKENS,

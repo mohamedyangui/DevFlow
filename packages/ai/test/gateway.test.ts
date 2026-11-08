@@ -18,6 +18,7 @@ import {
   LlmGateway,
   type LlmExchange,
   LlmProviderError,
+  PriceTable,
   type StructuredCall,
   requestFingerprint,
 } from "../src/index.js";
@@ -55,6 +56,7 @@ async function setup(
     timeoutMs?: number;
     random?: () => number;
     maxRepairAttempts?: number;
+    prices?: PriceTable;
   } = {},
 ) {
   const dir = await mkdtemp(path.join(os.tmpdir(), "devflow-gateway-"));
@@ -70,6 +72,7 @@ async function setup(
     budget,
     audit,
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+    ...(options.prices === undefined ? {} : { prices: options.prices }),
     ...(options.maxRepairAttempts === undefined
       ? {}
       : { maxRepairAttempts: options.maxRepairAttempts }),
@@ -138,6 +141,7 @@ describe("LlmGateway: answers", () => {
       inputTokens: 100,
       outputTokens: 20,
       callsByStep: { analysis: 1 },
+      unpricedCalls: 1,
     });
 
     const [entry] = await entries();
@@ -377,5 +381,55 @@ describe("LlmGateway: budgets", () => {
     const error = await failure(gateway.generateStructured(call()));
     expect(error.code).toBe(ErrorCode.BudgetExceeded);
     expect(error.details).toMatchObject({ limit: "maxCallsPerStep", used: 1 });
+  });
+});
+
+describe("LlmGateway: cost", () => {
+  const prices = new PriceTable({
+    "test-model-2026": { inputUsdPerMTok: 3, outputUsdPerMTok: 15, cachedInputUsdPerMTok: 0.3 },
+  });
+
+  it("prices each call by the served model and records it in the budget and the audit log", async () => {
+    const { gateway, budget, entries } = await setup(
+      [response({ usage: { inputTokens: 1_000, outputTokens: 200, cacheReadTokens: 400 } })],
+      { prices },
+    );
+    await gateway.generateStructured(call());
+    // 600 uncached x $3 + 400 cached x $0.30 + 200 output x $15, per million tokens.
+    const expected = (600 * 3 + 400 * 0.3 + 200 * 15) / 1_000_000;
+    expect(budget.usage().costUsd).toBeCloseTo(expected, 12);
+    expect(budget.usage().unpricedCalls).toBeUndefined();
+    const [entry] = await entries();
+    expect(entry).toMatchObject({ type: "llm-call", outcome: "ok" });
+    expect((entry as { costUsd: number }).costUsd).toBeCloseTo(expected, 12);
+  });
+
+  it("records an unknown cost as null, and does not let it count against the cost budget", async () => {
+    const budget = new BudgetTracker({
+      maxInputTokens: 600_000,
+      maxOutputTokens: 80_000,
+      maxCallsPerStep: 12,
+      maxCostUsd: 0.000_001,
+    });
+    const { gateway, entries } = await setup([response({ model: "other-model" })], { budget });
+    await gateway.generateStructured(call({ model: "other-model" }));
+    expect(budget.usage()).toMatchObject({ calls: 1, unpricedCalls: 1 });
+    const [entry] = await entries();
+    expect(entry).toMatchObject({ costUsd: null });
+  });
+
+  it("refuses a priced call that could exceed the cost budget before sending it", async () => {
+    const budget = new BudgetTracker({
+      maxInputTokens: 600_000,
+      maxOutputTokens: 80_000,
+      maxCallsPerStep: 12,
+      maxCostUsd: 0.01,
+    });
+    const { gateway, provider } = await setup([response({})], { budget, prices });
+    // The estimate includes the full output allowance: 1000 x $15 per million = $0.015.
+    const error = await failure(gateway.generateStructured(call({ model: "test-model-2026" })));
+    expect(error.code).toBe(ErrorCode.BudgetExceeded);
+    expect(error.details).toMatchObject({ limit: "maxCostUsd" });
+    expect(provider.requests).toHaveLength(0);
   });
 });

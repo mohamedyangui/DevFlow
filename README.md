@@ -35,7 +35,7 @@ planned, tested and verified change, and reports what was actually verified, wit
 | Security layer: path guard, secret redaction, audit log, command policy, trust store, process executor                    | Implemented      |
 | `devflow trust [--yes \| --status \| --revoke] [--json]`                                                                  | Implemented      |
 | Context engine: discovery, classification, OpenAPI and Protobuf discovery, ranking, packing                               | Implemented      |
-| LLM gateway with redaction, budgets, retries and validated JSON answers; Anthropic, Fake and Replay providers             | Implemented      |
+| LLM gateway with redaction, budgets, costs, retries and validated JSON answers; Anthropic, OpenAI, Fake and Replay        | Implemented      |
 | Assist workflow: `devflow init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report` | Implemented      |
 | Java and JS/TS adapters, verification engine, `devflow verify`                                                            | Implemented      |
 | Source parser: tree-sitter outlines and imports for Java, TypeScript and JavaScript                                       | Implemented      |
