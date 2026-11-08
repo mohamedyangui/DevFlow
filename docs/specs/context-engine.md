@@ -89,9 +89,16 @@ the real protection being that the model cannot act.
   path only. Content with NUL bytes or invalid UTF-8 is treated as binary.
 - **Modules** come from `.devflow/config.yaml`; without it the whole workspace is one module
   `root`. Adapter detection plugs in when the adapters exist (Phase 3).
-- **Outlines** are regex-based declaration lines with line numbers (Java, Kotlin,
-  JavaScript/TypeScript, Python, Go, Protobuf, Markdown headings) until the `SourceParser`
-  spike (ADR 0009).
+- **Outlines and imports** of Java, TypeScript (with TSX) and JavaScript files come from the
+  tree-sitter `SourceParser` ([ADR 0009](../adr/0009-tree-sitter.md)): one line per class,
+  interface, enum, record, type, function, method, constructor and test, with its line number,
+  indented by nesting, and the declaration without its body (annotations and `export`
+  included), for example `L9:   @GetMapping("/api/orders") public List<OrderDto> list()`.
+  Import edges come from the parsed `import` and `export … from` statements, `import()` and
+  `require()` calls. Other languages (Kotlin, Python, Go, Protobuf, Markdown headings) keep
+  regex-based declaration lines and imports. So do the three parsed languages when a grammar
+  cannot be loaded (the pack then has a warning), and files beyond the first 32 MiB of parsed
+  source.
 - **Ranking boosts:** an identifier from the task that is a file's name (+6) or appears in it
   (+3, at most +12 in total), a path named in the task (+10), the task's `scope.include`
   (+3) and `scope.modules` (+2), a contract declaring a message, service, enum, operation or

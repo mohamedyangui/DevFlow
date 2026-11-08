@@ -107,10 +107,15 @@ Implemented and tested so far:
   stand-in Vitest package. Also run once by hand with Vitest 5.1 on a sample project: a
   failing test was reported as failed, and after the fix the comparison with the failed run
   reported it as fixed. No Maven or Gradle build has been run through it yet.
+- Source parser ([ADR 0009](adr/0009-tree-sitter.md), spike results in the ADR): the
+  `SourceParser` port in `@devflow/core`, and in `@devflow/context` a `web-tree-sitter`
+  implementation with pinned grammars for Java, TypeScript, TSX and JavaScript, falling back
+  to the regex outline. It provides the outlines of the context pack and the import edges of
+  ranking. Tested by parsing real code with the pinned grammars, including invalid code and
+  non-ASCII text.
 
 Planned:
 
-- `SourceParser` spike with `web-tree-sitter` ([ADR 0009](adr/0009-tree-sitter.md)).
 - Example repositories. **Decision D5:** Maven and Gradle wrappers are generated once with the
   official Docker images at pinned versions, and `distributionSha256Sum` is set so wrappers
   verify their downloads. Wrapper JAR hashes are recorded for command fingerprints.

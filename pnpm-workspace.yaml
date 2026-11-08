@@ -1,2 +1,9 @@
 packages:
   - packages/*
+
+# Only the WebAssembly grammars of these packages are used (ADR 0009). Their install scripts
+# build native Node.js bindings, which DevFlow does not load, so they are never run.
+ignoredBuiltDependencies:
+  - tree-sitter-java
+  - tree-sitter-javascript
+  - tree-sitter-typescript

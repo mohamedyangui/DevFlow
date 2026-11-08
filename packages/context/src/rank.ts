@@ -1,6 +1,6 @@
-import { createPathMatcher, type TaskContract } from "@devflow/core";
+import { createPathMatcher, type SourceImport, type TaskContract } from "@devflow/core";
 import { Bm25Index, tokenize } from "./bm25.js";
-import { importsOf, suffixIndexOf } from "./outline.js";
+import { importsOf, resolveImports, suffixIndexOf } from "./outline.js";
 import type { ContractSummary, FileRole } from "./schemas.js";
 
 /**
@@ -17,6 +17,8 @@ export interface RankCandidate {
   /** File text used for scoring only; it never leaves the process from here. */
   readonly text: string;
   readonly outline: string;
+  /** Imports read by the source parser; without them, imports are found by regex. */
+  readonly imports?: readonly SourceImport[];
 }
 
 export interface RankedFile {
@@ -252,7 +254,11 @@ export function rankFiles(
   for (const [file, value] of top.slice(0, 10)) {
     const candidate = byPath.get(file);
     if (candidate === undefined) continue;
-    for (const imported of importsOf(file, candidate.language, candidate.text, files, suffixes)) {
+    const neighbours =
+      candidate.imports === undefined
+        ? importsOf(file, candidate.language, candidate.text, files, suffixes)
+        : resolveImports(file, candidate.language, candidate.imports, files, suffixes);
+    for (const imported of neighbours) {
       const importedEntry = entry(imported);
       importedEntry.score += value.score * 0.3;
       importedEntry.reasons.push(`imported by \`${file}\``);
