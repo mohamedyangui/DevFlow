@@ -5,8 +5,8 @@
   `ContractRelation`, `InferredConvention`, `TestInventory`, `TestAuthoringGuide`,
   `CommandSpec`, `ParsedCommandResults`) exist in `@devflow/core` (Phase 1). The adapter SDK,
   output validation, registry, toolchain probe and conformance kit exist (Phase 3, section 8).
-  The Java adapter exists (Phase 3, section 9). The JavaScript/TypeScript adapter is planned
-  for Phase 3 and does not exist yet. The interface may still change before Phase 3 completes.
+  The Java adapter (section 9) and the JavaScript/TypeScript adapter (section 10) exist
+  (Phase 3). The interface may still change before Phase 3 completes.
 
 ## 1. Role
 
@@ -75,7 +75,8 @@ available and its version, without letting the adapter run anything.
 - How the command is launched on Windows (direct, via Node, via the Java wrapper launcher, or
   the restricted batch path) is decided by the executor and recorded in the execution record
   ([ADR 0014](../adr/0014-windows-invocation.md)). Adapters provide the information needed:
-  the wrapper path, and for JS tools the package whose `bin` entry should be resolved.
+  the wrapper path, or for JavaScript tools `node` and the tool's entry script, resolved from
+  the `bin` field of its installed package (section 10).
 
 ## 6. Traceability markers
 
@@ -87,12 +88,12 @@ acceptance-criterion marker style that survives into machine-readable reports:
 
 ## 7. Built-in adapters (Phase 3)
 
-The Java adapter exists (section 9); the JavaScript/TypeScript adapter is planned.
+Both built-in adapters exist: Java (section 9) and JavaScript/TypeScript (section 10).
 
-| Adapter      | Detects                                                                                                                                                                  | Commands                                          | Result parsing                                                      |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------- |
-| `java`       | Maven and Gradle (Groovy and Kotlin DSL, single and multi-module), wrappers, Spring Boot, JUnit 5, Mockito, Checkstyle, SpotBugs, Protobuf and OpenAPI generator plugins | compile, test (with filter), checkstyle, spotbugs | Surefire/Failsafe and Gradle JUnit XML, Checkstyle and SpotBugs XML |
-| `javascript` | npm, pnpm and yarn, workspaces, TypeScript, Express, NestJS, React, Next.js, Vite, Jest, Vitest, ESLint, `ts-proto`/`protoc-gen-es`/`openapi-typescript`                 | test (with filter), lint, typecheck               | JSON reporters for Jest and Vitest, ESLint JSON, `tsc` diagnostics  |
+| Adapter      | Detects                                                                                                                                                                  | Commands                                                               | Result parsing                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `java`       | Maven and Gradle (Groovy and Kotlin DSL, single and multi-module), wrappers, Spring Boot, JUnit 5, Mockito, Checkstyle, SpotBugs, Protobuf and OpenAPI generator plugins | compile, test (with filter), build, checkstyle, spotbugs, format-check | Surefire/Failsafe and Gradle JUnit XML, Checkstyle and SpotBugs XML |
+| `javascript` | npm, pnpm, Yarn and Bun, workspaces, TypeScript, Express, NestJS, React, Next.js, Vite, Vitest, Jest, ESLint, Prettier, `ts-proto`/`protoc-gen-es`/`openapi-typescript`  | test (with filter), lint, typecheck, format-check                      | JSON reports of Jest and Vitest, ESLint JSON, `tsc` diagnostics     |
 
 Example Java projects for integration tests get Maven and Gradle wrappers generated with the
 official Docker images, pinned to exact versions, with `distributionSha256Sum` set so the
@@ -178,3 +179,48 @@ interface for Maven and Gradle.
   `javac` (compiler output; the result is the exit code) and `exit-code`. Only reports written
   by the execution are read; a missing, truncated or invalid report makes the result
   `unparseable`. A test reported twice keeps its worst outcome.
+
+## 10. The JavaScript adapter
+
+`@devflow/adapter-javascript` ([README](../../packages/adapter-javascript/README.md))
+implements this interface for npm, pnpm, Yarn and Bun projects.
+
+- **Modules.** One module per `package.json` that describes a project; a manifest that only
+  sets `"type"` for a directory is not one. A workspace root (`pnpm-workspace.yaml` or
+  `workspaces`) and each of its packages are separate modules, and files of a nested package
+  belong to that package. Manifests in fixture, mock and snapshot directories are ignored.
+- **Reading projects.** Manifests are parsed as JSON and `tsconfig.json` as JSON with
+  comments; configuration files are only checked for existence (Playwright's `testDir` is read
+  as text). Nothing is evaluated. Versions are those of the installed packages, looked up in
+  `node_modules` as Node.js resolves them; a declared range appears in the evidence, never as
+  the version.
+- **Profile.** Package manager from the `packageManager` field, the nearest lockfile or
+  `pnpm-workspace.yaml`; TypeScript and JavaScript; Express, Fastify, NestJS, Next.js, React,
+  Vue, Angular, Vite; Vitest, Jest, Mocha, Playwright; ESLint, Prettier, `tsc`. A tool counts
+  when the module declares it (0.95), configures it (0.9) or lists it only as a peer or
+  optional dependency (0.7). Contracts: `.proto` and OpenAPI files in the module (`defines`),
+  files named by generator commands in package scripts, and the module's own contracts when it
+  declares a generator such as `ts-proto`, `@bufbuild/protoc-gen-es` or `openapi-typescript`,
+  or has `buf.gen.yaml` (`generates-code-from`).
+- **Tests.** `*.test.*`, `*.spec.*`, files in `__tests__` and, with Mocha, `test/`; a readable
+  file must declare a test or a suite. Levels: `e2e` for Playwright and `e2e/`, `integration`
+  for `integration/`, `*.int.test.*` and files using supertest or Testcontainers, otherwise
+  `unit`. Conventions follow the 60%-of-at-least-two-files rule.
+- **Markers.** `title-prefix`: `it("AC-1: returns the second page", …)`. `AC-n` in an
+  enclosing describe title applies to every test inside it.
+- **Commands.** `node` with the entry script of the installed tool, never a package script
+  (a shell command line the policy cannot inspect): `test` and `test-filter` with Vitest or
+  Jest, `lint` with ESLint, `typecheck` with `tsc --noEmit` (not for solution-style
+  configurations), `format-check` with Prettier, each only for a tool the module declares or
+  configures. Reports are written to the `node_modules` directory the tool is installed in,
+  under a name unique to the module and the tool. For a tool that is not installed, the
+  command names the script installing would create; the command policy refuses a script that
+  does not exist ([security model](security-model.md), section 4), so the gate is not
+  executed.
+- **Results.** `jest-json` (Jest `--json` and Vitest's `json` reporter): failed expectations
+  and assertion errors are `assertion_failure`, other errors `runtime_error`, timeouts
+  `timeout`; a test file that fails to load is one `compile_error` result, or
+  `infrastructure_error` when the reason is not clear; an unknown status is never a pass.
+  `eslint-json`, `tsc` (compiler output; a failure that names no error is `unparseable`) and
+  `exit-code`. Only reports written by the execution are read; a missing, truncated or invalid
+  report makes the result `unparseable`.

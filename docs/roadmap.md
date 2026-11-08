@@ -86,11 +86,20 @@ Implemented and tested so far:
   command catalog, and parsers for JUnit XML, Checkstyle, SpotBugs and compiler output. Tested
   with in-memory fixture repositories and the conformance kit; no real Maven or Gradle build has
   been run against it yet (that comes with the example repositories below).
+- JavaScript/TypeScript adapter (`@devflow/adapter-javascript`,
+  [spec](specs/language-adapter.md) section 10): npm, pnpm, Yarn and Bun projects and
+  workspaces, TypeScript, Express, Fastify, NestJS, Next.js, React, Vue, Angular, Vite, Vitest,
+  Jest, Mocha, Playwright, ESLint, Prettier, `tsc`, Protobuf and OpenAPI generator detection;
+  test inventory, conventions, authoring guide, a command catalog that runs installed tools'
+  entry scripts with `node`, and parsers for Jest/Vitest JSON, ESLint JSON and `tsc` output.
+  Tested with in-memory fixture repositories and the conformance kit. Its commands were also
+  run once by hand on a sample project with Vitest 5.1, ESLint 10.14, TypeScript 6.0 and
+  Prettier 3.9, and their output parsed as specified; Jest has not been run against it.
+- Command policy: a `node` script must be an existing file inside the workspace, and is bound
+  into the approval fingerprint by its hash.
 
 Planned:
 
-- JS/TS adapter (npm, pnpm, yarn, frameworks, Jest, Vitest, ESLint, tsc,
-  `ts-proto`/`protoc-gen-es`/`openapi-typescript` detection).
 - `SourceParser` spike with `web-tree-sitter` ([ADR 0009](adr/0009-tree-sitter.md)).
 - Verification engine and `devflow verify`.
 - Example repositories. **Decision D5:** Maven and Gradle wrappers are generated once with the

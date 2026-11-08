@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
+import path from "node:path";
 import { isDevflowError } from "../errors.js";
 import { CommandArgument, CommandSpec } from "../schemas/command.js";
 import type { AuditLog } from "./audit-log.js";
@@ -462,7 +463,11 @@ export class CommandPolicy {
     if (typeof executable === "string")
       return this.deny(spec, "executable-rejected", executable, substituted);
 
-    const bindings = [...executable.bindings, ...(request.bindings ?? [])];
+    const script = await this.nodeScriptBindings(spec, substituted, cwd);
+    if (typeof script === "string")
+      return this.deny(spec, "executable-rejected", script, substituted);
+
+    const bindings = [...executable.bindings, ...script, ...(request.bindings ?? [])];
     const fingerprint = fingerprintCommand(spec, bindings);
     const argv = [spec.executable, ...substituted];
 
@@ -575,6 +580,57 @@ export class CommandPolicy {
       executable: { kind: "wrapper", relative: wrapper.relative, absolute: wrapper.absolute },
       bindings,
     };
+  }
+
+  /**
+   * `node <script>` runs a file whose content the spec does not show. The script (the first
+   * argument that is not an option) must be a file inside the workspace, and its content is
+   * bound into the fingerprint, so an approval does not carry over to a changed script. A
+   * missing script is refused before anything runs, typically because the project's
+   * dependencies are not installed.
+   */
+  private async nodeScriptBindings(
+    spec: CommandSpec,
+    args: readonly string[],
+    cwd: GuardedPath,
+  ): Promise<CommandBinding[] | string> {
+    if (toolName(spec.executable) !== "node") return [];
+    let script: string | undefined;
+    for (const [index, arg] of args.entries()) {
+      if (arg === "--") {
+        script = args[index + 1];
+        break;
+      }
+      if (!arg.startsWith("-")) {
+        script = arg;
+        break;
+      }
+    }
+    if (script === undefined) return [];
+    if (script.includes("\\") || path.posix.isAbsolute(script) || /^[A-Za-z]:/.test(script)) {
+      return `node script "${script}" must be a relative path with forward slashes`;
+    }
+    const joined = path.posix.normalize(
+      cwd.relative === "." ? script : `${cwd.relative}/${script}`,
+    );
+    if (joined === ".." || joined.startsWith("../")) {
+      return `node script "${script}" is outside the workspace`;
+    }
+    let checked: GuardedPath;
+    try {
+      checked = await this.options.guard.check(joined, { access: "read", origin: "internal" });
+    } catch (error) {
+      if (!isDevflowError(error)) throw error;
+      return error.message;
+    }
+    if (!checked.exists) {
+      return `node script "${joined}" does not exist (if it belongs to a package, install the project's dependencies first)`;
+    }
+    if (!(await stat(checked.absolute)).isFile()) return `node script "${joined}" is not a file`;
+    const sha256 = createHash("sha256")
+      .update(await readFile(checked.absolute))
+      .digest("hex");
+    return [{ kind: "file", path: checked.relative, sha256 }];
   }
 
   private async deny(

@@ -126,7 +126,7 @@ packages/
   context/              @devflow/context             repository context engine
   ai/                   @devflow/ai                  LLM gateway and model providers
   adapter-java/         @devflow/adapter-java        Maven, Gradle, Spring Boot, JUnit
-  adapter-javascript/   @devflow/adapter-javascript  (skeleton) npm, pnpm, Vitest, Jest
+  adapter-javascript/   @devflow/adapter-javascript  npm, pnpm, Yarn, Vitest, Jest, ESLint
   workflow/             @devflow/workflow            workflow engine, run store, reports
   cli/                  @devflow/cli                 the devflow command
 examples/tasks/         example task files

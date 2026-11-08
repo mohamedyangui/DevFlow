@@ -111,7 +111,11 @@ one input the executor accepts. The checks run in this order; the first failure 
    inside the workspace (path guard, section 6). The executable is a bare tool name or a
    wrapper in the working directory (`./gradlew`, `./mvnw`, `./run.cmd`). A wrapper is bound
    into the fingerprint by the hash of every file that can run: its POSIX and Windows
-   variants, and for Gradle and Maven the wrapper JAR and properties.
+   variants, and for Gradle and Maven the wrapper JAR and properties. For `node`, the script
+   (the first argument that is not an option) must be a relative path with forward slashes
+   that stays inside the workspace and names an existing file; it is bound into the
+   fingerprint by its hash. A missing script (dependencies not installed) or one reached
+   through a link that leaves the workspace is denied before anything runs.
 5. **Workspace trust** (section 3): an untrusted or changed workspace denies every command.
 6. **Approval by fingerprint** (`fingerprintCommand`): the SHA-256 of the executable, the
    argument template, the working directory, the environment additions, the parameter
@@ -237,7 +241,8 @@ validates every line and reports a corrupt one with its line number.
   outside the workspace and using the network. DevFlow makes execution explicit, approved,
   time-bounded and scrubbed of environment secrets; it cannot make a malicious build safe.
 - **Trust is a point-in-time decision.** Fingerprints detect changed scripts, wrappers and
-  configuration, not changed test sources or dependency versions pulled later.
+  configuration, not changed test sources or dependency versions pulled later. For a Node.js
+  tool only its entry script is bound, not the rest of its installed package.
 - **Redaction is heuristic.** Unknown secret formats can slip through.
 - **Prompt injection can influence the content of generated code.** Human review of the diff
   is a required control.
