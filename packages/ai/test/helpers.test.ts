@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   BudgetTracker,
   DEFAULT_BUDGET_LIMITS,
+  PriceTable,
   estimateInputTokens,
   extractJson,
   jsonSchemaFor,
@@ -24,7 +25,32 @@ describe("BudgetTracker", () => {
       inputTokens: 151,
       outputTokens: 16,
       callsByStep: { analysis: 1, planning: 2 },
+      unpricedCalls: 3,
     });
+  });
+
+  it("adds up the cost of priced calls and counts the others", () => {
+    const budget = new BudgetTracker({ ...DEFAULT_BUDGET_LIMITS, maxCostUsd: 1 });
+    budget.record("analysis", { inputTokens: 10, outputTokens: 1 }, 0.25);
+    budget.record("analysis", { inputTokens: 10, outputTokens: 1 });
+    expect(budget.usage()).toMatchObject({ calls: 2, costUsd: 0.25, unpricedCalls: 1 });
+
+    budget.check("planning", { inputTokens: 1, outputTokens: 1, costUsd: 0.75 });
+    budget.check("planning", { inputTokens: 1, outputTokens: 1 });
+    expect(() => {
+      budget.check("planning", { inputTokens: 1, outputTokens: 1, costUsd: 0.76 });
+    }).toThrow(
+      expect.objectContaining({
+        code: ErrorCode.BudgetExceeded,
+        message: expect.stringContaining("$0.2500 used + $0.7600 requested > $1.0000") as unknown,
+        details: expect.objectContaining({ limit: "maxCostUsd" }) as unknown,
+      }),
+    );
+    const resumed = new BudgetTracker(DEFAULT_BUDGET_LIMITS, budget.usage());
+    expect(resumed.usage()).toEqual(budget.usage());
+    expect(() => new BudgetTracker({ ...DEFAULT_BUDGET_LIMITS, maxCostUsd: 0 })).toThrow(
+      /maxCostUsd/,
+    );
   });
 
   it("refuses a call that could exceed a limit, and resumes with higher limits", () => {
@@ -184,5 +210,35 @@ describe("provider error helpers", () => {
       "overloaded",
       "invalid-request",
     ]);
+  });
+});
+
+describe("PriceTable", () => {
+  it("prices uncached, cached and cache-write input and output per million tokens", () => {
+    const table = new PriceTable({
+      a: { inputUsdPerMTok: 2, outputUsdPerMTok: 10, cacheWriteUsdPerMTok: 2.5 },
+    });
+    expect(
+      table.cost({ inputTokens: 1_000_000, outputTokens: 100_000, cacheReadTokens: 200_000 }, "a"),
+    ).toBeCloseTo(0.8 * 2 + 0.2 * 2 + 0.1 * 10, 12);
+    expect(
+      table.cost({ inputTokens: 1_000_000, outputTokens: 0, cacheWriteTokens: 1_000_000 }, "a"),
+    ).toBeCloseTo(2.5, 12);
+  });
+
+  it("uses the first model that has a price, and knows no price otherwise", () => {
+    const table = new PriceTable({ requested: { inputUsdPerMTok: 1, outputUsdPerMTok: 1 } });
+    expect(table.priceOf("served-2026", "requested")).toEqual({
+      inputUsdPerMTok: 1,
+      outputUsdPerMTok: 1,
+    });
+    expect(table.cost({ inputTokens: 1, outputTokens: 1 }, "unknown")).toBeUndefined();
+    expect(new PriceTable().size).toBe(0);
+  });
+
+  it("rejects negative or missing prices", () => {
+    expect(() => new PriceTable({ a: { inputUsdPerMTok: -1, outputUsdPerMTok: 1 } })).toThrow(
+      /inputUsdPerMTok of model a/,
+    );
   });
 });

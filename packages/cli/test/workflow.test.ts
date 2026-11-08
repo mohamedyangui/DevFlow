@@ -505,6 +505,9 @@ describe("interruptions and resume (e2e, replayed)", () => {
 
     const status = await cli(root, ["status", runId]);
     expect(status.stdout).toContain(`devflow resume ${runId}`);
+    expect(status.stdout).toMatch(
+      /Cost: {5}unknown: no price is configured for the models used \(limit \$5\.00, priced calls only\)/,
+    );
     const resumed = await cli(root, ["resume", runId, "--cassette", cassette, "--json"]);
     expect(resumed.code, resumed.stdout + resumed.stderr).toBe(ExitCode.WaitingForInput);
     expect(await runExists(root, runId, "lock.json")).toBe(false);

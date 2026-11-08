@@ -139,7 +139,17 @@ Implemented and tested:
 
 ## Phase 4: AI implementation workflow (completes the MVP)
 
-- OpenAI provider, price table, per-step model routing.
+Implemented and tested so far:
+
+- OpenAI provider (Responses API, strict structured output, `store: false`), cost tracking
+  from a configured price table (`ai.prices`; no built-in prices), the cost budget
+  `maxCostUsdPerRun` for priced calls, costs in the audit log, `devflow status` and the report,
+  and per-step model routing for analysis, planning, test design, implementation and review
+  ([ADR 0010](adr/0010-llm-providers.md)). Tested through the real SDK against a local HTTP
+  server standing in for the API; no live OpenAI call has been made.
+
+Planned:
+
 - Test design with red/green evidence ([ADR 0015](adr/0015-test-intent-and-red-green.md)),
   implementation with search/replace edits, bounded repair loop, regression detection,
   review engine.

@@ -2,9 +2,9 @@
  * The LLM gateway and the provider adapters implementing the `LlmProvider` port of
  * `@devflow/core` (ADR 0010).
  *
- * Implemented (Phase 2): the gateway (redaction, budgets, retries, timeouts, structured-output
- * validation with one repair, audit), the Anthropic provider, and the Fake and Replay
- * providers for tests. The OpenAI provider and cost tracking arrive in Phase 4.
+ * The gateway (redaction, budgets, retries, timeouts, structured-output validation with one
+ * repair, audit, cost from a configured price table), the Anthropic and OpenAI providers, and
+ * the Fake and Replay providers for tests.
  */
 export {
   BudgetTracker,
@@ -25,6 +25,7 @@ export {
   type StructuredResult,
 } from "./gateway.js";
 export { canonicalJson, requestFingerprint, sha256Hex } from "./hash.js";
+export { PriceTable, type ModelPrice } from "./prices.js";
 export {
   LlmProviderError,
   kindForStatus,
@@ -46,6 +47,14 @@ export {
   toProviderError,
   type AnthropicProviderOptions,
 } from "./providers/anthropic.js";
+export {
+  OpenAiProvider,
+  fromResponse,
+  toOpenAiProviderError,
+  toResponseParams,
+  type OpenAiProviderOptions,
+} from "./providers/openai.js";
+export { dropOmittedNulls, openAiStrictSchema } from "./providers/openai-schema.js";
 export {
   PROVIDER_NAMES,
   createProvider,

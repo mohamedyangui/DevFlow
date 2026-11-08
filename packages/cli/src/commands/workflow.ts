@@ -564,11 +564,27 @@ function renderStatus(io: CliIo, record: RunRecord, outcome: RunOutcome): void {
     `${c.bold("Model:")}    ${settings.provider}; analysis ${settings.models.analysis}, planning ${settings.models.planning}`,
     `${c.bold("Usage:")}    ${String(budgetUsage.calls)} call(s), ${String(budgetUsage.inputTokens)} input and ${String(budgetUsage.outputTokens)} output tokens ` +
       `(limits ${String(settings.budgets.maxInputTokens)} / ${String(settings.budgets.maxOutputTokens)}, ${String(settings.budgets.maxCallsPerStep)} calls per step)`,
+    `${c.bold("Cost:")}     ${costLine(record)}`,
     `${c.bold("Trusted:")}  ${settings.workspaceTrusted ? "yes" : "no"}`,
   ];
   for (const warning of record.warnings) out.push(`${c.yellow("Warning:")}  ${warning}`);
   out.push(...nextSteps(outcome, c));
   io.stdout.write(`${out.join("\n")}\n`);
+}
+
+/** The run's cost: exact when every call was priced, a lower bound otherwise, or unknown. */
+function costLine(record: RunRecord): string {
+  const { budgetUsage, settings } = record;
+  const limit =
+    settings.budgets.maxCostUsd === undefined
+      ? ""
+      : ` (limit $${settings.budgets.maxCostUsd.toFixed(2)}, priced calls only)`;
+  const unpriced = budgetUsage.unpricedCalls ?? 0;
+  const cost = budgetUsage.costUsd;
+  if (budgetUsage.calls === 0) return `none yet${limit}`;
+  if (cost === undefined) return `unknown: no price is configured for the models used${limit}`;
+  if (unpriced === 0) return `$${cost.toFixed(4)}${limit}`;
+  return `at least $${cost.toFixed(4)}; ${String(unpriced)} call(s) to models without a price${limit}`;
 }
 
 function stateLabel(state: RunRecord["state"], c: Colors): string {

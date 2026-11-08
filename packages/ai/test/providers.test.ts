@@ -9,6 +9,10 @@ import { z } from "zod";
 import {
   AnthropicProvider,
   BudgetTracker,
+  OpenAiProvider,
+  dropOmittedNulls,
+  openAiStrictSchema,
+  toResponseParams,
   FakeProvider,
   LlmGateway,
   LlmProviderError,
@@ -144,9 +148,13 @@ describe("createProvider", () => {
     expect((await createProvider({ name: "anthropic", env: { ANTHROPIC_API_KEY: "k" } })).id).toBe(
       "anthropic",
     );
-    await expect(createProvider({ name: "openai" })).rejects.toMatchObject({
-      message: expect.stringMatching(/Phase 4/) as unknown,
+    await expect(createProvider({ name: "openai", env: {} })).rejects.toMatchObject({
+      code: ErrorCode.LlmProviderNotConfigured,
+      message: expect.stringMatching(/OPENAI_API_KEY/) as unknown,
     });
+    expect((await createProvider({ name: "openai", env: { OPENAI_API_KEY: "k" } })).id).toBe(
+      "openai",
+    );
     await expect(createProvider({ name: "replay" })).rejects.toMatchObject({
       code: ErrorCode.LlmProviderNotConfigured,
     });
@@ -463,3 +471,260 @@ describe.skipIf(liveReason !== undefined)(
     }, 120_000);
   },
 );
+
+function openAiResponse(
+  text: string,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id: "resp_1",
+    object: "response",
+    created_at: 0,
+    model: "served-model",
+    status: "completed",
+    incomplete_details: null,
+    output: [
+      { type: "reasoning", id: "rs_1", summary: [] },
+      {
+        type: "message",
+        id: "msg_1",
+        role: "assistant",
+        status: "completed",
+        content: [{ type: "output_text", text, annotations: [] }],
+      },
+    ],
+    usage: {
+      input_tokens: 13,
+      input_tokens_details: { cached_tokens: 3, cache_write_tokens: 0 },
+      output_tokens: 5,
+      output_tokens_details: { reasoning_tokens: 2 },
+      total_tokens: 18,
+    },
+    ...overrides,
+  };
+}
+
+describe("OpenAiProvider", () => {
+  const env = { OPENAI_API_KEY: "test-key-not-real" };
+  const schema = {
+    type: "object",
+    properties: {
+      title: { type: "string", minLength: 1 },
+      note: { type: "string" },
+      maybe: { anyOf: [{ type: "string" }, { type: "null" }] },
+      steps: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: { id: { type: "string" }, detail: { type: "string" } },
+          required: ["id"],
+        },
+      },
+    },
+    required: ["title", "steps"],
+  };
+
+  it("needs OPENAI_API_KEY from the environment", () => {
+    expect(() => new OpenAiProvider({ env: {} })).toThrow(/OPENAI_API_KEY/);
+    expect(() => new OpenAiProvider({ env: { OPENAI_API_KEY: " " } })).toThrow(/OPENAI_API_KEY/);
+  });
+
+  it("builds Responses API parameters: not stored, no sampling settings, a strict schema", () => {
+    const params = toResponseParams(
+      request("hi", {
+        temperature: 0.2,
+        messages: [
+          { role: "user", content: "hi" },
+          { role: "assistant", content: "{}" },
+          { role: "user", content: "fix it" },
+        ],
+        responseFormat: { name: "task analysis!", jsonSchema: schema },
+      }),
+    );
+    expect(params).not.toHaveProperty("temperature");
+    expect(params).toEqual({
+      model: "test-model",
+      instructions: "system text",
+      input: [
+        { type: "message", role: "user", content: "hi" },
+        { type: "message", role: "assistant", content: "{}" },
+        { type: "message", role: "user", content: "fix it" },
+      ],
+      max_output_tokens: 500,
+      store: false,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "task_analysis_",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              title: { type: "string", description: "(minLength: 1)" },
+              note: { anyOf: [{ type: "string" }, { type: "null" }] },
+              maybe: { anyOf: [{ type: "string" }, { type: "null" }] },
+              steps: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    id: { type: "string" },
+                    detail: { anyOf: [{ type: "string" }, { type: "null" }] },
+                  },
+                  required: ["id", "detail"],
+                },
+              },
+            },
+            required: ["title", "note", "maybe", "steps"],
+          },
+        },
+      },
+    });
+  });
+
+  it("turns oneOf into anyOf and drops keywords strict mode rejects", () => {
+    expect(
+      openAiStrictSchema({
+        type: "object",
+        title: "x",
+        properties: { kind: { oneOf: [{ const: "a" }, { const: "b" }], default: "a" } },
+        required: ["kind"],
+      }),
+    ).toEqual({
+      type: "object",
+      additionalProperties: false,
+      properties: { kind: { anyOf: [{ const: "a" }, { const: "b" }] } },
+      required: ["kind"],
+    });
+  });
+
+  it("removes the nulls it asked for, and keeps nulls the schema accepts", () => {
+    expect(
+      dropOmittedNulls(
+        {
+          title: "t",
+          note: null,
+          maybe: null,
+          steps: [
+            { id: "1", detail: null },
+            { id: "2", detail: "d" },
+          ],
+        },
+        schema,
+      ),
+    ).toEqual({ title: "t", maybe: null, steps: [{ id: "1" }, { id: "2", detail: "d" }] });
+    const refs = {
+      type: "object",
+      properties: { item: { $ref: "#/$defs/Item" } },
+      required: ["item"],
+      $defs: { Item: { type: "object", properties: { x: { type: "number" } }, required: [] } },
+    };
+    expect(dropOmittedNulls({ item: { x: null } }, refs)).toEqual({ item: {} });
+    expect(dropOmittedNulls({ title: null }, schema)).toEqual({ title: null });
+  });
+
+  it("sends one request with the key and maps the answer", async () => {
+    const api = await fakeApi((_captured, response) => {
+      json(response, 200, openAiResponse('{"title":"x","note":null,"maybe":null,"steps":[]}'), {
+        "x-request-id": "req_ok",
+      });
+    });
+    const provider = new OpenAiProvider({ env, baseURL: api.baseURL });
+    const answer = await provider.generate(
+      request("hi", { responseFormat: { name: "a", jsonSchema: schema } }),
+      never,
+    );
+    expect(answer).toEqual({
+      text: '{"title":"x","maybe":null,"steps":[]}',
+      model: "served-model",
+      stopReason: "end_turn",
+      usage: { inputTokens: 13, outputTokens: 5, cacheReadTokens: 3 },
+      providerRequestId: "req_ok",
+    });
+    const [sent] = api.requests;
+    expect(sent?.method).toBe("POST");
+    expect(sent?.url).toBe("/responses");
+    expect(sent?.headers.authorization).toBe("Bearer test-key-not-real");
+    expect(sent?.headers["openai-organization"]).toBeUndefined();
+    expect(sent?.body).toMatchObject({
+      model: "test-model",
+      store: false,
+      text: { format: { type: "json_schema", strict: true } },
+    });
+  });
+
+  it("maps refusals and incomplete answers to stop reasons", async () => {
+    const refusal = {
+      output: [
+        {
+          type: "message",
+          id: "m",
+          role: "assistant",
+          status: "completed",
+          content: [{ type: "refusal", refusal: "no" }],
+        },
+      ],
+    };
+    const cases: [Record<string, unknown>, string][] = [
+      [{ status: "incomplete", incomplete_details: { reason: "max_output_tokens" } }, "max_tokens"],
+      [{ status: "incomplete", incomplete_details: { reason: "content_filter" } }, "refusal"],
+      [refusal, "refusal"],
+      [{ status: "failed" }, "other"],
+    ];
+    for (const [overrides, expected] of cases) {
+      const api = await fakeApi((_captured, response) => {
+        json(response, 200, openAiResponse("", overrides));
+      });
+      const provider = new OpenAiProvider({ env, baseURL: api.baseURL });
+      expect((await provider.generate(request("x"), never)).stopReason).toBe(expected);
+    }
+  });
+
+  it("classifies API errors and leaves retrying to the gateway", async () => {
+    const cases: [number, string, boolean, Record<string, string>][] = [
+      [429, "rate-limit", true, { "retry-after": "7" }],
+      [500, "server", true, {}],
+      [401, "authentication", false, {}],
+      [400, "invalid-request", false, {}],
+    ];
+    for (const [status, kind, retryable, headers] of cases) {
+      const api = await fakeApi((_captured, response) => {
+        json(response, status, { error: { message: "nope", type: "x", code: null } }, headers);
+      });
+      const provider = new OpenAiProvider({ env, baseURL: api.baseURL });
+      const error = await rejection(provider.generate(request("x"), never));
+      expect(error).toBeInstanceOf(LlmProviderError);
+      expect(error).toMatchObject({ kind, retryable, status });
+      expect((error as Error).message).toBe(`OpenAI API error ${String(status)}: nope`);
+      if (status === 429) expect(error).toMatchObject({ retryAfterMs: 7_000 });
+      expect(api.requests).toHaveLength(1);
+    }
+  });
+
+  it("serves a structured call end to end through the gateway", async () => {
+    const api = await fakeApi((_captured, response) => {
+      json(response, 200, openAiResponse('{"title":"Paginate orders","note":null}'));
+    });
+    const gateway = new LlmGateway({
+      provider: new OpenAiProvider({ env, baseURL: api.baseURL }),
+      redactor: new SecretRedactor(),
+      budget: new BudgetTracker(),
+    });
+    const result = await gateway.generateStructured({
+      step: "planning",
+      templateId: "plan",
+      templateVersion: "1",
+      model: "test-model",
+      system: "Plan.",
+      user: "Task.",
+      files: [],
+      schema: z.strictObject({ title: z.string().min(1), note: z.string().optional() }),
+      schemaName: "plan",
+      maxOutputTokens: 1_000,
+    });
+    expect(result.value).toEqual({ title: "Paginate orders" });
+    expect(result.calls).toBe(1);
+  });
+});
