@@ -5,8 +5,8 @@
   `ContractRelation`, `InferredConvention`, `TestInventory`, `TestAuthoringGuide`,
   `CommandSpec`, `ParsedCommandResults`) exist in `@devflow/core` (Phase 1). The adapter SDK,
   output validation, registry, toolchain probe and conformance kit exist (Phase 3, section 8).
-  The Java and JavaScript/TypeScript adapters are planned for Phase 3 and do not exist yet. The
-  interface may still change before Phase 3 completes.
+  The Java adapter exists (Phase 3, section 9). The JavaScript/TypeScript adapter is planned
+  for Phase 3 and does not exist yet. The interface may still change before Phase 3 completes.
 
 ## 1. Role
 
@@ -85,7 +85,9 @@ acceptance-criterion marker style that survives into machine-readable reports:
 - `method-name-prefix`, e.g. JUnit `void ac1_returnsSecondPage()` with `@DisplayName("AC-1: …")`;
 - `title-prefix`, e.g. Vitest/Jest `it("AC-1: returns the second page", …)`.
 
-## 7. Planned built-in adapters (Phase 3)
+## 7. Built-in adapters (Phase 3)
+
+The Java adapter exists (section 9); the JavaScript/TypeScript adapter is planned.
 
 | Adapter      | Detects                                                                                                                                                                  | Commands                                          | Result parsing                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------- |
@@ -134,3 +136,45 @@ These exist in `@devflow/core`:
   that are valid with every tool available and with none, and `parseResults` that never
   reports a passed test when no report file was written. `MemoryRepository` and
   `StaticToolchainProbe` make fixtures easy to write. Every adapter's tests run the kit.
+
+- **Command output.** `parseResults` may read `execution.stdoutPath` and `execution.stderrPath`
+  through the repository view, for example to find compiler errors. Those logs live under
+  `.devflow/runs`, which the workspace repository view does not serve; the verification engine
+  (planned) is to give `parseResults` a view in which that execution's two logs are readable. A
+  parser that cannot read them treats the run as having no output; it never guesses.
+
+## 9. The Java adapter
+
+`@devflow/adapter-java` ([README](../../packages/adapter-java/README.md)) implements this
+interface for Maven and Gradle.
+
+- **Modules.** A module is one build: a POM that no other POM aggregates (its `<modules>` and
+  Maven 4 `<subprojects>`, also in profiles, belong to it), the outermost directory with a
+  Gradle settings file, or a Gradle build file outside every settings directory. Build files
+  inside source sets (`src/test/resources/…`) are fixtures and are ignored. A directory with
+  both a POM and Gradle files is read as Maven, unless only Gradle has a wrapper there.
+- **Reading builds.** POMs are parsed as XML (entity declarations refused); `${…}` properties
+  are resolved within the reactor. Gradle settings, build scripts, `buildSrc`/`build-logic`
+  scripts and `gradle/libs.versions.toml` are read as text, never evaluated. Every detection
+  points at the build file and, when found, the declaring line.
+- **Profile.** Build tool with version (from the wrapper properties) and wrapper; Java (with
+  the configured release) and Kotlin; Spring Boot; JUnit 5, JUnit 4, TestNG, Mockito, AssertJ,
+  Testcontainers; Checkstyle, SpotBugs, PMD, JaCoCo, Spotless; source and test roots that exist
+  (Gradle test source sets such as `src/integrationTest/java` included); contracts: `.proto`
+  and OpenAPI files inside the module (`defines`) and the ones the Protobuf and OpenAPI
+  generator plugins read (`generates-code-from`).
+- **Tests.** Maven lists classes that match the Surefire and Failsafe default includes; Gradle
+  lists every class of its test source sets; either way the file must contain a test
+  annotation. The level is `integration` for Failsafe names, integration source sets and
+  `@SpringBootTest`/`@Testcontainers` classes, otherwise `unit`. Conventions are reported only
+  when they hold for at least 60% of at least two files.
+- **Markers.** `method-name-prefix`: `void ac1_returnsSecondPage()` (several criteria:
+  `ac1_ac2_…`), with `@DisplayName("AC-1: …")` on JUnit 5. Parsers accept both forms.
+- **Commands.** `compile`, `test`, `test-filter` (parameter), `build`, and `checkstyle`,
+  `spotbugs`, `format-check` when the build applies those plugins; the wrapper when there is
+  one, otherwise `mvn`/`gradle`. Gradle commands clean the outputs of the tasks whose reports
+  they read (`cleanTest test`), so an up-to-date task cannot leave only an old report.
+- **Results.** `junit-xml` (Surefire, Failsafe, Gradle), `checkstyle-xml`, `spotbugs-xml`,
+  `javac` (compiler output; the result is the exit code) and `exit-code`. Only reports written
+  by the execution are read; a missing, truncated or invalid report makes the result
+  `unparseable`. A test reported twice keeps its worst outcome.

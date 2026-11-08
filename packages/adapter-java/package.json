@@ -2,7 +2,7 @@
   "name": "@devflow/adapter-java",
   "version": "0.0.0",
   "private": true,
-  "description": "DevFlow AI language adapter for Java (Maven, Gradle, Spring Boot, JUnit 5). Not implemented yet: Phase 3.",
+  "description": "DevFlow AI language adapter for Java: Maven and Gradle builds, Spring Boot, JUnit, Checkstyle and SpotBugs.",
   "license": "Apache-2.0",
   "author": "Mohamed Yangui <mohamed.yangui@esprit.tn>",
   "type": "module",
@@ -20,6 +20,7 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow/core": "workspace:*"
+    "@devflow/core": "workspace:*",
+    "fast-xml-parser": "~5.11.2"
   }
 }

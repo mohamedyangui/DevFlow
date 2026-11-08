@@ -71,12 +71,26 @@ Not done in Phase 2: no run against a real model has been made (the live Anthrop
 skipped without an API key), and exit code 5 (policy denial) waits for the commands that run
 builds in Phase 3.
 
-## Phase 3: Language adapters and verification
+## Phase 3: Language adapters and verification — in progress
 
-- Adapter SDK helpers, registry and conformance kit.
-- Java adapter (Maven, Gradle, wrappers, Spring Boot, JUnit 5, Mockito, Checkstyle, SpotBugs,
-  Protobuf/OpenAPI generator detection) and JS/TS adapter (npm, pnpm, yarn, frameworks, Jest,
-  Vitest, ESLint, tsc, `ts-proto`/`protoc-gen-es`/`openapi-typescript` detection).
+Implemented and tested so far:
+
+- Adapter SDK (`defineAdapter`, detection strategies, evidence and path helpers, fresh report
+  files), output validation, adapter registry with module discovery, PATH toolchain probe, and
+  the conformance kit in `@devflow/core/testing`
+  ([spec](specs/language-adapter.md) section 8).
+- Java adapter (`@devflow/adapter-java`, [spec](specs/language-adapter.md) section 9): Maven
+  and Gradle (Groovy and Kotlin DSL, multi-module, version catalogs, wrappers), Spring Boot,
+  JUnit 5/4, TestNG, Mockito, AssertJ, Testcontainers, Checkstyle, SpotBugs, PMD, JaCoCo,
+  Spotless, Protobuf/OpenAPI generator detection; test inventory, conventions, authoring guide,
+  command catalog, and parsers for JUnit XML, Checkstyle, SpotBugs and compiler output. Tested
+  with in-memory fixture repositories and the conformance kit; no real Maven or Gradle build has
+  been run against it yet (that comes with the example repositories below).
+
+Planned:
+
+- JS/TS adapter (npm, pnpm, yarn, frameworks, Jest, Vitest, ESLint, tsc,
+  `ts-proto`/`protoc-gen-es`/`openapi-typescript` detection).
 - `SourceParser` spike with `web-tree-sitter` ([ADR 0009](adr/0009-tree-sitter.md)).
 - Verification engine and `devflow verify`.
 - Example repositories. **Decision D5:** Maven and Gradle wrappers are generated once with the
