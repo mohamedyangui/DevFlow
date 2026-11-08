@@ -37,9 +37,9 @@ planned, tested and verified change, and reports what was actually verified, wit
 | Context engine: discovery, classification, OpenAPI and Protobuf discovery, ranking, packing                               | Implemented      |
 | LLM gateway with redaction, budgets, retries and validated JSON answers; Anthropic, Fake and Replay providers             | Implemented      |
 | Assist workflow: `devflow init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report` | Implemented      |
-| Java and JS/TS adapters, verification engine, `devflow verify` (no Maven or Gradle build run yet)                         | Implemented      |
+| Java and JS/TS adapters, verification engine, `devflow verify`                                                            | Implemented      |
 | Source parser: tree-sitter outlines and imports for Java, TypeScript and JavaScript                                       | Implemented      |
-| Example repositories with real Maven, Gradle and npm builds                                                               | Planned, Phase 3 |
+| Example repositories with real Maven, Gradle and npm builds (`pnpm test:examples`)                                        | Implemented      |
 | Test generation, implementation, review, `devflow run`                                                                    | Planned, Phase 4 |
 | GitHub issues and pull requests                                                                                           | Planned, Phase 5 |
 | OpenAPI and Protobuf compatibility, container sandbox                                                                     | Planned, Phase 6 |

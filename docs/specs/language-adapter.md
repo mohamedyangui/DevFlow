@@ -127,10 +127,12 @@ These exist in `@devflow/core`:
   absolute PATH entries only, so a repository cannot make a tool appear by shipping a file with
   its name. It never starts a process, so it does not report versions.
 - **Fresh reports.** Build tools leave old reports behind (`target/surefire-reports` keeps
-  files from earlier runs). `freshReportFiles` lists report files whose modification time is
-  at most two seconds before the execution started (`RepositoryEntry.modifiedMs`); older files
-  are ignored, so a build that failed before running its tests cannot be read as a pass from a
-  previous run's reports.
+  files from earlier runs). `freshReportFiles` lists report files modified after the execution
+  started (`RepositoryEntry.modifiedMs`). Only a time on a whole second, as file systems with
+  coarse timestamps (FAT, some container mounts) record it, may be up to two seconds before the
+  start. Older files are ignored, so a build that failed before running its tests cannot be read
+  as a pass from a previous run's reports, and a filtered run right after a full run does not
+  report the full run's tests.
 - **Conformance kit.** `checkAdapterConformance(adapter, fixtures)` from
   `@devflow/core/testing` runs the shared checks: identity, valid and deterministic output of
   every operation, the expected module roots, evidence and test files that exist, catalogs

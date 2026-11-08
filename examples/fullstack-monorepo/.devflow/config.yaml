@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../../schemas/config.schema.json
+version: 1
+project:
+  name: shop
+modules:
+  - { id: backend, path: backend, adapter: java }
+  - { id: web, path: web, adapter: javascript }
+verification:
+  gates:
+    - { id: backend-test, module: backend, use: test }
+    - { id: web-test, module: web, use: test }
+    - { id: web-typecheck, module: web, use: typecheck }
