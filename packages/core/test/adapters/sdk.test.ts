@@ -136,13 +136,22 @@ describe("report files", () => {
     ]);
   });
 
-  it("accepts files up to two seconds older than the start, for coarse file system clocks", async () => {
+  it("accepts whole-second times up to two seconds older than the start, for coarse file systems", async () => {
     const repo = new MemoryRepository({
-      "r/TEST-edge.xml": { text: "<e/>", modifiedMs: at("2026-05-01T09:59:58.500Z") },
+      "r/TEST-coarse.xml": { text: "<c/>", modifiedMs: at("2026-05-01T09:59:58.000Z") },
       "r/TEST-stale.xml": { text: "<s/>", modifiedMs: at("2026-05-01T09:59:57.000Z") },
     });
     const files = await freshReportFiles(repo, "r", { name: /^TEST-/, startedAt: start });
-    expect(files.map((file) => file.path)).toEqual(["r/TEST-edge.xml"]);
+    expect(files.map((file) => file.path)).toEqual(["r/TEST-coarse.xml"]);
+  });
+
+  it("compares precise times exactly: a report of the previous run, just before the start, is stale", async () => {
+    const repo = new MemoryRepository({
+      "r/TEST-previous.xml": { text: "<p/>", modifiedMs: at("2026-05-01T09:59:59.400Z") },
+      "r/TEST-new.xml": { text: "<n/>", modifiedMs: at("2026-05-01T10:00:00.300Z") },
+    });
+    const files = await freshReportFiles(repo, "r", { name: /^TEST-/, startedAt: start });
+    expect(files.map((file) => file.path)).toEqual(["r/TEST-new.xml"]);
   });
 
   it("returns nothing for a missing directory or an unparseable start time", async () => {

@@ -20,15 +20,16 @@ pnpm check      # build, typecheck, lint, format:check, test
 
 ## Scripts
 
-| Script                                    | What it does                                                                              |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `pnpm build`                              | `tsc -b` for all packages, output in `packages/*/dist`                                    |
-| `pnpm typecheck`                          | Type-checks sources and tests without building (uses the `devflow-source` condition)      |
-| `pnpm lint`                               | ESLint with type-aware rules and package-boundary rules                                   |
-| `pnpm format` / `pnpm format:check`       | Prettier                                                                                  |
-| `pnpm test`                               | Vitest: unit, repository and end-to-end tests (end-to-end tests need `pnpm build` first)  |
-| `pnpm schemas:generate`                   | Regenerates `schemas/*.json` from the Zod schemas (needs `pnpm build`)                    |
-| `pnpm scope:rename --to @scope [--write]` | Renames the npm scope everywhere ([ADR 0016](docs/adr/0016-npm-scope-and-publication.md)) |
+| Script                                    | What it does                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `pnpm build`                              | `tsc -b` for all packages, output in `packages/*/dist`                                                                  |
+| `pnpm typecheck`                          | Type-checks sources and tests without building (uses the `devflow-source` condition)                                    |
+| `pnpm lint`                               | ESLint with type-aware rules and package-boundary rules                                                                 |
+| `pnpm format` / `pnpm format:check`       | Prettier                                                                                                                |
+| `pnpm test`                               | Vitest: unit, repository and end-to-end tests (end-to-end tests need `pnpm build` first)                                |
+| `pnpm test:examples`                      | Real Maven, Gradle and npm builds of `examples/` through `devflow verify` (needs Java 21+, npm, network; takes minutes) |
+| `pnpm schemas:generate`                   | Regenerates `schemas/*.json` from the Zod schemas (needs `pnpm build`)                                                  |
+| `pnpm scope:rename --to @scope [--write]` | Renames the npm scope everywhere ([ADR 0016](docs/adr/0016-npm-scope-and-publication.md))                               |
 
 ## Rules for changes
 

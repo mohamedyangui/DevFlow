@@ -1,0 +1,21 @@
+{
+  "name": "orders-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DevFlow example: an Express orders service tested with Vitest and Supertest",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "express": "5.3.0"
+  },
+  "devDependencies": {
+    "supertest": "7.3.2",
+    "vitest": "5.1.0"
+  }
+}

@@ -49,15 +49,15 @@ flowchart LR
   cli --> core
 ```
 
-| Package                       | Responsibility                                                                             | Phase 1 state                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| `@devflow/core`               | Schemas, domain rules, ports, errors, task loading; later the security policy and executor | Implemented: schemas, rules, ports, task loading |
-| `@devflow/context`            | Discovery, classification, instructions, ranking, packing, contract discovery              | Skeleton (exports nothing)                       |
-| `@devflow/ai`                 | Model gateway; Anthropic, OpenAI, Fake and Replay providers                                | Skeleton                                         |
-| `@devflow/adapter-java`       | Maven, Gradle, Spring Boot, JUnit 5, Mockito, Checkstyle, SpotBugs                         | Skeleton                                         |
-| `@devflow/adapter-javascript` | npm, pnpm, yarn, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc                | Skeleton                                         |
-| `@devflow/workflow`           | State machine, steps, run store, reports, SDK entry point                                  | Skeleton                                         |
-| `@devflow/cli`                | The `devflow` binary, composition root                                                     | `--version`, `task validate`                     |
+| Package                       | Responsibility                                                                          | State                                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `@devflow/core`               | Schemas, domain rules, ports, errors, task loading, security layer, verification engine | Implemented                                                                                |
+| `@devflow/context`            | Discovery, classification, instructions, ranking, packing, contract discovery           | Implemented, with tree-sitter outlines and imports                                         |
+| `@devflow/ai`                 | Model gateway; Anthropic, Fake and Replay providers                                     | Implemented (OpenAI planned)                                                               |
+| `@devflow/adapter-java`       | Maven, Gradle, Spring Boot, JUnit, Mockito, Checkstyle, SpotBugs                        | Implemented, run against real Maven and Gradle builds                                      |
+| `@devflow/adapter-javascript` | npm, pnpm, Yarn, Bun, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc        | Implemented, run against real npm, Vitest and tsc runs                                     |
+| `@devflow/workflow`           | State machine, steps, run store, reports, SDK entry point                               | Assist workflow implemented; test, implement and review modes planned (Phase 4)            |
+| `@devflow/cli`                | The `devflow` binary, composition root                                                  | `init`, `task validate`, `trust`, `verify` and the assist workflow commands; `run` planned |
 
 Boundaries are declared once in the root `package.json` and enforced by ESLint, repository
 tests and TypeScript project references ([ADR 0003](../adr/0003-package-boundaries.md)).

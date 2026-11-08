@@ -4,6 +4,11 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# Build output of the example repositories (Maven, Gradle)
+examples/**/target/
+examples/**/build/
+examples/**/.gradle/
+
 # DevFlow run artifacts (never committed)
 .devflow/runs/
 

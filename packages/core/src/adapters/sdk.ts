@@ -217,7 +217,10 @@ export async function readTextIfPresent(
 
 /**
  * Report files older than the execution are ignored. File systems with coarse timestamps (FAT,
- * some container mounts) round down by up to two seconds, hence the tolerance.
+ * some container mounts) round down by up to two seconds, so a time on a whole second may be
+ * up to this much older than the write. Times with milliseconds come from a precise file system
+ * and are compared exactly: a report written just before the start, by the previous run, is
+ * stale.
  */
 export const REPORT_FRESHNESS_TOLERANCE_MS = 2_000;
 
@@ -238,7 +241,7 @@ export async function freshReportFiles(
   directory: string,
   options: { readonly name: RegExp; readonly startedAt: string; readonly depth?: number },
 ): Promise<ReportFile[]> {
-  const since = Date.parse(options.startedAt) - REPORT_FRESHNESS_TOLERANCE_MS;
+  const started = Date.parse(options.startedAt);
   const out: ReportFile[] = [];
   async function walk(dir: string, depth: number): Promise<void> {
     let entries;
@@ -254,8 +257,9 @@ export async function freshReportFiles(
       }
       const name = entry.path.slice(entry.path.lastIndexOf("/") + 1);
       if (!options.name.test(name)) continue;
-      if (entry.modifiedMs === undefined || Number.isNaN(since) || entry.modifiedMs < since)
-        continue;
+      if (entry.modifiedMs === undefined || Number.isNaN(started)) continue;
+      const coarse = entry.modifiedMs % 1000 === 0;
+      if (entry.modifiedMs < started - (coarse ? REPORT_FRESHNESS_TOLERANCE_MS : 0)) continue;
       out.push({
         path: entry.path,
         ...(entry.sizeBytes === undefined ? {} : { sizeBytes: entry.sizeBytes }),

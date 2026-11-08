@@ -51,12 +51,16 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:examples": "node scripts/test-examples.mjs",
     "schemas:generate": "node scripts/generate-schemas.mjs",
     "scope:rename": "node scripts/rename-scope.mjs",
     "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
   },
   "devDependencies": {
+    "@devflow/adapter-java": "workspace:*",
+    "@devflow/adapter-javascript": "workspace:*",
     "@devflow/cli": "workspace:*",
+    "@devflow/context": "workspace:*",
     "@devflow/core": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.0",

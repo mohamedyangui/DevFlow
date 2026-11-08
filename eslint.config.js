@@ -82,7 +82,8 @@ function boundaryConfig(pkg, allowed, options = {}) {
 }
 
 export default defineConfig(
-  globalIgnores(["**/node_modules/", "**/dist/", "coverage/", "schemas/"]),
+  // The example repositories are projects of their own, with their own tools.
+  globalIgnores(["**/node_modules/", "**/dist/", "coverage/", "schemas/", "examples/"]),
   {
     files: ["**/*.{ts,js,mjs}"],
     extends: [

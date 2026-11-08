@@ -71,9 +71,9 @@ Not done in Phase 2: no run against a real model has been made (the live Anthrop
 skipped without an API key), and exit code 5 (policy denial) waited for the commands that run
 builds; it came with `devflow verify` in Phase 3.
 
-## Phase 3: Language adapters and verification — in progress
+## Phase 3: Language adapters and verification — complete
 
-Implemented and tested so far:
+Implemented and tested:
 
 - Adapter SDK (`defineAdapter`, detection strategies, evidence and path helpers, fresh report
   files), output validation, adapter registry with module discovery, PATH toolchain probe, and
@@ -84,8 +84,8 @@ Implemented and tested so far:
   JUnit 5/4, TestNG, Mockito, AssertJ, Testcontainers, Checkstyle, SpotBugs, PMD, JaCoCo,
   Spotless, Protobuf/OpenAPI generator detection; test inventory, conventions, authoring guide,
   command catalog, and parsers for JUnit XML, Checkstyle, SpotBugs and compiler output. Tested
-  with in-memory fixture repositories and the conformance kit; no real Maven or Gradle build has
-  been run against it yet (that comes with the example repositories below).
+  with in-memory fixture repositories and the conformance kit, and against real Maven and
+  Gradle builds of the example repositories (below).
 - JavaScript/TypeScript adapter (`@devflow/adapter-javascript`,
   [spec](specs/language-adapter.md) section 10): npm, pnpm, Yarn and Bun projects and
   workspaces, TypeScript, Express, Fastify, NestJS, Next.js, React, Vue, Angular, Vite, Vitest,
@@ -106,7 +106,8 @@ Implemented and tested so far:
   with the real policy and executor running a node script, and in the CLI tests with a
   stand-in Vitest package. Also run once by hand with Vitest 5.1 on a sample project: a
   failing test was reported as failed, and after the fix the comparison with the failed run
-  reported it as fixed. No Maven or Gradle build has been run through it yet.
+  reported it as fixed. Maven, Gradle, npm/Vitest and `tsc` runs go through it in the example
+  builds (below).
 - Source parser ([ADR 0009](adr/0009-tree-sitter.md), spike results in the ADR): the
   `SourceParser` port in `@devflow/core`, and in `@devflow/context` a `web-tree-sitter`
   implementation with pinned grammars for Java, TypeScript, TSX and JavaScript, falling back
@@ -114,13 +115,27 @@ Implemented and tested so far:
   ranking. Tested by parsing real code with the pinned grammars, including invalid code and
   non-ASCII text.
 
-Planned:
-
-- Example repositories. **Decision D5:** Maven and Gradle wrappers are generated once with the
-  official Docker images at pinned versions, and `distributionSha256Sum` is set so wrappers
-  verify their downloads. Wrapper JAR hashes are recorded for command fingerprints.
-- Integration tests against real builds; skipped with a stated reason when a toolchain is
-  missing.
+- Example repositories ([examples](../examples/README.md)): `java-spring-boot` (Spring Boot
+  4.1, Maven wrapper with its JAR), `java-gradle` (Gradle 9.9, Kotlin DSL, JUnit 6),
+  `nodejs-express` (Express 5, Vitest, Supertest) and `fullstack-monorepo` (a Maven backend
+  with a script-only wrapper and a TypeScript web module, with modules and gates in
+  `.devflow/config.yaml`). **Decision D5**, as carried out: the wrappers were generated with
+  Maven 3.9.16 and Gradle 9.9.0 downloaded from their official sites and checked against the
+  published checksums (the pinned Docker images could not be pulled on the development
+  machine), and `distributionSha256Sum` (plus `wrapperSha256Sum` for the Maven wrapper JAR) is
+  set so the wrappers verify their downloads. The wrapper JAR hashes are recorded in the
+  examples README; approvals bind the wrapper files by hash.
+- Integration tests against real builds (`pnpm test:examples`, `tests/examples`): each example
+  is copied to a temporary directory, trusted, approved by fingerprint and verified with
+  `devflow verify`; a broken test or type must then fail its gate and show as a regression
+  against the green run; the Surefire `test=` selection, the Gradle `--tests` filter and the
+  Vitest test name filter run through the command policy and executor and report only the
+  selected tests. They need Java 21 or newer, npm and network access, and are skipped in
+  `pnpm test` with the reason in the test title. All four passed on Windows 11 with Java 21.0.12
+  and Node.js 22.12 on 2026-11-08; they have not been run on Linux or macOS.
+- Found by the real builds: a filtered Maven run right after a full run read the full run's
+  Surefire reports, because report files up to two seconds older than the start counted as
+  fresh. The tolerance now applies only to times on a whole second (coarse file systems).
 
 ## Phase 4: AI implementation workflow (completes the MVP)
 

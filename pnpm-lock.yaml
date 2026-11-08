@@ -8,9 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@devflow/adapter-java':
+        specifier: workspace:*
+        version: link:packages/adapter-java
+      '@devflow/adapter-javascript':
+        specifier: workspace:*
+        version: link:packages/adapter-javascript
       '@devflow/cli':
         specifier: workspace:*
         version: link:packages/cli
+      '@devflow/context':
+        specifier: workspace:*
+        version: link:packages/context
       '@devflow/core':
         specifier: workspace:*
         version: link:packages/core
