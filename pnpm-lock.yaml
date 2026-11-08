@@ -71,9 +71,18 @@ importers:
 
   packages/cli:
     dependencies:
+      '@devflow/adapter-java':
+        specifier: workspace:*
+        version: link:../adapter-java
+      '@devflow/adapter-javascript':
+        specifier: workspace:*
+        version: link:../adapter-javascript
       '@devflow/ai':
         specifier: workspace:*
         version: link:../ai
+      '@devflow/context':
+        specifier: workspace:*
+        version: link:../context
       '@devflow/core':
         specifier: workspace:*
         version: link:../core

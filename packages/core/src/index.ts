@@ -225,6 +225,28 @@ export {
   type TestEvidenceAssessment,
 } from "./verification/test-evidence.js";
 
+// Verification engine
+export {
+  decideGate,
+  defaultGates,
+  runGate,
+  runGates,
+  verificationOutcome,
+  withExecutionLogs,
+  type GateDefinition,
+  type GateDenial,
+  type GateEvent,
+  type GateOutcome,
+  type VerificationOptions,
+  type VerificationRun,
+} from "./verification/engine.js";
+export {
+  compareSnapshots,
+  VerificationSnapshot,
+  type SnapshotComparison,
+  type TestChange,
+} from "./verification/snapshot.js";
+
 // Ports
 export type { RepositoryEntry, RepositoryView } from "./ports/repository-view.js";
 export {

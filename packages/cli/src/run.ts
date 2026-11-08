@@ -2,6 +2,7 @@ import { Command, CommanderError, InvalidArgumentError, Option } from "commander
 import { initCommand } from "./commands/init.js";
 import { taskValidateCommand } from "./commands/task-validate.js";
 import { trustCommand } from "./commands/trust.js";
+import { verifyCommand } from "./commands/verify.js";
 import {
   type ModelOptions,
   answerCommand,
@@ -79,6 +80,32 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
             yes: options.yes === true,
             status: options.status === true,
             revoke: options.revoke === true,
+            json: options.json === true,
+          },
+          io,
+        );
+      },
+    );
+
+  program
+    .command("verify")
+    .description("run the verification gates (tests, lint, type checks) through the command policy")
+    .option("--gate <id>", "run only this gate (repeatable)", collect, [])
+    .option(
+      "--allow <fingerprint>",
+      "approve the command with this fingerprint for this run, after reviewing it (repeatable)",
+      fingerprints,
+      [],
+    )
+    .option("--baseline <file>", "compare with the verification.json of an earlier run")
+    .option("--json", "print a machine-readable result")
+    .action(
+      async (options: { gate: string[]; allow: string[]; baseline?: string; json?: boolean }) => {
+        exitCode = await verifyCommand(
+          {
+            gates: options.gate,
+            allow: options.allow,
+            baseline: options.baseline,
             json: options.json === true,
           },
           io,
@@ -276,5 +303,12 @@ function positiveInteger(value: string): number {
 }
 
 function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function fingerprints(value: string, previous: string[]): string[] {
+  if (!/^[0-9a-f]{64}$/.test(value)) {
+    throw new InvalidArgumentError("expected a command fingerprint (64 hexadecimal characters)");
+  }
   return [...previous, value];
 }

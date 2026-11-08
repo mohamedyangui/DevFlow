@@ -23,7 +23,10 @@
     "dist"
   ],
   "dependencies": {
+    "@devflow/adapter-java": "workspace:*",
+    "@devflow/adapter-javascript": "workspace:*",
     "@devflow/ai": "workspace:*",
+    "@devflow/context": "workspace:*",
     "@devflow/core": "workspace:*",
     "@devflow/workflow": "workspace:*",
     "commander": "^15.0.0",

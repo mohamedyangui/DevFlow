@@ -2,8 +2,9 @@
 
 - **Status:** Phase 1 implements `devflow --version`, `devflow --help` and
   `devflow task validate`; Phase 2 adds `devflow trust` and the assist workflow (`init`,
-  `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report`).
-  The commands listed in section 4 are planned and do **not** exist yet.
+  `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report`);
+  Phase 3 adds `devflow verify`. The commands listed in section 4 are planned and do **not**
+  exist yet.
 
 The same `devflow` CLI serves Java and JavaScript/TypeScript projects, and mixed monorepos.
 Nothing in the CLI is language-specific: languages are handled by adapters.
@@ -21,19 +22,21 @@ node packages/cli/dist/bin.js --help
 
 ## 2. Exit codes
 
-| Code | Meaning                                                                       |
-| ---- | ----------------------------------------------------------------------------- |
-| 0    | Success                                                                       |
-| 1    | The command ran and the result is negative (e.g. the task is invalid)         |
-| 2    | Usage error: unknown command or option, missing argument, unusable input file |
-| 3    | The run is waiting for a person: plan approval or clarification answers       |
-| 4    | A token or call budget was reached; `devflow resume` with a higher limit      |
-| 70   | Internal error (a bug in DevFlow)                                             |
-| 130  | Interrupted by Ctrl+C; `devflow resume` continues the run                     |
+| Code | Meaning                                                                        |
+| ---- | ------------------------------------------------------------------------------ |
+| 0    | Success                                                                        |
+| 1    | The command ran and the result is negative (e.g. the task is invalid)          |
+| 2    | Usage error: unknown command or option, missing argument, unusable input file  |
+| 3    | The run is waiting for a person: plan approval or clarification answers        |
+| 4    | A token or call budget was reached; `devflow resume` with a higher limit       |
+| 5    | Denied by policy: a required command was not allowed to run (`devflow verify`) |
+| 70   | Internal error (a bug in DevFlow)                                              |
+| 130  | Interrupted by Ctrl+C; `devflow resume` continues the run                      |
 
 For workflow commands, 1 also means a failed run (for example `PLAN_INVALID`), a run
-interrupted by a provider failure (resumable), or a locked or corrupt run. Planned for Phase 3:
-5 denied by policy.
+interrupted by a provider failure (resumable), or a locked or corrupt run. For
+`devflow verify`, 5 means the workspace is not trusted, or a command was not approved or was
+rejected: nothing negative is known about the code.
 
 ## 3. Implemented commands
 
@@ -136,6 +139,108 @@ Residual risks, even for a trusted workspace:
 Trusted. Each command is still approved separately the first time it runs.
 ```
 
+### `devflow verify`
+
+```text
+devflow verify [--gate <id>]... [--allow <fingerprint>]... [--baseline <verification.json>] [--json]
+```
+
+Runs the verification gates of the workspace
+([verification spec](verification-and-evidence.md), section 4). Run it from the repository
+root.
+
+- **Modules** are those declared under `modules` in `.devflow/config.yaml`, otherwise those the
+  Java and JavaScript adapters detect.
+- **Gates** are those of `verification.gates`. When none are configured, every module with a
+  test command gets a required gate `<module>-test`, and a warning says so. `--gate <id>`
+  (repeatable) runs only the named gates; an unknown name is a usage error.
+- **Every command goes through the command policy** ([security model](security-model.md),
+  section 4). The workspace must be trusted (`devflow trust`), and each command approved by
+  its fingerprint. On an interactive terminal DevFlow shows the command, its working
+  directory, the files it executes with their hashes and the fingerprint, then asks
+  `Run it? [o]nce, [a]lways in this workspace, [N]o`. `always` stores the approval in the
+  trust store; a changed script or wrapper changes the fingerprint, and DevFlow asks again.
+  Without a terminal, and with `--json`, it never asks. The gate is then not executed, and the
+  output shows the command and the fingerprint. After reviewing the command, pass the
+  fingerprint with `--allow <fingerprint>` (repeatable) to approve it for one invocation.
+- **Statuses.** A gate is `passed` only when its command ran, exited 0, and its results were
+  read and contain no failure. It is `failed` for a non-zero exit code, failed tests or error
+  diagnostics. It is `unverified` for a timeout, results that cannot be read, tests without a
+  trustworthy result, or a test command that ran no tests. It is `skipped` when every test was
+  skipped. It is `not_executed`, with the reason, when the module, the command or the tool is
+  missing, the policy denied the command, or it could not be started. Only reports written by
+  this run are read.
+- **Saved results.** Each run writes `.devflow/runs/verify/<time>/`: `verification.json` (the
+  gate results), `logs/` (the redacted standard output and error of each command) and
+  `audit.jsonl` (approvals and executions). `devflow init` adds `.devflow/runs/` to
+  `.gitignore`.
+- `--baseline <file>` compares the results with the `verification.json` of an earlier run,
+  test by test: regressions (passed, now failed), fixed tests, tests still failing, new tests
+  and tests no longer reported. A test that did not run in one of the two runs is never
+  counted as a regression or a fix. An unreadable or invalid baseline is a usage error,
+  reported before anything runs.
+- `--json` prints `{ workspace, outcome, verification, modules, warnings, gates, denials,
+comparison }`. `outcome` is `passed`, `failed`, `denied` or `interrupted`; `gates` are
+  `GateResult`s; each denial has `gateId`, `commandId`, `argv`, `cwd`, `reason`, `message`
+  and `fingerprint`.
+- **Exit codes.** 0 when every required gate passed (when `--gate` selects only optional
+  gates, those count). 5 when the only required gates that did not pass were stopped by the
+  command policy. 1 otherwise, including when there is nothing to verify. 2 for a usage
+  error. 130 when interrupted with Ctrl+C.
+- Commands run one after the other, in local mode: a trusted build runs with your privileges
+  ([ADR 0007](../adr/0007-workspace-trust.md)). The Git commit is not recorded in
+  `verification.json` yet.
+
+Example, on a project with a failing Vitest test, after `devflow trust --yes`:
+
+```text
+$ devflow verify
+warning: no gates are configured (verification.gates in .devflow/config.yaml): running the test command of each module
+Running gate javascript-test (javascript:test)...
+Workspace: /home/dev/shop
+Modules:   javascript (javascript, .)
+
+NOT EXECUTED  javascript-test (javascript:test)
+              denied by the command policy: approval required: command javascript:test (fingerprint f2b6a130...) has not been approved
+
+Commands need approval. Review each one, then approve it when devflow verify asks on a terminal, or pass its fingerprint:
+  javascript:test: node node_modules/vitest/vitest.mjs run --reporter=default --reporter=json --outputFile.json=node_modules/.devflow-javascript-vitest.json --passWithNoTests
+    in .
+    --allow f2b6a130...
+
+Saved:  .devflow/runs/verify/2026-11-08T00-22-11-023Z/verification.json
+Result: DENIED BY POLICY (0 of 1 gate passed; not allowed to run: javascript-test)
+$ echo $?
+5
+$ devflow verify --allow f2b6a130...
+...
+FAILED        javascript-test (javascript:test, 0.9 s)
+              2 tests: 1 passed, 1 failed
+              exit code 1: 1 failed test
+              - src/sum.test.js#sum > AC-2: subtracts: AssertionError: expected 4 to be 2 // Object.is equality
+
+Saved:  .devflow/runs/verify/2026-11-08T00-22-18-590Z/verification.json
+Result: FAILED (0 of 1 gate passed)
+```
+
+After a fix, comparing with that run:
+
+```text
+$ devflow verify --allow f2b6a130... --baseline .devflow/runs/verify/2026-11-08T00-22-18-590Z/verification.json
+...
+PASSED        javascript-test (javascript:test, 0.9 s)
+              2 tests: 2 passed
+
+Compared with .devflow/runs/verify/2026-11-08T00-22-18-590Z/verification.json: 0 regressions, 1 fixed, 0 still failing, 0 new, 0 no longer reported
+  fixed      javascript-test: src/sum.test.js#sum > AC-2: subtracts
+
+Saved:  .devflow/runs/verify/2026-11-08T00-22-27-459Z/verification.json
+Result: PASSED (1 of 1 gate passed)
+```
+
+Only the workspace path and the fingerprints were changed (real fingerprints have 64
+hexadecimal characters).
+
 ### Assist workflow
 
 ```text
@@ -216,7 +321,6 @@ $ echo $?
 
 | Command                                                 | Phase | Purpose                                            |
 | ------------------------------------------------------- | ----- | -------------------------------------------------- |
-| `devflow verify`                                        | 3     | Run the configured gates                           |
 | `devflow test --task <file>`                            | 4     | Generate and run tests for the acceptance criteria |
 | `devflow implement --task <file>` / `run --task <file>` | 4     | Full workflow                                      |
 | `devflow review`                                        | 4     | Review a local diff                                |
