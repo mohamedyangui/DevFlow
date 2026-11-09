@@ -17,10 +17,12 @@ import {
   STEP,
   answerQuestions,
   approvePlan,
+  approveTests,
   cancelRun,
   getRun,
   listRuns,
   rejectPlan,
+  rejectTests,
   resolveRunSettings,
   resumeRun,
   startRun,
@@ -44,6 +46,8 @@ export interface ModelOptions {
   readonly maxInputTokens?: number | undefined;
   readonly maxOutputTokens?: number | undefined;
   readonly maxCallsPerStep?: number | undefined;
+  /** Command fingerprints approved for this invocation (`--allow`), for test mode. */
+  readonly allow?: readonly string[] | undefined;
   readonly json: boolean;
 }
 
@@ -56,11 +60,17 @@ const STEP_MESSAGES: Readonly<Record<string, string>> = {
   [STEP.context]: "Loading the repository context...",
   [STEP.analysis]: "Analysing the requirements...",
   [STEP.planning]: "Planning the implementation...",
+  [STEP.testDesign]: "Writing the tests...",
+  [STEP.verification]: "Running the tests against the current code...",
+  [STEP.review]: "Reviewing the test evidence...",
 };
 
-/** `devflow analyze` and `devflow plan`: start a run in assist mode. */
+/**
+ * `devflow analyze` and `devflow plan` start a run in assist mode; `devflow test` starts one
+ * in test mode.
+ */
 export async function startCommand(
-  goal: "analyze" | "plan",
+  goal: "analyze" | "plan" | "test",
   options: StartOptions,
   io: CliIo,
 ): Promise<ExitCode> {
@@ -132,21 +142,58 @@ function settingsFor(workspace: Workspace, options: StartOptions, io: CliIo) {
   }
 }
 
-/** `devflow approve <run>` */
+/** `devflow approve <run>`: approves the plan or the tests the run is waiting on. */
 export async function approveCommand(
   runId: string,
-  options: { planSha?: string | undefined; json: boolean },
+  options: {
+    planSha?: string | undefined;
+    testsSha?: string | undefined;
+    allow?: readonly string[] | undefined;
+    json: boolean;
+  },
   io: CliIo,
 ): Promise<ExitCode> {
   return guarded(io, options.json, async (interruption) => {
     const workspace = await openWorkspace(io);
+    const { record } = await getRun(workspace.root, runId);
+    const by = currentUser(io.env);
+    const services = workflowServices(
+      workspace,
+      io,
+      serviceOptions(io, { json: options.json, allow: options.allow }, interruption),
+    );
+    if (record.pending?.kind === "test-approval") {
+      if (options.planSha !== undefined) {
+        throw new DevflowError(
+          ErrorCode.DecisionInputInvalid,
+          `run ${runId} is waiting for its tests to be approved, not a plan: use --tests-sha`,
+        );
+      }
+      const outcome = await approveTests(
+        runId,
+        {
+          by,
+          ...(options.testsSha === undefined
+            ? {}
+            : { testsSha256: options.testsSha.toLowerCase() }),
+        },
+        services,
+      );
+      return report(io, options.json, outcome);
+    }
+    if (options.testsSha !== undefined) {
+      throw new DevflowError(
+        ErrorCode.DecisionInputInvalid,
+        `run ${runId} is not waiting for its tests to be approved: --tests-sha does not apply`,
+      );
+    }
     const outcome = await approvePlan(
       runId,
       {
-        by: currentUser(io.env),
+        by,
         ...(options.planSha === undefined ? {} : { planSha256: options.planSha.toLowerCase() }),
       },
-      workflowServices(workspace, io, { interruption }),
+      services,
     );
     return report(io, options.json, outcome);
   });
@@ -168,7 +215,9 @@ export async function rejectCommand(
     const feedback =
       options.feedback ?? (await readInputFile(io, options.feedbackFile ?? "", "feedback"));
     const workspace = await openWorkspace(io);
-    const outcome = await rejectPlan(
+    const { record } = await getRun(workspace.root, runId);
+    const reject = record.pending?.kind === "test-approval" ? rejectTests : rejectPlan;
+    const outcome = await reject(
       runId,
       { by: currentUser(io.env), feedback },
       workflowServices(workspace, io, serviceOptions(io, options, interruption)),
@@ -273,7 +322,7 @@ export async function statusCommand(
         });
       } else if (runs.length === 0) {
         io.stdout.write(
-          "No runs in this workspace. Start one with devflow analyze or devflow plan.\n",
+          "No runs in this workspace. Start one with devflow analyze, devflow plan or devflow test.\n",
         );
       } else {
         const c = colorsFor(io.stdout, io.env);
@@ -370,6 +419,7 @@ function exitCodeFor(outcome: RunOutcome): ExitCode {
       return ExitCode.WaitingForInput;
     case "interrupted":
       if (outcome.error?.code === ErrorCode.BudgetExceeded) return ExitCode.BudgetExceeded;
+      if (outcome.error?.code === ErrorCode.CommandNotApproved) return ExitCode.PolicyDenied;
       if (outcome.error?.code === ErrorCode.Cancelled) return ExitCode.Interrupted;
       return ExitCode.Failure;
     case "failed":
@@ -380,17 +430,25 @@ function exitCodeFor(outcome: RunOutcome): ExitCode {
 
 function serviceOptions(
   io: CliIo,
-  options: ModelOptions,
+  options: Pick<ModelOptions, "cassette" | "allow" | "json">,
   interruption: Interruption | undefined,
 ): ServiceOptions {
   return {
     cassette: options.cassette,
     interruption,
+    allow: options.allow ?? [],
+    // Commands are approved on the terminal only when the output is for a person.
+    interactiveApproval: !options.json,
     ...(options.json
       ? {}
       : {
           onProgress: (event: ProgressEvent) => {
             progress(io, event);
+          },
+          onGate: (gateId: string, commandId: string | undefined) => {
+            io.stderr.write(
+              `Running gate ${gateId}${commandId === undefined ? "" : ` (${commandId})`}...\n`,
+            );
           },
         }),
   };
@@ -496,11 +554,25 @@ function nextSteps(outcome: RunOutcome, c: Colors): string[] {
       out.push(`${c.bold("Report:")} ${outcome.reportPath ?? `${outcome.runDir}/report.md`}`);
       out.push(
         "",
-        "Assist mode analysed and planned only: no file was changed and nothing was executed or verified.",
+        outcome.mode === "test"
+          ? "The tests were written and run against the current code (red baseline). No production " +
+              "code was changed, so no acceptance criterion is verified yet."
+          : "Assist mode analysed and planned only: no file was changed and nothing was executed or verified.",
       );
       break;
     case "waiting":
-      if (outcome.waitingFor === "plan-approval") {
+      if (outcome.waitingFor === "test-approval") {
+        out.push(`${c.bold("Tests:")}  ${outcome.testsPath ?? ""}`);
+        for (const file of outcome.testFiles ?? []) out.push(`  ${file}`);
+        out.push(
+          "",
+          "The model wrote these test files into the workspace; they have not run. Review them",
+          "(for example with git diff): approved tests run against the current code, with your",
+          "privileges. Then approve them or ask for changes (the files are restored first):",
+          `  devflow approve ${id}`,
+          `  devflow reject ${id} --feedback "what to change"`,
+        );
+      } else if (outcome.waitingFor === "plan-approval") {
         out.push(`${c.bold("Plan:")}   ${outcome.planPath ?? ""}`);
         out.push(
           "",
@@ -532,6 +604,38 @@ function nextSteps(outcome: RunOutcome, c: Colors): string[] {
           "Raise the limit and continue:",
           `  devflow resume ${id} --max-input-tokens <n> --max-output-tokens <n> --max-calls-per-step <n>`,
         );
+      } else if (error?.code === ErrorCode.CommandNotApproved) {
+        const denials = outcome.denials ?? [];
+        if (denials.some((denial) => denial.reason === "workspace-untrusted")) {
+          out.push(
+            "",
+            "Review the workspace with devflow trust, then continue:",
+            `  devflow resume ${id}`,
+          );
+        }
+        const unapproved = denials.filter(
+          (denial) => denial.reason === "approval-required" || denial.reason === "rejected-by-user",
+        );
+        const blocked = denials.filter(
+          (denial) =>
+            denial.reason !== "workspace-untrusted" &&
+            denial.reason !== "approval-required" &&
+            denial.reason !== "rejected-by-user",
+        );
+        if (blocked.length > 0) {
+          out.push("", "Fix the cause, then continue:");
+          for (const denial of blocked) out.push(`  ${denial.commandId}: ${denial.message}`);
+          if (unapproved.length === 0) out.push(`  devflow resume ${id}`);
+        }
+        if (unapproved.length > 0) {
+          out.push("", "Review each command, then continue with its fingerprint:");
+          for (const denial of unapproved) {
+            out.push(`  ${denial.commandId}: ${denial.argv.join(" ")}`, `    in ${denial.cwd}`);
+          }
+          out.push(
+            `  devflow resume ${id} ${unapproved.map((denial) => `--allow ${denial.fingerprint ?? "(no fingerprint)"}`).join(" ")}`,
+          );
+        }
       } else {
         out.push("", "Continue from the interrupted step:", `  devflow resume ${id}`);
       }
@@ -590,7 +694,11 @@ function costLine(record: RunRecord): string {
 function stateLabel(state: RunRecord["state"], c: Colors): string {
   if (state === "COMPLETED") return c.green(state);
   if (state === "FAILED" || state === "CANCELLED") return c.red(state);
-  if (state === "AWAITING_PLAN_APPROVAL" || state === "CLARIFICATION_REQUIRED") {
+  if (
+    state === "AWAITING_PLAN_APPROVAL" ||
+    state === "CLARIFICATION_REQUIRED" ||
+    state === "TEST_DESIGN"
+  ) {
     return c.yellow(state);
   }
   return state;

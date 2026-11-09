@@ -85,12 +85,13 @@ describe("transition table", () => {
     }).not.toThrow();
   });
 
-  it("implements only assist mode", () => {
-    expect(IMPLEMENTED_MODES).toEqual(["assist"]);
+  it("implements assist and test mode", () => {
+    expect(IMPLEMENTED_MODES).toEqual(["assist", "test"]);
     expect(() => {
       assertModeImplemented("assist");
+      assertModeImplemented("test");
     }).not.toThrow();
-    for (const mode of ["test", "implement", "review"] as const) {
+    for (const mode of ["implement", "review"] as const) {
       expect(() => {
         assertModeImplemented(mode);
       }).toThrow(expect.objectContaining({ code: ErrorCode.WorkflowModeNotImplemented }));

@@ -95,7 +95,7 @@ describe("assist mode: plan and approve", () => {
 
     const record = await store.readRecord();
     expect(record.pending?.kind).toBe("plan-approval");
-    expect(record.iterations).toEqual({ analysis: 1, planning: 1 });
+    expect(record.iterations).toEqual({ analysis: 1, planning: 1, testDesign: 0 });
     expect(record.budgetUsage.calls).toBe(2);
     expect(record.budgetUsage.callsByStep).toEqual({ "requirements-analysis": 1, planning: 1 });
 
@@ -541,7 +541,11 @@ describe("assist mode: failures and resume", () => {
     expect(resumed.status).toBe("waiting");
     // Analysis was not repeated.
     expect(provider.requests.filter(isAnalysis)).toHaveLength(1);
-    expect((await store.readRecord()).iterations).toEqual({ analysis: 1, planning: 1 });
+    expect((await store.readRecord()).iterations).toEqual({
+      analysis: 1,
+      planning: 1,
+      testDesign: 0,
+    });
   });
 
   it("is interrupted by the abort signal and resumes later", async () => {

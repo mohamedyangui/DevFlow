@@ -1,15 +1,20 @@
 import {
+  AcceptanceCriterionId,
   ClarificationQuestion,
   Contradiction,
   Dependency,
   EdgeCase,
+  GateResult,
   IsoDateTime,
+  ModuleId,
   RepoPath,
   Risk,
   Sha256,
   TaskId,
+  TestEvidence,
   TestIntent,
   TestLevel,
+  TestOutcome,
   WorkflowMode,
   WorkflowState,
 } from "@devflow/core";
@@ -30,8 +35,11 @@ export const RunId = z
   );
 export type RunId = z.infer<typeof RunId>;
 
-/** What the run was started for: `devflow analyze` stops after analysis, `devflow plan` plans. */
-export const RunGoal = z.enum(["analyze", "plan"]);
+/**
+ * What the run was started for: `devflow analyze` stops after analysis, `devflow plan` plans,
+ * `devflow test` writes tests and records their red baseline (test mode).
+ */
+export const RunGoal = z.enum(["analyze", "plan", "test"]);
 export type RunGoal = z.infer<typeof RunGoal>;
 
 export const RunBudgets = z.strictObject({
@@ -70,7 +78,12 @@ export const RunSettings = z.strictObject({
   requirePlanApproval: z.boolean(),
   budgets: RunBudgets,
   contextBudgetTokens: z.int().positive(),
-  maxOutputTokens: z.strictObject({ analysis: z.int().positive(), planning: z.int().positive() }),
+  maxOutputTokens: z.strictObject({
+    analysis: z.int().positive(),
+    planning: z.int().positive(),
+    /** Absent in runs created before Phase 4. */
+    testDesign: z.int().positive().optional(),
+  }),
   workspaceTrusted: z.boolean(),
   configSha256: Sha256.nullable(),
 });
@@ -79,6 +92,8 @@ export type RunSettings = z.infer<typeof RunSettings>;
 export const PendingInput = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("plan-approval"), planSha256: Sha256 }),
   z.strictObject({ kind: z.literal("clarification"), questionIds: z.array(z.string()).min(1) }),
+  /** Test mode: the test files written by the model must be reviewed before they run. */
+  z.strictObject({ kind: z.literal("test-approval"), testsSha256: Sha256 }),
 ]);
 export type PendingInput = z.infer<typeof PendingInput>;
 
@@ -126,6 +141,8 @@ export const RunRecord = z.strictObject({
   iterations: z.strictObject({
     analysis: z.int().nonnegative(),
     planning: z.int().nonnegative(),
+    /** Absent in runs created before Phase 4. */
+    testDesign: z.int().nonnegative().optional(),
   }),
   pending: PendingInput.nullable(),
   lastError: RunError.nullable(),
@@ -239,6 +256,109 @@ export const PlanFeedback = z.strictObject({
 });
 export type PlanFeedback = z.infer<typeof PlanFeedback>;
 
+/** One test of the test design: a test file the model wrote for acceptance criteria. */
+export const DesignedTest = z.strictObject({
+  id: z.string().regex(/^T-[1-9][0-9]*$/),
+  acIds: z.array(AcceptanceCriterionId).min(1),
+  module: ModuleId,
+  path: RepoPath,
+  action: z.enum(["create", "modify"]),
+  description: z.string().min(1),
+});
+export type DesignedTest = z.infer<typeof DesignedTest>;
+
+/** `artifacts/test-design.json`: the tests of the latest test design, after the checks. */
+export const TestDesign = z.strictObject({
+  schemaVersion: z.literal(1),
+  taskId: TaskId,
+  iteration: z.int().positive(),
+  summary: z.string().min(1),
+  tests: z.array(DesignedTest).min(1),
+  /** True when the first draft failed a check and the model was asked for a revision. */
+  revised: z.boolean(),
+  checks: z.array(PlanCheck),
+});
+export type TestDesign = z.infer<typeof TestDesign>;
+
+/**
+ * `artifacts/test-files.json`: the files the test design wrote, with what they held before, so
+ * that a rejection can restore them and approval binds exactly what a person reviewed.
+ */
+export const TestFiles = z.strictObject({
+  schemaVersion: z.literal(1),
+  /** Hash of the paths and hashes below; the approval refers to it. */
+  testsSha256: Sha256,
+  files: z.array(
+    z.strictObject({
+      path: RepoPath,
+      action: z.enum(["create", "modify"]),
+      /** The content before the run wrote the file; null when it did not exist. */
+      before: z.string().nullable(),
+      beforeSha256: Sha256.nullable(),
+      afterSha256: Sha256,
+    }),
+  ),
+});
+export type TestFiles = z.infer<typeof TestFiles>;
+
+/** `artifacts/test-approval.json` */
+export const TestApproval = z.strictObject({
+  schemaVersion: z.literal(1),
+  testsSha256: Sha256,
+  by: z.string().min(1),
+  at: IsoDateTime,
+});
+export type TestApproval = z.infer<typeof TestApproval>;
+
+/** `artifacts/test-feedback.json`: rejections of the written tests with the reviewer's feedback. */
+export const TestFeedback = z.strictObject({
+  schemaVersion: z.literal(1),
+  entries: z.array(
+    z.strictObject({
+      iteration: z.int().positive(),
+      testsSha256: Sha256,
+      feedback: z.string().min(1).max(20_000),
+      by: z.string().min(1),
+      at: IsoDateTime,
+    }),
+  ),
+});
+export type TestFeedback = z.infer<typeof TestFeedback>;
+
+/** `artifacts/baseline.json`: the test gates run against the code before any change (red run). */
+export const BaselineRun = z.strictObject({
+  schemaVersion: z.literal(1),
+  ranAt: IsoDateTime,
+  /** Hash of the approved test files the baseline ran with. */
+  testsSha256: Sha256,
+  gates: z.array(GateResult),
+});
+export type BaselineRun = z.infer<typeof BaselineRun>;
+
+/** One acceptance criterion checked by one test (or a designed test without a result). */
+export const EvidenceEntry = z.strictObject({
+  acId: AcceptanceCriterionId,
+  /** The designed test (`T-n`) the result belongs to. */
+  designedTestId: z.string().regex(/^T-[1-9][0-9]*$/),
+  /** The test result's id, or the designed file when no result was found for it. */
+  testId: z.string().min(1),
+  /** The gate that ran it; `none` when no gate ran the file. */
+  gateId: z.string().min(1),
+  file: RepoPath,
+  outcome: TestOutcome,
+  evidence: TestEvidence,
+  /** The failure message, already redacted. */
+  message: z.string().max(8000).optional(),
+});
+export type EvidenceEntry = z.infer<typeof EvidenceEntry>;
+
+/** `artifacts/test-evidence.json`: red/green evidence for each criterion (ADR 0015). */
+export const TestEvidenceRecord = z.strictObject({
+  schemaVersion: z.literal(1),
+  entries: z.array(EvidenceEntry),
+});
+export type TestEvidenceRecord = z.infer<typeof TestEvidenceRecord>;
+
 // Wire schemas: what the model is asked to return. Every field is required and nullable is
 // used instead of optional (architecture proposal section 10); ids are assigned by DevFlow.
 
@@ -326,3 +446,21 @@ export const PlanWire = z.strictObject({
   openQuestions: z.array(WireQuestion),
 });
 export type PlanWire = z.infer<typeof PlanWire>;
+
+export const TestDesignWire = z.strictObject({
+  summary: z.string().min(1),
+  tests: z.array(
+    z.strictObject({
+      acIds: z.array(z.string()),
+      module: z.string().nullable(),
+      path: z.string().min(1),
+      action: z.enum(["create", "modify"]),
+      /** The whole file, for `create`; null for `modify`. */
+      content: z.string().nullable(),
+      /** Exact search and replace edits, for `modify`; empty for `create`. */
+      edits: z.array(z.strictObject({ search: z.string(), replace: z.string() })),
+      description: z.string().min(1),
+    }),
+  ),
+});
+export type TestDesignWire = z.infer<typeof TestDesignWire>;

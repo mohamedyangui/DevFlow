@@ -152,13 +152,22 @@ Implemented and tested so far:
   blocking question for a person, so the run waits for clarification; the report gives each
   contradiction with its resolution. Analyses written before this change still load. Tested
   with the fake provider; not yet run against a live model.
+- Test mode, `devflow test` ([ADR 0015](adr/0015-test-intent-and-red-green.md)): the model
+  writes tests for the acceptance criteria; deterministic checks keep them to test files with
+  the criterion markers; a person approves the written files (bound by hash) before they run;
+  the test gates run once against the current code through the command policy; the results
+  become red/green baseline evidence per criterion and deterministic findings (unexpected pass,
+  unexpected failure, inconclusive or invalid baseline, untested criterion). Rejection restores
+  the files and writes the tests again. Tested with the fake provider and a scripted test
+  runner, and through the command line with the real adapters in an untrusted workspace (the
+  policy refuses to run anything). Not yet run against a live model or with real test
+  execution: the green half of the evidence needs the implementation step.
 
 Planned:
 
-- Test design with red/green evidence ([ADR 0015](adr/0015-test-intent-and-red-green.md)),
-  implementation with search/replace edits, bounded repair loop, regression detection,
-  review engine.
-- `test`, `implement`, `run`, `review` commands.
+- Implementation with search/replace edits, the green run that completes red/green evidence,
+  bounded repair loop, regression detection, review engine.
+- `implement`, `run`, `review` commands.
 - Example reports from real runs.
 
 ## Phase 5: GitHub integration
