@@ -322,8 +322,24 @@ acceptance criterion is reported as passed.
   change. The report has a real verdict: `verified` only when every required gate passed,
   every automated criterion's tests passed after the change and no confirmed high or critical
   finding remains; `failed_verification` when a gate, a criterion or such a finding failed.
-  The changes stay in the working tree: nothing is committed, pushed or merged, and the report
-  asks for a review of the diff. The findings are deterministic; there is no model review yet.
+  The findings are deterministic; there is no model review yet.
+- **Git isolation** (test and implement mode, [ADR 0012](../adr/0012-git-isolation.md)). A run
+  needs a clean working tree: with uncommitted changes outside `.devflow/` it does not start
+  (`GIT_TREE_NOT_CLEAN`, nothing is created). Just before the first file is written (after the
+  plan is approved), the tree is checked again and the run creates and checks out its own
+  branch, `<workflow.git.branchPrefix><task id>` (default `devflow/TASK-142`; `-2`, `-3`, ...
+  when it exists). Each approval commits exactly the approved files on that branch: the tests,
+  the change, each repair (`DevFlow TASK-142: add tests`, `... implement the change`,
+  `... repair 1`), with your git identity and without hooks; a rejected change is restored, not
+  committed. `workflow.git.commit: none` keeps the branch without commits. A commit that fails
+  (for example without a git identity) does not stop the run: the report lists the files to
+  commit or review. DevFlow writes, runs gates and commits only while the run's branch is
+  checked out (`GIT_BRANCH_CHANGED` otherwise; switch back and retry). It never pushes, merges
+  or switches back for you. Outside a git repository, without git on PATH, or in a repository
+  without a commit, the changes stay uncommitted in the working tree and the report says why.
+  `workflow.git.isolation: worktree` is not implemented (`GIT_ISOLATION_UNSUPPORTED`). The
+  `workflow.git` settings apply only in a trusted workspace. The outcome and the report name
+  the branch, its base commit and its head commit.
 - **`approve`** approves whatever the run waits for: the plan (`--plan-sha`), the tests
   (`--tests-sha`, the approval hash in `test-design.md`) or the code change (`--changes-sha`,
   the hash in `implementation.md`); a hash flag for something the run is not waiting for is a
@@ -355,7 +371,7 @@ acceptance criterion is reported as passed.
 - Progress lines are written to stderr; with `--json`, stdout holds one JSON document:
   the outcome `{ runId, mode, state, status, waitingFor?, questions?, error?, runDir,
 planPath?, testsPath?, testFiles?, changesPath?, changedFiles?, denials?, reportPath?,
-exitCode }`, or
+branch?, exitCode }`, or
   `{ error: { code, message } }`.
 - Ctrl+C stops the run after saving its state (exit 130); `devflow resume` continues it. A
   second Ctrl+C ends the process at once.

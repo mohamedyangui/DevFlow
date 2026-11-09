@@ -136,7 +136,8 @@ The model changes only the files of the approved plan, never the tests. Each cha
 repair after a failed verification, runs only after you approve it. The report compares the
 gates before and after the change: red/green evidence per criterion, regressions, flaky tests,
 and a verdict that is `verified` only when every required gate and every criterion's tests
-passed. The changes stay uncommitted in your working tree.
+passed. The run needs a clean working tree; it works on its own local branch
+(`devflow/TASK-142`) and commits each approved step there. Nothing is pushed or merged.
 
 ## Documentation
 

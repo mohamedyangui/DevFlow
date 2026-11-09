@@ -176,11 +176,16 @@ Implemented and tested so far:
   workspace, and without a toolchain). Not yet run against a live model or with real test
   execution. The model sees the plan's files in its prompt; the read-only tools of
   [ADR 0005](adr/0005-single-agent-loop.md) are not implemented.
+- Git isolation ([ADR 0012](adr/0012-git-isolation.md)) for test and implement mode: a clean
+  working tree, the run's own branch (`devflow/<task id>`) created before the first write, and
+  a commit of exactly the approved files at each approval (tests, change, repairs), with hooks,
+  fsmonitor and signing disabled and git found outside the workspace. The git client is tested
+  against real repositories (hooks that must not run, a workspace inside a repository, a fake
+  `git` in the workspace); the workflow with an in-memory repository. Worktree isolation is not
+  implemented.
 
 Planned:
 
-- Git isolation ([ADR 0012](adr/0012-git-isolation.md)): clean-tree check, the dedicated
-  branch and commits per phase. Until then the changes stay uncommitted in the working tree.
 - Review engine (rule checks and AI findings with their verification status) and
   `devflow review` of a local diff.
 - Example reports from real runs.
