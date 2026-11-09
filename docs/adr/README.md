@@ -39,6 +39,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0016](0016-npm-scope-and-publication.md)   | Configurable npm scope and a publication guard                                        | Accepted                               |
 | [0017](0017-contract-aware-context.md)      | Contract-aware context: read-only Protobuf and OpenAPI discovery                      | Accepted                               |
 | [0018](0018-in-house-process-launcher.md)   | An in-house process launcher instead of `cross-spawn`                                 | Accepted                               |
+| [0019](0019-github-rest-client.md)          | A small GitHub REST client on Node's `fetch` instead of `@octokit/rest`               | Accepted                               |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The

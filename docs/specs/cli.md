@@ -248,12 +248,12 @@ hexadecimal characters).
 
 ```text
 devflow init [--json]
-devflow analyze --task <file> [model options]
-devflow plan    --task <file> [model options]
-devflow test    --task <file> [model options] [--allow <fingerprint> ...]
-devflow implement --task <file> [model options] [--allow <fingerprint> ...]
-devflow run     --task <file> [model options] [--allow <fingerprint> ...]
-devflow review  --task <file> [--base <ref>] [model options] [--allow <fingerprint> ...]
+devflow analyze <task source> [model options]
+devflow plan    <task source> [model options]
+devflow test    <task source> [model options] [--allow <fingerprint> ...]
+devflow implement <task source> [model options] [--allow <fingerprint> ...]
+devflow run     <task source> [model options] [--allow <fingerprint> ...]
+devflow review  <task source> [--base <ref>] [model options] [--allow <fingerprint> ...]
 devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256> | --changes-sha <sha256>] [--allow <fingerprint> ...] [--json]
 devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
 devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
@@ -265,6 +265,24 @@ devflow report  <run> [--json]
 
 Model options: `--provider <name>`, `--model <id>`, `--cassette <file>`,
 `--max-input-tokens <n>`, `--max-output-tokens <n>`, `--max-calls-per-step <n>`, `--json`.
+
+Task source: exactly one of `--task <file>` and `--issue <ref>` (otherwise
+`TASK_SOURCE_INVALID`, exit 2).
+
+- `--task <file>`: a YAML, JSON or Markdown task file.
+- `--issue <ref>` (Phase 5): a GitHub issue as the task: `142`, `#142`, `owner/name#142` or
+  the issue URL. A bare number needs the repository: `--repo owner/name`, or else the
+  `origin` remote when it is on github.com (HTTPS or SSH). The body is parsed by the Markdown
+  task parser exactly like a task file; the issue number and title are the defaults for the
+  id (`GH-142`) and the title. The task is `external`: prompts show it as untrusted data, and
+  it never changes DevFlow's policies. Pull requests are refused as tasks
+  (`GITHUB_ISSUE_INVALID`), comments are not read, and a closed issue gives a warning. The
+  token comes from `GITHUB_TOKEN` or `GH_TOKEN` (needed for private repositories and for a
+  higher rate limit); it goes only to `https://api.github.com`, never to a model, a run file
+  or a child process. A request GitHub refuses or that fails is `GITHUB_REQUEST_FAILED`
+  (exit 1); a repository that cannot be determined is `GITHUB_REPOSITORY_UNKNOWN` (exit 2).
+  Nothing is created before the task is valid. See
+  [ADR 0019](../adr/0019-github-rest-client.md).
 
 The workspace is the current directory: run the commands from the repository root. Runs are
 stored in `.devflow/runs/<run-id>/` ([workflow package](../../packages/workflow/README.md),
@@ -415,9 +433,10 @@ $ echo $?
 
 ## 4. Planned commands
 
-| Command                                      | Phase | Purpose        |
-| -------------------------------------------- | ----- | -------------- |
-| `devflow run --issue <n>`, `review --pr <n>` | 5     | GitHub sources |
+| Command                               | Phase | Purpose                              |
+| ------------------------------------- | ----- | ------------------------------------ |
+| `devflow review --pr <n> [--publish]` | 5     | Review a pull request, opt-in output |
+| `devflow pr create`                   | 5     | Draft pull request, with consent     |
 
 Module detection by `devflow init` waits for the Phase 3 adapters. `analyze` and `plan`
 accept `--mode assist`; test, implement and review mode have their own commands. The functions exported by `@devflow/workflow` (`startRun`, `approvePlan`,

@@ -156,9 +156,11 @@ Rules:
   verification `automated`, testIntent `feature`, `testFirst` true.
 - Array order is preserved, so issue paths point at the right place in the source file.
 - `source` records where the task came from (`file`, `cli`, `github-issue`), a reference (the
-  file path relative to the working directory), and a **trust level**: `user` for files and
-  flags, `external` for issues. External text defines the task but never changes DevFlow's
-  policies.
+  file path relative to the working directory, or `owner/name#142` for an issue), and a
+  **trust level**: `user` for files and flags, `external` for issues. External text defines
+  the task but never changes DevFlow's policies.
+- A GitHub issue's body is parsed as a Markdown task. When the body does not define them, the
+  id is `GH-<number>` and the title is the issue title; values in the body always win.
 
 ## 4. Validation and lint
 

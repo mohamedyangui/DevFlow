@@ -1,0 +1,18 @@
+{
+  "url": "https://api.github.com/repos/acme/shop/issues/57",
+  "html_url": "https://github.com/acme/shop/pull/57",
+  "number": 57,
+  "title": "Add pagination",
+  "user": { "login": "contributor", "id": 1002, "type": "User" },
+  "state": "open",
+  "draft": false,
+  "pull_request": {
+    "url": "https://api.github.com/repos/acme/shop/pulls/57",
+    "html_url": "https://github.com/acme/shop/pull/57",
+    "diff_url": "https://github.com/acme/shop/pull/57.diff",
+    "patch_url": "https://github.com/acme/shop/pull/57.patch",
+    "merged_at": null
+  },
+  "body": "Adds pagination.",
+  "state_reason": null
+}

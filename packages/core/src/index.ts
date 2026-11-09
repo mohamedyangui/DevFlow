@@ -273,7 +273,7 @@ export type {
   LlmResponse,
   LlmTokenUsage,
 } from "./ports/llm-provider.js";
-export type { IssueSource, IssueTaskDocument } from "./ports/issue-source.js";
+export type { IssueSource, IssueTaskDocument, TaskDefaults } from "./ports/issue-source.js";
 
 // Adapter SDK
 export {

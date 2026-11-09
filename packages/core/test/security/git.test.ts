@@ -383,3 +383,19 @@ describe("GitClient diff", () => {
     });
   });
 });
+
+describe("GitClient remoteUrl", () => {
+  it("reads a remote's URL, and null when there is none", async () => {
+    await repository();
+    const client = new GitClient({ root: dir });
+    expect(await client.remoteUrl()).toBeNull();
+    await git(dir, "remote", "add", "origin", "https://github.com/acme/shop.git");
+    await git(dir, "remote", "add", "fork", "git@github.com:someone/shop.git");
+    expect(await client.remoteUrl()).toBe("https://github.com/acme/shop.git");
+    expect(await client.remoteUrl("fork")).toBe("git@github.com:someone/shop.git");
+    expect(await client.remoteUrl("upstream")).toBeNull();
+    await expect(client.remoteUrl("--global")).rejects.toMatchObject({
+      code: ErrorCode.GitFailed,
+    });
+  });
+});

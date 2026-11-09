@@ -40,8 +40,9 @@ planned, tested and verified change, and reports what was actually verified, wit
 | Java and JS/TS adapters, verification engine, `devflow verify`                                                            | Implemented      |
 | Source parser: tree-sitter outlines and imports for Java, TypeScript and JavaScript                                       | Implemented      |
 | Example repositories with real Maven, Gradle and npm builds (`pnpm test:examples`)                                        | Implemented      |
-| Test generation, implementation, review, `devflow run`                                                                    | Planned, Phase 4 |
-| GitHub issues and pull requests                                                                                           | Planned, Phase 5 |
+| Test generation, implementation, review, `devflow run`                                                                    | Implemented      |
+| GitHub issues as tasks (`--issue`)                                                                                        | Implemented      |
+| GitHub pull request review, publishing, draft pull requests, GitHub Action                                                | Planned, Phase 5 |
 | OpenAPI and Protobuf compatibility, container sandbox                                                                     | Planned, Phase 6 |
 
 See the [roadmap](docs/roadmap.md) for details.
@@ -150,6 +151,17 @@ deterministic checks report facts (failed gates, untested criteria, secrets, pro
 removed public declarations, dependency changes), and the model adds its own findings, which
 always stay unverified. No file is changed.
 
+### Use a GitHub issue as the task
+
+```bash
+export GITHUB_TOKEN=<token>   # needed for private repositories
+devflow plan --issue 142 --model <model id>
+```
+
+Every workflow command accepts `--issue` instead of `--task`: a number (the repository comes
+from the `origin` remote, or `--repo owner/name`), `owner/name#142` or the issue URL. The
+issue body is read as a Markdown task file; its text is treated as untrusted data.
+
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
@@ -174,6 +186,7 @@ packages/
   adapter-java/         @devflow/adapter-java        Maven, Gradle, Spring Boot, JUnit
   adapter-javascript/   @devflow/adapter-javascript  npm, pnpm, Yarn, Vitest, Jest, ESLint
   workflow/             @devflow/workflow            workflow engine, run store, reports
+  github/               @devflow/github              GitHub REST client, issues as tasks
   cli/                  @devflow/cli                 the devflow command
 examples/tasks/         example task files
 schemas/                generated JSON Schema

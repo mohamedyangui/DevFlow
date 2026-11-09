@@ -29,6 +29,8 @@ export interface CliIo {
    * provider the run's settings name (`anthropic`, `replay`).
    */
   readonly createProvider?: (name: string, options: { cassette?: string }) => Promise<LlmProvider>;
+  /** The `fetch` used for the GitHub API. Tests inject one; default: the global `fetch`. */
+  readonly fetch?: typeof fetch;
 }
 
 export interface Interruption {

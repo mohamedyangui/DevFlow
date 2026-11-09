@@ -1,13 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  DevflowError,
-  ErrorCode,
-  type WorkflowMode,
-  formatIssuePath,
-  isDevflowError,
-  loadTaskFile,
-} from "@devflow/core";
+import { DevflowError, ErrorCode, type WorkflowMode, isDevflowError } from "@devflow/core";
 import {
   type ProgressEvent,
   type RunBudgets,
@@ -32,6 +25,7 @@ import {
 import { parse as parseYaml } from "yaml";
 import { ExitCode } from "../exit-codes.js";
 import { type CliIo, type Colors, type Interruption, colorsFor } from "../io.js";
+import { type TaskSourceOptions, resolveTask } from "../task-source.js";
 import {
   type ServiceOptions,
   type Workspace,
@@ -53,8 +47,7 @@ export interface ModelOptions {
   readonly json: boolean;
 }
 
-export interface StartOptions extends ModelOptions {
-  readonly task: string;
+export interface StartOptions extends ModelOptions, TaskSourceOptions {
   readonly mode: WorkflowMode;
   /** Review mode: the reference the local change is compared with. */
   readonly base?: string;
@@ -82,20 +75,13 @@ export async function startCommand(
 ): Promise<ExitCode> {
   return guarded(io, options.json, async (interruption) => {
     const workspace = await openWorkspace(io);
-    const loaded = await loadTaskFile(options.task, { cwd: io.cwd });
-    if (!loaded.valid || loaded.contract === undefined) {
-      const errors = loaded.issues.filter((issue) => issue.severity === "error");
-      const first = errors[0];
-      throw new DevflowError(
-        ErrorCode.TaskInvalid,
-        `${options.task} is not a valid task (${String(errors.length)} error(s)` +
-          `${first === undefined ? "" : `, first: ${formatIssuePath(first.path) || "(task)"}: ${first.message}`}); ` +
-          `run \`devflow task validate ${options.task}\` for details`,
-        { details: { file: options.task } },
-      );
-    }
+    const task = await resolveTask(options, {
+      io,
+      root: workspace.root,
+      signal: interruption?.signal,
+    });
     const { settings, warnings } = settingsFor(workspace, options, io);
-    const allWarnings = [...workspace.warnings, ...warnings];
+    const allWarnings = [...workspace.warnings, ...task.warnings, ...warnings];
     if (!options.json) printWarnings(io, allWarnings);
     const services = workflowServices(workspace, io, serviceOptions(io, options, interruption));
     // A provider that cannot be created (unknown name, no API key, no cassette) is a usage
@@ -103,8 +89,8 @@ export async function startCommand(
     await services.provider(settings.provider);
     const outcome = await startRun(
       {
-        task: loaded.contract,
-        taskFile: displayPath(workspace, loaded.path),
+        task: task.contract,
+        taskFile: task.taskFile,
         mode: options.mode,
         goal,
         settings,
@@ -435,6 +421,8 @@ function exitCodeForError(code: string): ExitCode {
       return ExitCode.BudgetExceeded;
     case ErrorCode.Cancelled:
       return ExitCode.Interrupted;
+    case ErrorCode.GitHubRequestFailed:
+      return ExitCode.Failure;
     default:
       return ExitCode.UsageError;
   }
@@ -495,13 +483,6 @@ function budgetOverrides(options: ModelOptions): Partial<RunBudgets> {
     ...(options.maxOutputTokens === undefined ? {} : { maxOutputTokens: options.maxOutputTokens }),
     ...(options.maxCallsPerStep === undefined ? {} : { maxCallsPerStep: options.maxCallsPerStep }),
   };
-}
-
-function displayPath(workspace: Workspace, absolute: string): string {
-  const relative = path.relative(workspace.root, absolute);
-  return relative.startsWith("..") || path.isAbsolute(relative)
-    ? absolute
-    : relative.split(path.sep).join("/");
 }
 
 const MAX_INPUT_FILE_BYTES = 1024 * 1024;
