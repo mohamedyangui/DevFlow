@@ -566,6 +566,7 @@ function report(io: CliIo, json: boolean, outcome: RunOutcome): ExitCode {
     `${c.bold("Run:")}    ${outcome.runId}`,
     `${c.bold("State:")}  ${stateLabel(outcome.state, c)}`,
   ];
+  if (outcome.branch !== undefined) out.push(`${c.bold("Branch:")} ${outcome.branch}`);
   out.push(...nextSteps(outcome, c));
   io.stdout.write(`${out.join("\n")}\n`);
   return code;
@@ -580,11 +581,18 @@ function nextSteps(outcome: RunOutcome, c: Colors): string[] {
       out.push(
         "",
         outcome.mode === "implement"
-          ? "The change was verified against the tests; the report has the verdict. The changed " +
+          ? outcome.branch === undefined
+            ? "The change was verified against the tests; the report has the verdict. The changed " +
               "files are in the working tree, not committed: review the diff before you keep it."
+            : "The change was verified against the tests; the report has the verdict. The approved " +
+              `changes are committed on the local branch ${outcome.branch}; nothing was pushed: ` +
+              "review the commits before you merge them."
           : outcome.mode === "test"
             ? "The tests were written and run against the current code (red baseline). No production " +
-              "code was changed, so no acceptance criterion is verified yet."
+              "code was changed, so no acceptance criterion is verified yet." +
+              (outcome.branch === undefined
+                ? ""
+                : ` The approved tests are committed on the local branch ${outcome.branch}.`)
             : "Assist mode analysed and planned only: no file was changed and nothing was executed or verified.",
       );
       break;

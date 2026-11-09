@@ -13,7 +13,10 @@ const config = ProjectConfig.parse({
     },
     budgets: { maxInputTokensPerRun: 1_000, maxOutputTokensPerRun: 500, maxCallsPerStep: 2 },
   },
-  workflow: { requirePlanApproval: false },
+  workflow: {
+    requirePlanApproval: false,
+    git: { isolation: "branch", branchPrefix: "ai/", commit: "none" },
+  },
 });
 
 describe("run settings", () => {
@@ -41,6 +44,7 @@ describe("run settings", () => {
       },
       requirePlanApproval: false,
       budgets: { maxInputTokens: 1_000, maxOutputTokens: 500, maxCallsPerStep: 2, maxCostUsd: 5 },
+      git: { isolation: "branch", branchPrefix: "ai/", commit: "none" },
       workspaceTrusted: true,
       configSha256: "a".repeat(64),
     });
@@ -65,6 +69,11 @@ describe("run settings", () => {
     });
     expect(settings.prices).toBeUndefined();
     expect(settings.requirePlanApproval).toBe(true);
+    expect(settings.git).toEqual({
+      isolation: "branch",
+      branchPrefix: "devflow/",
+      commit: "per-phase",
+    });
     expect(settings.budgets).toEqual({
       maxInputTokens: 600_000,
       maxOutputTokens: 80_000,

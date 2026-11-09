@@ -58,6 +58,14 @@ already there, and whether to repair), and `afterEvidence` completes the red/gre
 The report's verdict follows section 7 of the
 [verification spec](../../docs/specs/verification-and-evidence.md).
 
+## Git isolation
+
+With `services.git` (a `GitWorkspace`, such as `GitClient` from `@devflow/core`), test and
+implement mode need a clean working tree, create the run's branch just before the first write
+(`record.git`), and commit exactly the approved files at each approval
+([ADR 0012](../../docs/adr/0012-git-isolation.md)). Without it, or outside a repository, the
+changes stay in the working tree and the report says why.
+
 Any non-terminal state can move to `FAILED` or `CANCELLED`. The transition table and the edges
 each mode may take are in `src/transitions.ts`
 ([ADR 0004](../../docs/adr/0004-state-machine-and-run-store.md)); a transition outside them

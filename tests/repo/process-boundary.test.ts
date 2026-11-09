@@ -6,7 +6,8 @@ import { repoRoot } from "./helpers.js";
 /**
  * Only the executor's process launcher may start processes (ADR 0003, ADR 0018). ESLint
  * enforces this per file; this test makes sure the exception stays a single file and that no
- * source starts processes through a dynamic import or `process.binding`.
+ * source starts processes through a dynamic import or `process.binding`. The launcher is used
+ * by the executor (approved commands) and by DevFlow's own fixed git calls (ADR 0012).
  */
 const LAUNCHER = "packages/core/src/security/process-launcher.ts";
 
@@ -53,10 +54,14 @@ describe("process boundary", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("is used only by the executor", () => {
+  it("is used only by the executor and the git client", () => {
     const users = sources
       .filter(({ text }) => text.includes("process-launcher.js"))
-      .map(({ relative }) => relative);
-    expect(users).toEqual(["packages/core/src/security/executor.ts"]);
+      .map(({ relative }) => relative)
+      .sort();
+    expect(users).toEqual([
+      "packages/core/src/security/executor.ts",
+      "packages/core/src/security/git.ts",
+    ]);
   });
 });

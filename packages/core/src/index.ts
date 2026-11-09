@@ -313,6 +313,13 @@ export {
   type WorkspaceModule,
 } from "./adapters/registry.js";
 export { PathToolchainProbe, StaticToolchainProbe } from "./security/toolchain-probe.js";
+export {
+  GitClient,
+  statusPaths,
+  type GitClientOptions,
+  type GitInspection,
+  type GitWorkspace,
+} from "./security/git.js";
 
 // Task loading and validation
 export {

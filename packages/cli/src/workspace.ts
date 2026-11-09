@@ -3,6 +3,7 @@ import { createProvider } from "@devflow/ai";
 import {
   DevflowError,
   ErrorCode,
+  GitClient,
   PathGuard,
   type ProjectConfig,
   SecretRedactor,
@@ -125,6 +126,8 @@ export function workflowServices(
       interactive: options.interactiveApproval === true,
       onGate: options.onGate,
     }),
+    // DevFlow's own fixed git calls (ADR 0012); git is looked up outside the workspace.
+    git: new GitClient({ root: workspace.guard.root, env: io.env }),
     ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
     ...(options.interruption === undefined ? {} : { signal: options.interruption.signal }),
   };

@@ -82,6 +82,8 @@ export {
   Clarifications,
   DesignedTest,
   EvidenceEntry,
+  GitCommitRecord,
+  GitIsolationRecord,
   ImplementationRecord,
   ImplementationWire,
   PendingInput,
@@ -107,6 +109,7 @@ export {
 } from "./schemas.js";
 export {
   DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS,
+  DEFAULT_GIT_SETTINGS,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_MAX_REPAIR_ATTEMPTS,
   DEFAULT_PROVIDER,

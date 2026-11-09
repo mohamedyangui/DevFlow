@@ -129,8 +129,18 @@ one input the executor accepts. The checks run in this order; the first failure 
 Every denial and every interactive decision is written to the audit log. A denied command makes
 its gate `not_executed`.
 
-DevFlow's own git operations are fixed internal calls with `core.fsmonitor` disabled,
-`--no-ext-diff` and `--no-textconv`, and commits on the DevFlow branch disable hooks by default.
+DevFlow's own git operations ([ADR 0012](../adr/0012-git-isolation.md), `GitClient` in
+`@devflow/core`) are fixed internal calls: inspect the repository and its status, create and
+check out the run's branch, commit exactly the approved files. Git is found on the absolute
+entries of PATH, never inside the workspace (on Windows only `git.exe`), and runs with the
+child environment of section 5 (so `GIT_DIR` and other `GIT_*` variables of DevFlow's own
+environment never reach it), literal pathspecs and no terminal prompt. Every call disables
+hooks (`core.hooksPath` points to a directory that does not exist, commits pass
+`--no-verify`), `core.fsmonitor`, commit signing, automatic garbage collection and
+maintenance, and the pager. DevFlow runs no diff of its own, so external diff drivers and
+textconv filters never run; when it does, it will pass `--no-ext-diff` and `--no-textconv`.
+The repository's own configuration (`.git/config`) belongs to the user and is used as it is,
+for example the commit identity; the model cannot write it, because `.git/` is protected.
 
 ## 5. Executor
 

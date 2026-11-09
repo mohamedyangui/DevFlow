@@ -16,6 +16,7 @@ import {
   ErrorCode,
   Finding,
   type GateDefinition,
+  type GitWorkspace,
   ImplementationPlan,
   IsoDateTime,
   type LlmProvider,
@@ -74,6 +75,7 @@ import {
   type ClarificationRecord,
   Clarifications,
   type DesignedTest,
+  type GitIsolationRecord,
   ImplementationRecord,
   ImplementationWire,
   type PlanChecks,
@@ -92,6 +94,7 @@ import {
   TestFiles,
 } from "./schemas.js";
 import {
+  DEFAULT_GIT_SETTINGS,
   DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS,
   DEFAULT_MAX_REPAIR_ATTEMPTS,
   DEFAULT_TEST_DESIGN_OUTPUT_TOKENS,
@@ -239,6 +242,13 @@ export interface WorkflowServices {
    * them. Without it, test mode stops with `TEST_RUNNER_UNAVAILABLE`.
    */
   readonly testRunner?: () => Promise<TestRunner>;
+  /**
+   * Test and implement mode: DevFlow's own git operations (ADR 0012). With it, a run needs a
+   * clean working tree and keeps its changes on a branch of its own, committed when a person
+   * approves them. Without it, or outside a repository, the changes stay uncommitted in the
+   * working tree and the report says so.
+   */
+  readonly git?: GitWorkspace;
   /** Gateway tuning (timeouts, retries); injected in tests. */
   readonly gateway?: Pick<
     LlmGatewayOptions,
@@ -272,6 +282,8 @@ export interface RunOutcome {
   /** Commands the policy did not let run, when the run stopped for that reason. */
   readonly denials?: readonly CommandDenial[];
   readonly reportPath?: string;
+  /** The run's own branch, when it keeps its changes on one (ADR 0012). */
+  readonly branch?: string;
 }
 
 export interface StartRunInput {
@@ -311,6 +323,7 @@ export async function startRun(
       },
     );
   }
+  if (writesCode(input.mode)) await checkGitBeforeStart(input.settings, services);
   const clock = services.clock ?? (() => new Date());
   const store = await RunStore.create(services.guard.root, task.id, { clock });
   const unlock = await store.lock();
@@ -533,6 +546,7 @@ export async function approveTests(
       );
     }
     await session.verifyTestFilesUnchanged(files);
+    await session.assertOnBranch();
     const at = session.now();
     await (
       await session.audit()
@@ -549,6 +563,12 @@ export async function approveTests(
       by: decision.by,
       at,
     } satisfies TestApproval);
+    await session.commitPhase(
+      "tests",
+      Math.max(1, session.record.iterations.testDesign ?? 0),
+      files.files.map((file) => file.path),
+      decision.by,
+    );
     await session.store.appendEvent({
       type: "decision",
       state: session.record.state,
@@ -636,6 +656,7 @@ export async function approveChanges(
       );
     }
     await session.verifyWrittenFilesUnchanged();
+    await session.assertOnBranch();
     await (
       await session.audit()
     ).append({
@@ -652,6 +673,12 @@ export async function approveChanges(
       by: decision.by,
       at: session.now(),
     } satisfies ChangeApproval);
+    await session.commitPhase(
+      (session.record.iterations.verification ?? 0) > 0 ? "repair" : "implementation",
+      files.iteration,
+      files.files.map((file) => file.path),
+      decision.by,
+    );
     await session.store.appendEvent({
       type: "decision",
       state: session.record.state,
@@ -713,6 +740,63 @@ export async function rejectChanges(
 /** Modes that write files into the workspace: tests, then (implement mode) code. */
 function writesCode(mode: WorkflowMode): boolean {
   return mode === "test" || mode === "implement";
+}
+
+/**
+ * Before a run that will change files starts: the configured isolation must exist, and the
+ * working tree must be clean, so that DevFlow's changes never mix with uncommitted ones.
+ */
+async function checkGitBeforeStart(
+  settings: RunSettings,
+  services: WorkflowServices,
+): Promise<void> {
+  const git = settings.git ?? DEFAULT_GIT_SETTINGS;
+  if (git.isolation === "worktree") {
+    throw new DevflowError(
+      ErrorCode.GitIsolationUnsupported,
+      "workflow.git.isolation: worktree is not implemented yet; use branch (the default)",
+      { details: { isolation: git.isolation } },
+    );
+  }
+  if (services.git === undefined) return;
+  const inspection = await services.git.inspect();
+  if (inspection.kind === "repository" && inspection.changes.length > 0) {
+    throw treeNotClean(inspection.changes);
+  }
+}
+
+function treeNotClean(changes: readonly string[]): DevflowError {
+  const shown = changes.slice(0, 5).join(", ");
+  const more = changes.length > 5 ? ` and ${String(changes.length - 5)} more` : "";
+  return new DevflowError(
+    ErrorCode.GitTreeNotClean,
+    `the working tree has uncommitted changes (${shown}${more}); commit or stash them first, ` +
+      "so that DevFlow's changes stay apart from yours",
+    { details: { changes: changes.slice(0, 50) } },
+  );
+}
+
+/** The first line of a DevFlow commit, and its body. */
+function commitMessage(input: {
+  taskId: string;
+  title: string;
+  runId: string;
+  phase: "tests" | "implementation" | "repair";
+  repair: number;
+  by: string;
+}): { subject: string; message: string } {
+  const what =
+    input.phase === "tests"
+      ? "add tests"
+      : input.phase === "implementation"
+        ? "implement the change"
+        : `repair ${String(input.repair)}`;
+  const subject = `DevFlow ${input.taskId}: ${what}`;
+  const title = input.title.replace(/\s+/g, " ").trim();
+  return {
+    subject,
+    message: `${subject}\n\n${title}\n\nRun ${input.runId}, approved by ${input.by.replace(/\s+/g, " ")}.`,
+  };
 }
 
 /** Why the policy stopped the test commands, and what makes them runnable. */
@@ -917,6 +1001,7 @@ async function outcomeOf(store: RunStore, record: RunRecord): Promise<RunOutcome
     mode: record.mode,
     state: record.state,
     runDir: store.workspacePath("").replace(/\/$/, ""),
+    ...(record.git?.status === "branch" ? { branch: record.git.branch } : {}),
   };
   const report = (await store.exists("report.json"))
     ? { reportPath: store.workspacePath("report.md") }
@@ -1034,6 +1119,114 @@ class Session {
     await this.save();
     await this.store.appendEvent({ type: "transition", state: to, from, detail });
     this.services.onProgress?.({ kind: "state", state: to });
+  }
+
+  /**
+   * Gives the run its own branch before it writes the first file (ADR 0012): the working tree
+   * must still be clean. Outside a repository, or without git, the changes stay in the working
+   * tree, and the report says why.
+   */
+  private async isolate(): Promise<void> {
+    if (this.record.git !== undefined) return;
+    const settings = this.record.settings.git ?? DEFAULT_GIT_SETTINGS;
+    const git = this.services.git;
+    let isolation: GitIsolationRecord;
+    if (git === undefined) {
+      isolation = { status: "none", reason: "the run was started without git" };
+    } else {
+      const inspection = await git.inspect();
+      if (inspection.kind === "unavailable") {
+        isolation = { status: "none", reason: inspection.reason };
+      } else {
+        if (inspection.changes.length > 0) throw treeNotClean(inspection.changes);
+        const branch = await git.freeBranchName(`${settings.branchPrefix}${this.record.task.id}`);
+        await git.createBranch(branch);
+        isolation = {
+          status: "branch",
+          branch,
+          baseBranch: inspection.branch,
+          baseCommit: inspection.head,
+          commit: settings.commit,
+          commits: [],
+          warnings: [],
+        };
+      }
+    }
+    this.record.git = isolation;
+    await this.save();
+    await this.store.appendEvent({
+      type: "git",
+      state: this.record.state,
+      detail:
+        isolation.status === "branch"
+          ? `created and checked out ${isolation.branch} at ${isolation.baseCommit.slice(0, 12)}`
+          : `no branch: ${isolation.reason}`,
+    });
+  }
+
+  /** Refuses to write, run or commit when the run's branch is no longer checked out. */
+  async assertOnBranch(): Promise<void> {
+    const isolation = this.record.git;
+    if (isolation?.status !== "branch") return;
+    const git = this.services.git;
+    if (git === undefined) {
+      throw new DevflowError(
+        ErrorCode.GitFailed,
+        `this run keeps its changes on ${isolation.branch}, but it was resumed without git`,
+        { details: { branch: isolation.branch } },
+      );
+    }
+    const current = await git.currentBranch();
+    if (current !== isolation.branch) {
+      throw new DevflowError(
+        ErrorCode.GitBranchChanged,
+        `the run's branch ${isolation.branch} is not checked out (` +
+          (current === null ? "HEAD is detached" : `${current} is`) +
+          `); check it out again (git switch ${isolation.branch}) and retry`,
+        { details: { expected: isolation.branch, current } },
+      );
+    }
+  }
+
+  /**
+   * Commits what a person just approved on the run's branch. A commit that fails does not stop
+   * the run: the files stay uncommitted on the branch, and the report asks for a look.
+   */
+  async commitPhase(
+    phase: "tests" | "implementation" | "repair",
+    iteration: number,
+    paths: readonly string[],
+    by: string,
+  ): Promise<void> {
+    const isolation = this.record.git;
+    const git = this.services.git;
+    if (isolation?.status !== "branch" || isolation.commit !== "per-phase" || git === undefined) {
+      return;
+    }
+    const { subject, message } = commitMessage({
+      taskId: this.record.task.id,
+      title: this.record.task.title,
+      runId: this.record.id,
+      phase,
+      repair: this.record.iterations.verification ?? 0,
+      by,
+    });
+    let detail: string;
+    try {
+      const sha = await git.commit(paths, message);
+      isolation.commits.push({ phase, iteration, sha, subject, at: this.now() });
+      detail = `committed ${phase} ${String(iteration)} as ${sha.slice(0, 12)}`;
+    } catch (error) {
+      if (!isDevflowError(error)) throw error;
+      const reason = this.services.redactor.redactText(error.message);
+      isolation.warnings.push(
+        `The approved ${phase === "tests" ? "tests were" : `${phase} was`} not committed (${reason}); ` +
+          `commit or review these files on ${isolation.branch}: ${paths.join(", ")}.`,
+      );
+      detail = `${phase} ${String(iteration)} not committed: ${reason}`;
+    }
+    await this.save();
+    await this.store.appendEvent({ type: "git", state: this.record.state, detail });
   }
 
   expectPlanApproval(): { kind: "plan-approval"; planSha256: string } {
@@ -1160,6 +1353,7 @@ class Session {
     }[],
     code: typeof ErrorCode.TestFilesChanged | typeof ErrorCode.ImplementationFilesChanged,
   ): Promise<void> {
+    await this.assertOnBranch();
     const audit = await this.audit();
     for (const file of [...files].reverse()) {
       const { absolute, sha256 } = await this.currentHash(file.path);
@@ -1267,6 +1461,7 @@ class Session {
           }
           case "TEST_DESIGN": {
             if (this.record.pending?.kind === "test-approval") return await this.outcome();
+            await this.isolate();
             const testsSha256 = await this.step(STEP.testDesign, () => this.designTests());
             this.record.pending = { kind: "test-approval", testsSha256 };
             await this.save();
@@ -1706,6 +1901,7 @@ class Session {
   }
 
   private async writeTestFiles(files: readonly PlannedTestFile[]): Promise<void> {
+    await this.assertOnBranch();
     const audit = await this.audit();
     for (const file of files) {
       const checked = await this.services.guard.check(file.path, {
@@ -1730,6 +1926,7 @@ class Session {
    * resumed once the command is approved.
    */
   private async runBaseline(): Promise<void> {
+    await this.assertOnBranch();
     const files = await this.testFiles();
     const approval = await this.store.readJson(ARTIFACT.testApproval, TestApproval);
     if (approval.testsSha256 !== files.testsSha256) {
@@ -1950,6 +2147,7 @@ class Session {
    * was computed from just before it is written, so an edit made meanwhile is never overwritten.
    */
   private async writeChangeFiles(files: readonly PlannedChangeFile[]): Promise<void> {
+    await this.assertOnBranch();
     const audit = await this.audit();
     const changed = await this.changedFiles();
     for (const file of files) {
@@ -1999,6 +2197,7 @@ class Session {
    * second time, compared with the baseline. Decides whether a repair follows.
    */
   private async runAfter(): Promise<AfterRun> {
+    await this.assertOnBranch();
     const files = await this.changeFiles();
     const approval = await this.store.readJson(ARTIFACT.changeApproval, ChangeApproval);
     if (approval.changesSha256 !== files.changesSha256 || approval.iteration !== files.iteration) {

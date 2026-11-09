@@ -105,6 +105,7 @@ export function buildReport(input: ReportInput): EngineeringReport {
         };
 
   const written = input.testFiles?.files ?? [];
+  const git = record.git;
   const manualChecks = [
     ...task.acceptanceCriteria
       .filter((criterion) => criterion.verification === "manual")
@@ -125,9 +126,19 @@ export function buildReport(input: ReportInput): EngineeringReport {
     ...((input.changedFiles?.files ?? []).length === 0
       ? []
       : [
-          "Review the diff of the changed files before you keep it: the code was written by a " +
-            "model, and its content can be influenced by the repository it read.",
+          (git?.status === "branch"
+            ? `Review the diff (git diff ${git.baseCommit.slice(0, 12)}..${git.branch}) before you merge it: `
+            : "Review the diff of the changed files before you keep it: ") +
+            "the code was written by a model, and its content can be influenced by the " +
+            "repository it read.",
         ]),
+    ...(git?.status === "branch" ? git.warnings : []),
+    ...(git?.status === "none" &&
+    (written.length > 0 || (input.changedFiles?.files ?? []).length > 0)
+      ? [
+          `The changes are not on a DevFlow branch (${git.reason}): they are uncommitted in the working tree.`,
+        ]
+      : []),
   ];
 
   const entries = input.evidence?.entries ?? [];
@@ -221,6 +232,13 @@ export function buildReport(input: ReportInput): EngineeringReport {
       state: record.state,
       startedAt: record.createdAt,
       finishedAt: record.finishedAt ?? record.updatedAt,
+      ...(git?.status === "branch"
+        ? {
+            branch: git.branch,
+            baseCommit: git.baseCommit,
+            headCommit: git.commits.at(-1)?.sha ?? git.baseCommit,
+          }
+        : {}),
     },
     verdict:
       after === undefined
@@ -314,6 +332,12 @@ export function renderReportMarkdown(
     `- **Started:** ${report.run.startedAt}`,
     `- **Finished:** ${report.run.finishedAt}`,
   );
+  if (report.run.branch !== undefined) {
+    lines.push(
+      `- **Branch:** \`${report.run.branch}\` (base commit \`${(report.run.baseCommit ?? "").slice(0, 12)}\`, ` +
+        `head commit \`${(report.run.headCommit ?? "").slice(0, 12)}\`)`,
+    );
+  }
   if (report.usage !== undefined) {
     lines.push(
       `- **Model usage:** ${report.usage.calls} call(s), ${report.usage.inputTokens} input tokens, ` +
@@ -494,9 +518,12 @@ function notDone(report: EngineeringReport): string {
         row.tests.some((test) => test.status !== "not_executed"),
       );
     return (
-      "Implement mode changed the files listed above in the working tree; nothing was " +
-      "committed or pushed, so review the diff before you keep it. No model review of the " +
-      "change was made: the findings are deterministic. " +
+      (committed(report)
+        ? `Implement mode committed the approved changes on the local branch ${report.run.branch ?? ""}; ` +
+          "nothing was pushed or merged, so review the commits before you merge them. "
+        : "Implement mode changed the files listed above in the working tree; nothing was " +
+          "committed or pushed, so review the diff before you keep it. ") +
+      "No model review of the change was made: the findings are deterministic. " +
       (verified
         ? "The gates ran before and after the change."
         : "The verification after the change did not run.")
@@ -508,7 +535,19 @@ function notDone(report: EngineeringReport): string {
       : "The tests did not run in this run.";
   return (
     "Test mode writes and runs tests only: no production code was changed and the " +
-    `implementation step has not run, so no criterion is verified. ${ran}`
+    `implementation step has not run, so no criterion is verified. ${ran}` +
+    (committed(report)
+      ? ` The approved tests are committed on the local branch ${report.run.branch ?? ""}; nothing was pushed.`
+      : "")
+  );
+}
+
+/** Whether the run committed anything on its own branch. */
+function committed(report: EngineeringReport): boolean {
+  return (
+    report.run.branch !== undefined &&
+    report.run.headCommit !== undefined &&
+    report.run.headCommit !== report.run.baseCommit
   );
 }
 

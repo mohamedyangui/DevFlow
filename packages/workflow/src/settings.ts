@@ -17,6 +17,13 @@ export const DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS = 32_000;
 /** The default of `workflow.maxRepairAttempts`. */
 export const DEFAULT_MAX_REPAIR_ATTEMPTS = 2;
 
+/** The default of `workflow.git` (ADR 0012). */
+export const DEFAULT_GIT_SETTINGS: NonNullable<RunSettings["git"]> = Object.freeze({
+  isolation: "branch",
+  branchPrefix: "devflow/",
+  commit: "per-phase",
+});
+
 export const DEFAULT_MAX_OUTPUT_TOKENS = Object.freeze({
   analysis: 8_000,
   planning: 16_000,
@@ -140,6 +147,7 @@ export function resolveRunSettings(input: ResolveSettingsInput): {
       budgets,
       contextBudgetTokens: overrides.contextBudgetTokens ?? DEFAULT_CONTEXT_BUDGET_TOKENS,
       maxOutputTokens: { ...DEFAULT_MAX_OUTPUT_TOKENS },
+      git: { ...(workflow?.git ?? DEFAULT_GIT_SETTINGS) },
       workspaceTrusted: input.trusted,
       configSha256: input.configSha256,
     },

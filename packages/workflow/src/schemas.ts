@@ -5,6 +5,7 @@ import {
   Dependency,
   EdgeCase,
   GateResult,
+  GitCommit,
   IsoDateTime,
   ModuleId,
   RepoPath,
@@ -87,10 +88,54 @@ export const RunSettings = z.strictObject({
     testDesign: z.int().positive().optional(),
     implementation: z.int().positive().optional(),
   }),
+  /** Test and implement mode: `workflow.git` (ADR 0012). Absent in runs created before it. */
+  git: z
+    .strictObject({
+      isolation: z.enum(["branch", "worktree"]),
+      branchPrefix: z.string().min(1),
+      commit: z.enum(["per-phase", "none"]),
+    })
+    .optional(),
   workspaceTrusted: z.boolean(),
   configSha256: Sha256.nullable(),
 });
 export type RunSettings = z.infer<typeof RunSettings>;
+
+/** A commit DevFlow made on a run's branch. */
+export const GitCommitRecord = z.strictObject({
+  phase: z.enum(["tests", "implementation", "repair"]),
+  /** The test-design or implementation iteration that was committed. */
+  iteration: z.int().positive(),
+  sha: GitCommit,
+  /** The commit's subject line. */
+  subject: z.string().min(1),
+  at: IsoDateTime,
+});
+export type GitCommitRecord = z.infer<typeof GitCommitRecord>;
+
+/**
+ * Where a test- or implement-mode run keeps its changes (ADR 0012): on a DevFlow branch, or,
+ * when git cannot be used, in the working tree as it is.
+ */
+export const GitIsolationRecord = z.discriminatedUnion("status", [
+  z.strictObject({
+    status: z.literal("branch"),
+    branch: z.string().min(1),
+    /** The branch checked out when the run created its own, or null for a detached HEAD. */
+    baseBranch: z.string().min(1).nullable(),
+    baseCommit: GitCommit,
+    commit: z.enum(["per-phase", "none"]),
+    commits: z.array(GitCommitRecord),
+    /** Commits that could not be made; their files stay uncommitted on the branch. */
+    warnings: z.array(z.string()),
+  }),
+  z.strictObject({
+    status: z.literal("none"),
+    /** Why the changes are not on a DevFlow branch. */
+    reason: z.string().min(1),
+  }),
+]);
+export type GitIsolationRecord = z.infer<typeof GitIsolationRecord>;
 
 export const PendingInput = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("plan-approval"), planSha256: Sha256 }),
@@ -156,6 +201,8 @@ export const RunRecord = z.strictObject({
   pending: PendingInput.nullable(),
   lastError: RunError.nullable(),
   warnings: z.array(z.string()),
+  /** Test and implement mode: set before the first file is written. */
+  git: GitIsolationRecord.optional(),
 });
 export type RunRecord = z.infer<typeof RunRecord>;
 
@@ -171,6 +218,7 @@ export const RunEvent = z.strictObject({
     "step-failed",
     "decision",
     "resumed",
+    "git",
   ]),
   /** The run's state after the event. */
   state: WorkflowState,

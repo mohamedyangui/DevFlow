@@ -2,10 +2,13 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { FakeProvider, type FakeReply } from "@devflow/ai";
 import {
+  DevflowError,
   EngineeringReport,
   ErrorCode,
   type GateDefinition,
   type GateResult,
+  type GitInspection,
+  type GitWorkspace,
   type LlmRequest,
   type TestCaseResult,
   type VerificationRun,
@@ -19,11 +22,14 @@ import {
   RunStore,
   type TestRunner,
   TestEvidenceRecord,
+  type WorkflowServices,
   approveChanges,
   approvePlan,
   approveTests,
   getRun,
   rejectChanges,
+  rejectTests,
+  resumeRun,
   startRun,
 } from "../src/index.js";
 import {
@@ -241,8 +247,12 @@ async function startImplement(
   provider: FakeProvider,
   runner: TestRunner,
   overrides: Parameters<typeof settings>[0] = {},
+  extra: Partial<WorkflowServices> = {},
 ) {
-  const svc = await services(root, provider, { testRunner: () => Promise.resolve(runner) });
+  const svc = await services(root, provider, {
+    testRunner: () => Promise.resolve(runner),
+    ...extra,
+  });
   const outcome = await startRun(
     {
       task: task(),
@@ -263,8 +273,9 @@ async function toChange(
   provider: FakeProvider,
   runner: TestRunner,
   overrides: Parameters<typeof settings>[0] = {},
+  extra: Partial<WorkflowServices> = {},
 ) {
-  const started = await startImplement(root, provider, runner, overrides);
+  const started = await startImplement(root, provider, runner, overrides, extra);
   await approvePlan(started.outcome.runId, { by: "mohamed" }, started.svc);
   const waiting = await approveTests(started.outcome.runId, { by: "mohamed" }, started.svc);
   return { ...started, waiting, runId: started.outcome.runId };
@@ -553,5 +564,303 @@ describe("implement mode", () => {
         svc,
       ),
     ).rejects.toMatchObject({ code: ErrorCode.InvalidTransition });
+  });
+});
+
+const BASE = "b".repeat(40);
+
+/** An in-memory repository: one branch checked out, the uncommitted changes, the commits. */
+class FakeGit implements GitWorkspace {
+  branch: string | null = "main";
+  readonly branches = new Set(["main"]);
+  changes: string[] = [];
+  readonly commits: { paths: string[]; message: string; branch: string | null }[] = [];
+  unavailable: string | undefined;
+  failCommits = false;
+
+  inspect(): Promise<GitInspection> {
+    if (this.unavailable !== undefined) {
+      return Promise.resolve({ kind: "unavailable", reason: this.unavailable });
+    }
+    return Promise.resolve({
+      kind: "repository",
+      head: BASE,
+      branch: this.branch,
+      changes: [...this.changes],
+    });
+  }
+
+  currentBranch(): Promise<string | null> {
+    return Promise.resolve(this.branch);
+  }
+
+  freeBranchName(base: string): Promise<string> {
+    for (let attempt = 1; ; attempt++) {
+      const name = attempt === 1 ? base : `${base}-${String(attempt)}`;
+      if (!this.branches.has(name)) return Promise.resolve(name);
+    }
+  }
+
+  createBranch(name: string): Promise<void> {
+    this.branches.add(name);
+    this.branch = name;
+    return Promise.resolve();
+  }
+
+  commit(paths: readonly string[], message: string): Promise<string> {
+    if (this.failCommits) {
+      return Promise.reject(
+        new DevflowError(ErrorCode.GitFailed, "git commit failed: Author identity unknown"),
+      );
+    }
+    this.commits.push({ paths: [...paths], message, branch: this.branch });
+    return Promise.resolve(String(this.commits.length).repeat(40).slice(0, 40));
+  }
+}
+
+describe("implement mode on a git branch (ADR 0012)", () => {
+  it("creates the branch after the plan, commits the approved tests and change, and reports them", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    const { provider } = model();
+    const { runner } = fakeRunner(root, [run("assertion_failure"), run("passed")]);
+    const started = await startImplement(root, provider, runner, {}, { git });
+    // Nothing is written before the plan is approved, so the branch does not exist yet.
+    expect(git.branch).toBe("main");
+    expect(started.outcome).not.toHaveProperty("branch");
+
+    const tests = await approvePlan(started.outcome.runId, { by: "mohamed" }, started.svc);
+    expect(git.branch).toBe("devflow/TASK-7");
+    expect(tests).toMatchObject({ waitingFor: "test-approval", branch: "devflow/TASK-7" });
+    expect(git.commits).toEqual([]);
+
+    const change = await approveTests(started.outcome.runId, { by: "mohamed" }, started.svc);
+    expect(change).toMatchObject({ waitingFor: "change-approval", branch: "devflow/TASK-7" });
+    expect(git.commits).toEqual([
+      {
+        paths: [TEST_FILE],
+        message:
+          "DevFlow TASK-7: add tests\n\nPaginate the order list\n\n" +
+          `Run ${started.outcome.runId}, approved by mohamed.`,
+        branch: "devflow/TASK-7",
+      },
+    ]);
+
+    const done = await approveChanges(started.outcome.runId, { by: "mohamed" }, started.svc);
+    expect(done).toMatchObject({ status: "completed", branch: "devflow/TASK-7" });
+    expect(git.commits.map((commit) => [commit.paths, commit.message.split("\n")[0]])).toEqual([
+      [[TEST_FILE], "DevFlow TASK-7: add tests"],
+      [[SOURCE], "DevFlow TASK-7: implement the change"],
+    ]);
+
+    const { record } = await getRun(root, started.outcome.runId);
+    expect(record.git).toMatchObject({
+      status: "branch",
+      branch: "devflow/TASK-7",
+      baseBranch: "main",
+      baseCommit: BASE,
+      commit: "per-phase",
+      commits: [
+        { phase: "tests", iteration: 1, subject: "DevFlow TASK-7: add tests" },
+        { phase: "implementation", iteration: 1, subject: "DevFlow TASK-7: implement the change" },
+      ],
+      warnings: [],
+    });
+    const report = await reportOf(started.store);
+    expect(report.run).toMatchObject({
+      branch: "devflow/TASK-7",
+      baseCommit: BASE,
+      headCommit: "2".repeat(40),
+    });
+    expect(report.manualChecks.join("\n")).toContain(
+      `git diff ${BASE.slice(0, 12)}..devflow/TASK-7`,
+    );
+    const markdown = await started.store.readText("report.md");
+    expect(markdown).toContain("- **Branch:** `devflow/TASK-7`");
+    expect(markdown).toContain(
+      "Implement mode committed the approved changes on the local branch devflow/TASK-7; " +
+        "nothing was pushed or merged",
+    );
+  });
+
+  it("commits each approved repair, never a rejected change", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    const repaired = NEW_BODY.replace("page * size", "page * size /* repaired */");
+    const { provider } = model([
+      implementationAnswer(),
+      implementationAnswer(),
+      implementationAnswer([{ edits: [{ search: NEW_BODY, replace: repaired }] }], "Fix it."),
+    ]);
+    const { runner } = fakeRunner(root, [
+      run("assertion_failure"),
+      run("assertion_failure"),
+      run("assertion_failure"),
+      run("passed"),
+    ]);
+    const { svc, runId } = await toChange(root, provider, runner, {}, { git });
+    await rejectChanges(runId, { by: "mohamed", feedback: "Name the slice." }, svc);
+    expect(git.commits).toHaveLength(1);
+    const repair = await approveChanges(runId, { by: "mohamed" }, svc);
+    expect(repair).toMatchObject({ waitingFor: "change-approval" });
+    const done = await approveChanges(runId, { by: "mohamed" }, svc);
+    expect(done.status).toBe("completed");
+    expect(git.commits.map((commit) => commit.message.split("\n")[0])).toEqual([
+      "DevFlow TASK-7: add tests",
+      "DevFlow TASK-7: implement the change",
+      "DevFlow TASK-7: repair 1",
+    ]);
+    const { record } = await getRun(root, runId);
+    expect(record.git?.status === "branch" ? record.git.commits.map((c) => c.phase) : []).toEqual([
+      "tests",
+      "implementation",
+      "repair",
+    ]);
+  });
+
+  it("refuses to start on a working tree with uncommitted changes, and creates no run", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    git.changes = ["src/orders.ts", "notes.txt"];
+    const { provider } = model();
+    const { runner } = fakeRunner(root, [run("passed")]);
+    await expect(startImplement(root, provider, runner, {}, { git })).rejects.toMatchObject({
+      code: ErrorCode.GitTreeNotClean,
+      message: expect.stringContaining("src/orders.ts, notes.txt") as string,
+    });
+    await expect(readFile(path.join(root, ".devflow", "runs"), "utf8")).rejects.toThrow();
+  });
+
+  it("refuses worktree isolation, which is not implemented", async () => {
+    const root = await workspace();
+    const { provider } = model();
+    const { runner } = fakeRunner(root, [run("passed")]);
+    await expect(
+      startImplement(
+        root,
+        provider,
+        runner,
+        { git: { isolation: "worktree", branchPrefix: "devflow/", commit: "per-phase" } },
+        { git: new FakeGit() },
+      ),
+    ).rejects.toMatchObject({ code: ErrorCode.GitIsolationUnsupported });
+  });
+
+  it("stops before writing when the tree changed after the start, and resumes once it is clean", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    const { provider } = model();
+    const { runner } = fakeRunner(root, [run("assertion_failure"), run("passed")]);
+    const started = await startImplement(root, provider, runner, {}, { git });
+    git.changes = ["README.md"];
+    const stopped = await approvePlan(started.outcome.runId, { by: "mohamed" }, started.svc);
+    expect(stopped).toMatchObject({
+      state: "TEST_DESIGN",
+      status: "interrupted",
+      error: { code: ErrorCode.GitTreeNotClean },
+    });
+    expect(git.branch).toBe("main");
+    await expect(readFile(path.join(root, TEST_FILE), "utf8")).rejects.toThrow();
+
+    git.changes = [];
+    const resumed = await resumeRun(started.outcome.runId, started.svc);
+    expect(resumed).toMatchObject({ waitingFor: "test-approval", branch: "devflow/TASK-7" });
+  });
+
+  it("uses a free branch name when the task's branch exists", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    git.branches.add("devflow/TASK-7");
+    const { provider } = model();
+    const { runner } = fakeRunner(root, [run("assertion_failure"), run("passed")]);
+    const { waiting } = await toChange(root, provider, runner, {}, { git });
+    expect(waiting.branch).toBe("devflow/TASK-7-2");
+    expect(git.commits[0]?.branch).toBe("devflow/TASK-7-2");
+  });
+
+  it("refuses to approve or restore while another branch is checked out", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    const { provider } = model();
+    const { runner, calls } = fakeRunner(root, [run("assertion_failure"), run("passed")]);
+    const started = await startImplement(root, provider, runner, {}, { git });
+    const runId = started.outcome.runId;
+    await approvePlan(runId, { by: "mohamed" }, started.svc);
+    git.branch = "main";
+    await expect(approveTests(runId, { by: "mohamed" }, started.svc)).rejects.toMatchObject({
+      code: ErrorCode.GitBranchChanged,
+      message: expect.stringContaining("git switch devflow/TASK-7") as string,
+    });
+    await expect(
+      rejectTests(runId, { by: "mohamed", feedback: "Shorter." }, started.svc),
+    ).rejects.toMatchObject({ code: ErrorCode.GitBranchChanged });
+    expect(git.commits).toEqual([]);
+    expect(calls).toEqual([]);
+    expect((await getRun(root, runId)).record.pending?.kind).toBe("test-approval");
+
+    git.branch = "devflow/TASK-7";
+    const change = await approveTests(runId, { by: "mohamed" }, started.svc);
+    expect(change.waitingFor).toBe("change-approval");
+  });
+
+  it("goes on when a commit fails, and asks for a look at the uncommitted files", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    git.failCommits = true;
+    const { provider } = model();
+    const { runner } = fakeRunner(root, [run("assertion_failure"), run("passed")]);
+    const { svc, runId, store } = await toChange(root, provider, runner, {}, { git });
+    const done = await approveChanges(runId, { by: "mohamed" }, svc);
+    expect(done.status).toBe("completed");
+    const report = await reportOf(store);
+    expect(report.run.headCommit).toBe(BASE);
+    expect(report.manualChecks).toContain(
+      "The approved tests were not committed (git commit failed: Author identity unknown); " +
+        `commit or review these files on devflow/TASK-7: ${TEST_FILE}.`,
+    );
+    expect(report.manualChecks).toContain(
+      "The approved implementation was not committed (git commit failed: Author identity unknown); " +
+        `commit or review these files on devflow/TASK-7: ${SOURCE}.`,
+    );
+    expect(await store.readText("report.md")).toContain("nothing was committed or pushed");
+  });
+
+  it("keeps the branch but makes no commit with commit: none", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    const { provider } = model();
+    const { runner } = fakeRunner(root, [run("assertion_failure"), run("passed")]);
+    const { svc, runId } = await toChange(
+      root,
+      provider,
+      runner,
+      { git: { isolation: "branch", branchPrefix: "df-", commit: "none" } },
+      { git },
+    );
+    await approveChanges(runId, { by: "mohamed" }, svc);
+    expect(git.branch).toBe("df-TASK-7");
+    expect(git.commits).toEqual([]);
+  });
+
+  it("keeps the changes in the working tree outside a repository, and says so", async () => {
+    const root = await workspace();
+    const git = new FakeGit();
+    git.unavailable = "the workspace is not in a git repository (fatal: not a git repository)";
+    const { provider } = model();
+    const { runner } = fakeRunner(root, [run("assertion_failure"), run("passed")]);
+    const { svc, runId, store, waiting } = await toChange(root, provider, runner, {}, { git });
+    expect(waiting).not.toHaveProperty("branch");
+    await approveChanges(runId, { by: "mohamed" }, svc);
+    expect(git.commits).toEqual([]);
+    expect((await getRun(root, runId)).record.git).toEqual({
+      status: "none",
+      reason: "the workspace is not in a git repository (fatal: not a git repository)",
+    });
+    const report = await reportOf(store);
+    expect(report.run).not.toHaveProperty("branch");
+    expect(report.manualChecks).toContain(
+      "The changes are not on a DevFlow branch (the workspace is not in a git repository " +
+        "(fatal: not a git repository)): they are uncommitted in the working tree.",
+    );
   });
 });

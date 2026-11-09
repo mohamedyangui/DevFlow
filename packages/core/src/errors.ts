@@ -77,6 +77,14 @@ export const ErrorCode = {
   ImplementationInvalid: "IMPLEMENTATION_INVALID",
   /** Files changed by a run's implementation were changed after they were written or approved. */
   ImplementationFilesChanged: "IMPLEMENTATION_FILES_CHANGED",
+  /** A git operation of DevFlow's own failed (ADR 0012). */
+  GitFailed: "GIT_FAILED",
+  /** The working tree has uncommitted changes, so DevFlow does not start changing files. */
+  GitTreeNotClean: "GIT_TREE_NOT_CLEAN",
+  /** The run's branch is no longer checked out, so DevFlow does not write or commit. */
+  GitBranchChanged: "GIT_BRANCH_CHANGED",
+  /** The configured git isolation is not implemented (`workflow.git.isolation: worktree`). */
+  GitIsolationUnsupported: "GIT_ISOLATION_UNSUPPORTED",
   /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */
   AdapterInvalid: "ADAPTER_INVALID",
   /** A language adapter returned data that does not match the core schemas. */
