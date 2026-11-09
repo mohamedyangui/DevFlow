@@ -10,6 +10,7 @@ import {
   ModuleId,
   RepoPath,
   Risk,
+  Severity,
   Sha256,
   TaskId,
   TestEvidence,
@@ -40,7 +41,7 @@ export type RunId = z.infer<typeof RunId>;
  * What the run was started for: `devflow analyze` stops after analysis, `devflow plan` plans,
  * `devflow test` writes tests and records their red baseline (test mode).
  */
-export const RunGoal = z.enum(["analyze", "plan", "test", "implement"]);
+export const RunGoal = z.enum(["analyze", "plan", "test", "implement", "review"]);
 export type RunGoal = z.infer<typeof RunGoal>;
 
 export const RunBudgets = z.strictObject({
@@ -87,6 +88,7 @@ export const RunSettings = z.strictObject({
     /** Absent in runs created before Phase 4. */
     testDesign: z.int().positive().optional(),
     implementation: z.int().positive().optional(),
+    review: z.int().positive().optional(),
   }),
   /** Test and implement mode: `workflow.git` (ADR 0012). Absent in runs created before it. */
   git: z
@@ -203,6 +205,15 @@ export const RunRecord = z.strictObject({
   warnings: z.array(z.string()),
   /** Test and implement mode: set before the first file is written. */
   git: GitIsolationRecord.optional(),
+  /** Review mode: what the change is compared with, fixed when the run starts. */
+  review: z
+    .strictObject({
+      /** The reference as given (`--base`). */
+      base: z.string().min(1),
+      /** The merge base of that reference and HEAD. */
+      baseCommit: GitCommit,
+    })
+    .optional(),
 });
 export type RunRecord = z.infer<typeof RunRecord>;
 
@@ -639,6 +650,88 @@ export const TestDesignWire = z.strictObject({
   ),
 });
 export type TestDesignWire = z.infer<typeof TestDesignWire>;
+
+/** Review mode: one file of the reviewed diff. */
+export const ReviewDiffFile = z.strictObject({
+  path: z.string().min(1),
+  change: z.enum(["added", "modified", "deleted"]),
+  additions: z.int().nonnegative().nullable(),
+  deletions: z.int().nonnegative().nullable(),
+  binary: z.boolean(),
+  /** False for a file git does not track yet. */
+  tracked: z.boolean(),
+  /** Whether the path looks like a test file. */
+  test: z.boolean(),
+});
+
+/** `artifacts/review-diff.json`: the local diff a review-mode run reviewed. */
+export const ReviewDiff = z.strictObject({
+  schemaVersion: z.literal(1),
+  base: z.string().min(1),
+  baseCommit: GitCommit,
+  headCommit: GitCommit,
+  takenAt: IsoDateTime,
+  files: z.array(ReviewDiffFile),
+  /** Hash of `artifacts/review-diff.patch` (redacted, without files never sent to a model). */
+  patchSha256: Sha256,
+  patchTruncated: z.boolean(),
+  /** Added lines the secret detector matched (the values are not stored). */
+  secrets: z.array(z.strictObject({ path: z.string().min(1), line: z.int().positive() })),
+  /** Changed files the path guard protects. */
+  protected: z.array(z.strictObject({ path: z.string().min(1), reason: z.string().min(1) })),
+  /** Changed files left out of the patch because they are never sent to a model. */
+  withheld: z.array(z.string().min(1)),
+});
+export type ReviewDiff = z.infer<typeof ReviewDiff>;
+
+/** `artifacts/review-gates.json`: the gates, run once on the changed code. */
+export const ReviewGates = z.strictObject({
+  schemaVersion: z.literal(1),
+  ranAt: IsoDateTime,
+  gates: z.array(GateResult),
+});
+export type ReviewGates = z.infer<typeof ReviewGates>;
+
+/** `artifacts/review.json`: the model's review, after its findings were mapped. */
+export const ReviewRecord = z.strictObject({
+  schemaVersion: z.literal(1),
+  /** The model's summary, redacted. Unverified. */
+  summary: z.string().min(1),
+  deterministicFindings: z.int().nonnegative(),
+  aiFindings: z.int().nonnegative(),
+  /** Model findings beyond the limit, left out. */
+  dropped: z.int().nonnegative(),
+});
+export type ReviewRecord = z.infer<typeof ReviewRecord>;
+
+/** What the reviewer model returns. */
+export const ReviewWire = z.strictObject({
+  summary: z.string().min(1),
+  findings: z.array(
+    z.strictObject({
+      title: z.string().min(1).max(200),
+      severity: Severity,
+      category: z.enum([
+        "requirement",
+        "regression",
+        "test-gap",
+        "test-fidelity",
+        "convention",
+        "security",
+        "compatibility",
+        "scope",
+        "quality",
+      ]),
+      path: z.string().min(1).nullable(),
+      line: z.int().positive().nullable(),
+      description: z.string().min(1),
+      recommendation: z.string().min(1),
+      confidence: z.number().min(0).max(1),
+      acIds: z.array(z.string()),
+    }),
+  ),
+});
+export type ReviewWire = z.infer<typeof ReviewWire>;
 
 export const ImplementationWire = z.strictObject({
   summary: z.string().min(1),

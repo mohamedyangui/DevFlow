@@ -83,6 +83,8 @@ export const ErrorCode = {
   GitTreeNotClean: "GIT_TREE_NOT_CLEAN",
   /** The run's branch is no longer checked out, so DevFlow does not write or commit. */
   GitBranchChanged: "GIT_BRANCH_CHANGED",
+  /** A review found no change since its base to review. */
+  ReviewNoChanges: "REVIEW_NO_CHANGES",
   /** The configured git isolation is not implemented (`workflow.git.isolation: worktree`). */
   GitIsolationUnsupported: "GIT_ISOLATION_UNSUPPORTED",
   /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */

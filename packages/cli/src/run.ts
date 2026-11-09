@@ -134,9 +134,9 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         .addOption(
           new Option(
             "--mode <mode>",
-            "workflow mode (devflow test and devflow implement run the other modes)",
+            "workflow mode (devflow test, implement and review run the other modes)",
           )
-            .choices(["assist", "review"])
+            .choices(["assist"])
             .default("assist"),
         ),
     ).action(async (options: RawModelOptions & { task: string; mode: string }) => {
@@ -186,6 +186,33 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
     exitCode = await startCommand(
       "test",
       { ...modelOptions(options), task: options.task, mode: "test", allow: options.allow },
+      io,
+    );
+  });
+
+  withAllowOption(
+    withModelOptions(
+      program
+        .command("review")
+        .description(
+          "review the local change (working tree against a base) for a task: gates, deterministic checks and an AI review (review mode)",
+        )
+        .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)")
+        .option(
+          "--base <ref>",
+          "compare with the merge base of this branch or commit and HEAD (default: HEAD)",
+        ),
+    ),
+  ).action(async (options: RawModelOptions & { task: string; base?: string; allow: string[] }) => {
+    exitCode = await startCommand(
+      "review",
+      {
+        ...modelOptions(options),
+        task: options.task,
+        mode: "review",
+        allow: options.allow,
+        ...(options.base === undefined ? {} : { base: options.base }),
+      },
       io,
     );
   });

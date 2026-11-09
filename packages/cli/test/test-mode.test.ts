@@ -353,3 +353,22 @@ describe("devflow implement", () => {
     );
   });
 });
+
+describe("devflow review", () => {
+  it("needs a git repository, and creates no run outside one", async () => {
+    const root = await workspace();
+    const result = await cli(root, [
+      "review",
+      "--task",
+      "tasks/TASK-7.yaml",
+      "--model",
+      "test-model",
+      "--base",
+      "main",
+    ]);
+    expect(result.code, result.stdout + result.stderr).toBe(ExitCode.UsageError);
+    expect(result.stderr).toContain("review mode needs a git repository");
+    expect(result.stderr).toContain("GIT_FAILED");
+    await expect(readFile(path.join(root, ".devflow", "runs"), "utf8")).rejects.toThrow();
+  });
+});

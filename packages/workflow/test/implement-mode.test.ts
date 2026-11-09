@@ -7,6 +7,7 @@ import {
   ErrorCode,
   type GateDefinition,
   type GateResult,
+  type GitDiff,
   type GitInspection,
   type GitWorkspace,
   type LlmRequest,
@@ -615,6 +616,14 @@ class FakeGit implements GitWorkspace {
     }
     this.commits.push({ paths: [...paths], message, branch: this.branch });
     return Promise.resolve(String(this.commits.length).repeat(40).slice(0, 40));
+  }
+
+  mergeBase(): Promise<string> {
+    return Promise.reject(new Error("implement mode does not review a diff"));
+  }
+
+  diff(): Promise<GitDiff> {
+    return Promise.reject(new Error("implement mode does not review a diff"));
   }
 }
 

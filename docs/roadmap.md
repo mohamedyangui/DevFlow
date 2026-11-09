@@ -184,11 +184,18 @@ Implemented and tested so far:
   `git` in the workspace); the workflow with an in-memory repository. Worktree isolation is not
   implemented.
 
+- Review engine and `devflow review` of a local change (working tree against the merge base of
+  a reference): the gates run once on the change, deterministic checks (gates, criteria and
+  their markers, secrets in added lines, protected files and CI workflows, source without
+  tests, removed public declarations, dependency manifests), then one model review whose
+  findings carry a confidence and stay unverified. Sensitive files are withheld from the
+  model and the patch is redacted. The git diff is tested against real repositories
+  (including external diff drivers that must not run); the workflow with a scripted diff,
+  test runner and model. Not yet run against a live model.
+
 Planned:
 
-- Review engine (rule checks and AI findings with their verification status) and
-  `devflow review` of a local diff.
-- Example reports from real runs.
+- Example reports from real runs (they need a live model).
 
 ## Phase 5: GitHub integration
 

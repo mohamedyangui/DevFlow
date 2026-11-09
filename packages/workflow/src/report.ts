@@ -4,6 +4,7 @@ import {
   type Finding,
   type GateResult,
   type ImplementationPlan,
+  RepoPath,
   type Risk,
   type TaskContract,
   statusForOutcome,
@@ -18,11 +19,15 @@ import type {
   ImplementationRecord,
   PlanCheck,
   RequirementsAnalysis,
+  ReviewDiff,
+  ReviewGates,
+  ReviewRecord,
   RunRecord,
   TestDesign,
   TestEvidenceRecord,
   TestFiles,
 } from "./schemas.js";
+import { reviewAcceptanceMatrix } from "./review.js";
 
 export interface ReportInput {
   readonly record: RunRecord;
@@ -45,6 +50,10 @@ export interface ReportInput {
   /** Files of the latest implementation that no person approved. */
   readonly unapprovedChanges?: readonly string[] | undefined;
   readonly after?: AfterRun | undefined;
+  /** Review mode: the reviewed diff, the gates run on it, and the model's review. */
+  readonly reviewDiff?: ReviewDiff | undefined;
+  readonly reviewGates?: ReviewGates | undefined;
+  readonly reviewRecord?: ReviewRecord | undefined;
 }
 
 /**
@@ -133,6 +142,17 @@ export function buildReport(input: ReportInput): EngineeringReport {
             "repository it read.",
         ]),
     ...(git?.status === "branch" ? git.warnings : []),
+    ...(record.mode === "review" && input.reviewDiff !== undefined
+      ? [
+          "Read the diff yourself before you merge it: the AI findings are a model's suggestions " +
+            "and stay unverified until a test or a person confirms them.",
+          ...(input.reviewDiff.withheld.length === 0
+            ? []
+            : [
+                `These changed files were not shown to the model (sensitive): ${input.reviewDiff.withheld.join(", ")}; review them yourself.`,
+              ]),
+        ]
+      : []),
     ...(git?.status === "none" &&
     (written.length > 0 || (input.changedFiles?.files ?? []).length > 0)
       ? [
@@ -146,70 +166,84 @@ export function buildReport(input: ReportInput): EngineeringReport {
     written.length > 0 &&
     input.testDesign?.tests.some((test) => test.acIds.includes(acId)) === true;
   const after = record.mode === "implement" ? input.after : undefined;
-  const gates: readonly GateResult[] = after?.gates ?? input.baseline?.gates ?? [];
+  const reviewed = record.mode === "review" ? input.reviewGates : undefined;
+  const gates: readonly GateResult[] =
+    record.mode === "review"
+      ? (reviewed?.gates ?? [])
+      : (after?.gates ?? input.baseline?.gates ?? []);
 
-  const acceptanceMatrix = task.acceptanceCriteria.map((criterion): AcceptanceMatrixRow => {
-    const row = {
-      acId: criterion.id,
-      requirementIds: criterion.covers,
-      verification: criterion.verification,
-    };
-    if (criterion.verification === "manual") {
-      return { ...row, tests: [], status: "manual", note: "verified by a person, outside DevFlow" };
-    }
-    const linked = entries.filter((entry) => entry.acId === criterion.id);
-    if (linked.length === 0) {
-      return {
-        ...row,
-        tests: [],
-        status: "not_executed",
-        note:
-          record.mode === "assist"
-            ? "assist mode does not write or run tests"
-            : designed(criterion.id)
-              ? "the test written for it has not run"
-              : "no test was written for it",
-      };
-    }
-    const before = `before the change: ${linked.map((entry) => `${entry.outcome} (${entry.evidence.baselineAssessment.replace("_", " ")})`).join(", ")}`;
-    if (after === undefined) {
-      return {
-        ...row,
-        tests: linked.map((entry) => ({
-          testId: entry.testId,
-          gateId: entry.gateId,
-          status: statusForOutcome(entry.outcome),
-          evidence: entry.evidence,
-        })),
-        // Evidence from before the change cannot verify a criterion: nothing was implemented.
-        status: linked.every((entry) => entry.outcome === "not_executed")
-          ? "not_executed"
-          : "unverified",
-        note: `${before}; the implementation has not run`,
-      };
-    }
-    const statuses = linked.map((entry) => statusForOutcome(entry.evidence.after));
-    const established = linked.every((entry) => entry.evidence.established);
-    return {
-      ...row,
-      tests: linked.map((entry, index) => ({
-        testId: entry.testId,
-        gateId: entry.gateId,
-        status: statuses[index] ?? "not_executed",
-        evidence: entry.evidence,
-      })),
-      status: statuses.every((status) => status === "passed")
-        ? "verified"
-        : statuses.some((status) => status === "failed")
-          ? "failed"
-          : statuses.every((status) => status === "not_executed")
-            ? "not_executed"
-            : "unverified",
-      note:
-        `${before}; after the change: ${linked.map((entry) => entry.evidence.after).join(", ")}` +
-        (established ? "; red/green evidence established" : "; red/green evidence not established"),
-    };
-  });
+  const acceptanceMatrix =
+    record.mode === "review"
+      ? reviewAcceptanceMatrix(task, gates)
+      : task.acceptanceCriteria.map((criterion): AcceptanceMatrixRow => {
+          const row = {
+            acId: criterion.id,
+            requirementIds: criterion.covers,
+            verification: criterion.verification,
+          };
+          if (criterion.verification === "manual") {
+            return {
+              ...row,
+              tests: [],
+              status: "manual",
+              note: "verified by a person, outside DevFlow",
+            };
+          }
+          const linked = entries.filter((entry) => entry.acId === criterion.id);
+          if (linked.length === 0) {
+            return {
+              ...row,
+              tests: [],
+              status: "not_executed",
+              note:
+                record.mode === "assist"
+                  ? "assist mode does not write or run tests"
+                  : designed(criterion.id)
+                    ? "the test written for it has not run"
+                    : "no test was written for it",
+            };
+          }
+          const before = `before the change: ${linked.map((entry) => `${entry.outcome} (${entry.evidence.baselineAssessment.replace("_", " ")})`).join(", ")}`;
+          if (after === undefined) {
+            return {
+              ...row,
+              tests: linked.map((entry) => ({
+                testId: entry.testId,
+                gateId: entry.gateId,
+                status: statusForOutcome(entry.outcome),
+                evidence: entry.evidence,
+              })),
+              // Evidence from before the change cannot verify a criterion: nothing was implemented.
+              status: linked.every((entry) => entry.outcome === "not_executed")
+                ? "not_executed"
+                : "unverified",
+              note: `${before}; the implementation has not run`,
+            };
+          }
+          const statuses = linked.map((entry) => statusForOutcome(entry.evidence.after));
+          const established = linked.every((entry) => entry.evidence.established);
+          return {
+            ...row,
+            tests: linked.map((entry, index) => ({
+              testId: entry.testId,
+              gateId: entry.gateId,
+              status: statuses[index] ?? "not_executed",
+              evidence: entry.evidence,
+            })),
+            status: statuses.every((status) => status === "passed")
+              ? "verified"
+              : statuses.some((status) => status === "failed")
+                ? "failed"
+                : statuses.every((status) => status === "not_executed")
+                  ? "not_executed"
+                  : "unverified",
+            note:
+              `${before}; after the change: ${linked.map((entry) => entry.evidence.after).join(", ")}` +
+              (established
+                ? "; red/green evidence established"
+                : "; red/green evidence not established"),
+          };
+        });
   const findings = input.findings ?? [];
 
   const changed = (input.changedFiles?.files ?? []).map((file) => ({
@@ -239,9 +273,12 @@ export function buildReport(input: ReportInput): EngineeringReport {
             headCommit: git.commits.at(-1)?.sha ?? git.baseCommit,
           }
         : {}),
+      ...(record.mode === "review" && input.reviewDiff !== undefined
+        ? { baseCommit: input.reviewDiff.baseCommit, headCommit: input.reviewDiff.headCommit }
+        : {}),
     },
     verdict:
-      after === undefined
+      after === undefined && reviewed === undefined
         ? "not_verified"
         : verdictOf({ state: record.state, gates, acceptanceMatrix, findings }),
     task: { id: task.id, title: task.title, source: task.source },
@@ -253,6 +290,9 @@ export function buildReport(input: ReportInput): EngineeringReport {
         change: file.action === "create" ? ("added" as const) : ("modified" as const),
       })),
       ...changed,
+      ...(record.mode === "review" ? (input.reviewDiff?.files ?? []) : []).flatMap((file) =>
+        RepoPath.safeParse(file.path).success ? [{ path: file.path, change: file.change }] : [],
+      ),
     ],
     acceptanceMatrix,
     gates,
@@ -332,6 +372,12 @@ export function renderReportMarkdown(
     `- **Started:** ${report.run.startedAt}`,
     `- **Finished:** ${report.run.finishedAt}`,
   );
+  if (report.run.mode === "review" && report.run.baseCommit !== undefined) {
+    lines.push(
+      `- **Reviewed:** the working tree at \`${(report.run.headCommit ?? "").slice(0, 12)}\` ` +
+        `against base commit \`${report.run.baseCommit.slice(0, 12)}\``,
+    );
+  }
   if (report.run.branch !== undefined) {
     lines.push(
       `- **Branch:** \`${report.run.branch}\` (base commit \`${(report.run.baseCommit ?? "").slice(0, 12)}\`, ` +
@@ -498,6 +544,9 @@ export function renderReportMarkdown(
 function verdictNote(report: EngineeringReport): string {
   if (report.verdict !== "not_verified") return "";
   if (report.gates.length === 0) return " (nothing was executed or verified)";
+  if (report.run.mode === "review") {
+    return " (no criterion is verified by a test that ran on the change)";
+  }
   return report.acceptanceMatrix.some((row) =>
     row.tests.some((test) => test.status === "passed"),
   ) && report.run.mode === "implement"
@@ -510,6 +559,16 @@ function verdictNote(report: EngineeringReport): string {
 function notDone(report: EngineeringReport): string {
   if (report.run.mode === "assist") {
     return "Assist mode analyses and plans only: no file was changed, no command was run and no test was executed.";
+  }
+  if (report.run.mode === "review") {
+    return (
+      "Review mode reviews a local change: it changed no file and committed nothing. " +
+      (report.gates.length > 0
+        ? "The gates ran once, on the changed code; there was no run before the change, so " +
+          "failures that were already there are not told apart and no red/green evidence exists. "
+        : "No gate ran. ") +
+      "The AI findings are unverified suggestions."
+    );
   }
   if (report.run.mode === "implement") {
     const verified =

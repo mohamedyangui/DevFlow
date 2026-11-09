@@ -24,11 +24,15 @@ export const DEFAULT_GIT_SETTINGS: NonNullable<RunSettings["git"]> = Object.free
   commit: "per-phase",
 });
 
+/** Output token limit of a review call: a summary and a list of findings. */
+export const DEFAULT_REVIEW_OUTPUT_TOKENS = 8_000;
+
 export const DEFAULT_MAX_OUTPUT_TOKENS = Object.freeze({
   analysis: 8_000,
   planning: 16_000,
   testDesign: DEFAULT_TEST_DESIGN_OUTPUT_TOKENS,
   implementation: DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS,
+  review: DEFAULT_REVIEW_OUTPUT_TOKENS,
 });
 
 /** Command-line choices; they win over configuration and environment. */

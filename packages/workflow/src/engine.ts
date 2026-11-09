@@ -26,6 +26,7 @@ import {
   Sha256,
   TaskContract,
   type VerificationRun,
+  cutPatch,
   type WorkflowMode,
   type WorkflowState,
   type WorkspaceModule,
@@ -50,12 +51,22 @@ import {
   type ExistingTestFile,
   IMPLEMENTATION_TEMPLATE,
   PLAN_TEMPLATE,
+  REVIEW_TEMPLATE,
   TEST_DESIGN_TEMPLATE,
   analysisPrompt,
   implementationPrompt,
   planPrompt,
+  reviewPrompt,
   testDesignPrompt,
 } from "./prompts.js";
+import {
+  aiFindings,
+  looksLikeTestPath,
+  patchLines,
+  reviewFindings,
+  untrackedSection,
+  withholdSections,
+} from "./review.js";
 import {
   buildReport,
   renderImplementationMarkdown,
@@ -82,6 +93,10 @@ import {
   PlanFeedback,
   PlanWire,
   RequirementsAnalysis,
+  ReviewDiff,
+  ReviewGates,
+  ReviewRecord,
+  ReviewWire,
   type RunBudgets,
   type RunGoal,
   type RunRecord,
@@ -97,6 +112,7 @@ import {
   DEFAULT_GIT_SETTINGS,
   DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS,
   DEFAULT_MAX_REPAIR_ATTEMPTS,
+  DEFAULT_REVIEW_OUTPUT_TOKENS,
   DEFAULT_TEST_DESIGN_OUTPUT_TOKENS,
 } from "./settings.js";
 import {
@@ -152,6 +168,10 @@ const ARTIFACT = {
   changeApproval: "artifacts/change-approval.json",
   changeFeedback: "artifacts/change-feedback.json",
   after: "artifacts/after.json",
+  reviewDiff: "artifacts/review-diff.json",
+  reviewPatch: "artifacts/review-diff.patch",
+  reviewGates: "artifacts/review-gates.json",
+  review: "artifacts/review.json",
 } as const;
 
 const PlanApproval = z.strictObject({
@@ -189,7 +209,14 @@ const TERMINAL_ERRORS: ReadonlySet<string> = new Set([
   ErrorCode.TestFilesChanged,
   ErrorCode.ImplementationInvalid,
   ErrorCode.ImplementationFilesChanged,
+  ErrorCode.ReviewNoChanges,
 ]);
+
+/** Review mode: the patch kept for the review, and the part of it that goes into the prompt. */
+const MAX_REVIEW_PATCH_BYTES = 1024 * 1024;
+const MAX_REVIEW_PROMPT_PATCH_BYTES = 192 * 1024;
+/** Untracked files larger than this are listed but not shown. */
+const MAX_UNTRACKED_FILE_BYTES = 256 * 1024;
 
 /** Existing test files shown to the test designer: at most this many, each at most this size. */
 const MAX_EXISTING_TEST_FILES = 8;
@@ -293,6 +320,8 @@ export interface StartRunInput {
   readonly goal: RunGoal;
   readonly settings: RunSettings;
   readonly warnings?: readonly string[];
+  /** Review mode: the reference the local change is compared with (default `HEAD`). */
+  readonly review?: { readonly base: string };
 }
 
 /** Starts a run and drives it until it finishes or needs a person. */
@@ -301,7 +330,7 @@ export async function startRun(
   services: WorkflowServices,
 ): Promise<RunOutcome> {
   assertModeImplemented(input.mode);
-  for (const mode of ["test", "implement"] as const) {
+  for (const mode of ["test", "implement", "review"] as const) {
     if ((input.mode === mode) !== (input.goal === mode)) {
       throw new DevflowError(
         ErrorCode.InvalidTransition,
@@ -324,6 +353,7 @@ export async function startRun(
     );
   }
   if (writesCode(input.mode)) await checkGitBeforeStart(input.settings, services);
+  const review = input.mode === "review" ? await reviewBase(input, services) : undefined;
   const clock = services.clock ?? (() => new Date());
   const store = await RunStore.create(services.guard.root, task.id, { clock });
   const unlock = await store.lock();
@@ -351,6 +381,7 @@ export async function startRun(
       pending: null,
       lastError: null,
       warnings: [...(input.warnings ?? [])],
+      ...(review === undefined ? {} : { review }),
     };
     await store.writeJson(ARTIFACT.task, task);
     await store.writeJson(ARTIFACT.clarifications, { schemaVersion: 1, questions: [] });
@@ -763,6 +794,38 @@ async function checkGitBeforeStart(
   if (inspection.kind === "repository" && inspection.changes.length > 0) {
     throw treeNotClean(inspection.changes);
   }
+}
+
+/**
+ * Review mode: the commit the local change is compared with (the merge base of the reference
+ * and HEAD), checked before a run is created: a repository, and something to review.
+ */
+async function reviewBase(
+  input: StartRunInput,
+  services: WorkflowServices,
+): Promise<{ base: string; baseCommit: string }> {
+  const base = input.review?.base ?? "HEAD";
+  const git = services.git;
+  if (git === undefined) {
+    throw new DevflowError(ErrorCode.GitFailed, "review mode needs git to read the local change");
+  }
+  const inspection = await git.inspect();
+  if (inspection.kind === "unavailable") {
+    throw new DevflowError(
+      ErrorCode.GitFailed,
+      `review mode needs a git repository with a commit: ${inspection.reason}`,
+    );
+  }
+  const baseCommit = await git.mergeBase(base);
+  const diff = await git.diff(baseCommit, { maxPatchBytes: 0 });
+  if (diff.files.length === 0) {
+    throw new DevflowError(
+      ErrorCode.ReviewNoChanges,
+      `there is no change since ${base} to review (outside .devflow/)`,
+      { details: { base, baseCommit } },
+    );
+  }
+  return { base, baseCommit };
 }
 
 function treeNotClean(changes: readonly string[]): DevflowError {
@@ -1441,7 +1504,11 @@ class Session {
               return await this.outcome();
             }
             await this.transition(
-              this.record.goal === "analyze" ? "COMPLETED" : "PLANNING",
+              this.record.goal === "analyze"
+                ? "COMPLETED"
+                : this.record.mode === "review"
+                  ? "VERIFICATION"
+                  : "PLANNING",
               "requirements analysed",
             );
             break;
@@ -1468,7 +1535,10 @@ class Session {
             return await this.outcome();
           }
           case "VERIFICATION":
-            if (this.record.mode !== "implement") {
+            if (this.record.mode === "review") {
+              await this.step(STEP.verification, () => this.reviewSnapshot());
+              await this.transition("REVIEW", "gates run on the change");
+            } else if (this.record.mode !== "implement") {
               await this.step(STEP.verification, () => this.runBaseline());
               await this.transition("REVIEW", "tests run against the current code");
             } else if ((this.record.iterations.implementation ?? 0) === 0) {
@@ -1493,10 +1563,14 @@ class Session {
             return await this.outcome();
           }
           case "REVIEW":
-            await this.step(STEP.review, () => this.review());
+            if (this.record.mode === "review") {
+              await this.step(STEP.review, () => this.reviewChange());
+            } else {
+              await this.step(STEP.review, () => this.review());
+            }
             await this.transition(
               "COMPLETED",
-              this.record.mode === "implement" ? "change reviewed" : "red baseline reviewed",
+              this.record.mode === "test" ? "red baseline reviewed" : "change reviewed",
             );
             break;
           // Waiting states stop the drive; terminal states are handled before the switch.
@@ -2294,6 +2368,181 @@ class Session {
     );
   }
 
+  /**
+   * Review mode: takes the local change as it is now (the diff since the base, untracked text
+   * files included), records what the deterministic checks need, and runs every gate once on
+   * it through the command policy.
+   */
+  private async reviewSnapshot(): Promise<void> {
+    const review = this.record.review;
+    const git = this.services.git;
+    if (review === undefined || git === undefined) {
+      throw new DevflowError(ErrorCode.GitFailed, "this review run was resumed without git", {
+        details: { runId: this.record.id },
+      });
+    }
+    const raw = await git.diff(review.baseCommit, { maxPatchBytes: MAX_REVIEW_PATCH_BYTES });
+    if (raw.files.length === 0) {
+      throw new DevflowError(
+        ErrorCode.ReviewNoChanges,
+        `there is no change since ${review.base} to review any more`,
+        { details: { runId: this.record.id } },
+      );
+    }
+    const { guard, redactor } = this.services;
+    let patch = raw.patch;
+    let truncated = raw.patchTruncated;
+    for (const file of raw.files) {
+      if (file.tracked) continue;
+      const content = await this.untrackedText(file.path);
+      if (content === undefined) continue;
+      const section = untrackedSection(file.path, content);
+      if (Buffer.byteLength(patch) + Buffer.byteLength(section) > MAX_REVIEW_PATCH_BYTES) {
+        truncated = true;
+        continue;
+      }
+      patch += section;
+    }
+    // Secrets are looked for in every added line, before anything is withheld or redacted.
+    const secrets = patchLines(patch)
+      .added.filter((line) => redactor.redactText(line.text) !== line.text)
+      .map(({ path: file, line }) => ({ path: file, line }));
+    const protectedFiles: { path: string; reason: string }[] = [];
+    const withheld: string[] = [];
+    for (const file of raw.files) {
+      const write = await rejection(guard, file.path, "write", "model");
+      if (write?.reason === "protected") {
+        protectedFiles.push({ path: file.path, reason: write.message });
+      }
+      if ((await rejection(guard, file.path, "prompt", "internal")) !== undefined) {
+        withheld.push(file.path);
+      }
+    }
+    const shown = redactor.redactText(withholdSections(patch, new Set(withheld)));
+    await this.store.writeText(ARTIFACT.reviewPatch, shown);
+    await this.store.writeJson(
+      ARTIFACT.reviewDiff,
+      ReviewDiff.parse({
+        schemaVersion: 1,
+        base: review.base,
+        baseCommit: raw.base,
+        headCommit: raw.head,
+        takenAt: this.now(),
+        files: raw.files.map((file) => ({ ...file, test: looksLikeTestPath(file.path) })),
+        patchSha256: sha256Of(shown),
+        patchTruncated: truncated,
+        secrets,
+        protected: protectedFiles,
+        withheld,
+      }),
+    );
+
+    const runner = await this.testRunner();
+    const gates = await runner.gates();
+    const run = await this.runGatesChecked(runner, [...gates], "logs/commands");
+    await this.store.writeJson(
+      ARTIFACT.reviewGates,
+      ReviewGates.parse({ schemaVersion: 1, ranAt: this.now(), gates: [...run.gates] }),
+    );
+  }
+
+  /** The text of an untracked file for the review, or undefined when it cannot be shown. */
+  private async untrackedText(file: string): Promise<string | undefined> {
+    try {
+      const checked = await this.services.guard.check(file, {
+        access: "prompt",
+        origin: "internal",
+      });
+      const content = await readFile(checked.absolute);
+      if (content.length > MAX_UNTRACKED_FILE_BYTES || content.includes(0)) return undefined;
+      return content.toString("utf8");
+    } catch (error) {
+      if (isDevflowError(error)) return undefined;
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "EISDIR" || code === "EACCES") return undefined;
+      throw error;
+    }
+  }
+
+  /**
+   * Review mode: the deterministic checks of the change, then the model's review. The model's
+   * findings stay unverified.
+   */
+  private async reviewChange(): Promise<void> {
+    const task = await this.task();
+    const pack = await this.store.readJson(ARTIFACT.context, ContextPack);
+    const analysis = await this.store.readJsonIfExists(ARTIFACT.analysis, RequirementsAnalysis);
+    const registry = await this.clarifications();
+    const diff = await this.store.readJson(ARTIFACT.reviewDiff, ReviewDiff);
+    const patch = await this.store.readText(ARTIFACT.reviewPatch);
+    if (sha256Of(patch) !== diff.patchSha256) {
+      throw new DevflowError(
+        ErrorCode.RunCorrupt,
+        `${this.store.workspacePath(ARTIFACT.reviewPatch)} does not match the reviewed diff`,
+        { details: { runId: this.record.id } },
+      );
+    }
+    const { gates } = await this.store.readJson(ARTIFACT.reviewGates, ReviewGates);
+    const deterministic = reviewFindings({ task, diff, patch, gates });
+    const cut = cutPatch(patch, false, MAX_REVIEW_PROMPT_PATCH_BYTES);
+    const prompt = reviewPrompt({
+      task,
+      pack,
+      analysis,
+      clarifications: registry.questions,
+      diff,
+      patch: cut.patch,
+      patchCut: cut.truncated,
+      gates,
+      deterministic: deterministic.map((finding) => finding.title),
+    });
+    const gateway = await this.gateway();
+    const result = await gateway.generateStructured({
+      step: STEP.review,
+      templateId: REVIEW_TEMPLATE.id,
+      templateVersion: REVIEW_TEMPLATE.version,
+      model: this.record.settings.models.review ?? this.record.settings.models.analysis,
+      system: prompt.system,
+      user: prompt.user,
+      files: prompt.files,
+      schema: ReviewWire,
+      schemaName: "review",
+      maxOutputTokens: this.record.settings.maxOutputTokens.review ?? DEFAULT_REVIEW_OUTPUT_TOKENS,
+      ...this.signalOption(),
+    });
+    const redact = (text: string) => this.services.redactor.redactText(text);
+    const ai = aiFindings(result.value, { diff, task });
+    const findings = [
+      ...deterministic,
+      ...ai.findings.map((finding) => ({
+        ...finding,
+        title: redact(finding.title),
+        recommendation: redact(finding.recommendation),
+        evidence: finding.evidence.map((item) => ({
+          ...item,
+          description: redact(item.description),
+        })),
+      })),
+    ];
+    await this.store.writeJson(
+      ARTIFACT.findings,
+      Findings.parse({
+        schemaVersion: 1,
+        findings: findings.map((finding, index) => ({ ...finding, id: `F-${String(index + 1)}` })),
+      }),
+    );
+    await this.store.writeJson(
+      ARTIFACT.review,
+      ReviewRecord.parse({
+        schemaVersion: 1,
+        summary: redact(result.value.summary),
+        deterministicFindings: deterministic.length,
+        aiFindings: ai.findings.length,
+        dropped: ai.dropped,
+      }),
+    );
+  }
+
   private async writeReport(): Promise<void> {
     const task = await this.task();
     const analysis = await this.store.readJsonIfExists(ARTIFACT.analysis, RequirementsAnalysis);
@@ -2325,6 +2574,9 @@ class Session {
       ChangeApproval,
     );
     const after = await this.store.readJsonIfExists(ARTIFACT.after, AfterRun);
+    const reviewDiff = await this.store.readJsonIfExists(ARTIFACT.reviewDiff, ReviewDiff);
+    const reviewGates = await this.store.readJsonIfExists(ARTIFACT.reviewGates, ReviewGates);
+    const reviewRecord = await this.store.readJsonIfExists(ARTIFACT.review, ReviewRecord);
     // Files of the latest implementation that no person approved (the run ended waiting).
     const unapprovedChanges =
       changeFiles === undefined ||
@@ -2354,6 +2606,9 @@ class Session {
       changedFiles,
       unapprovedChanges,
       after,
+      reviewDiff,
+      reviewGates,
+      reviewRecord,
     });
     await this.store.writeJson("report.json", report);
     await this.store.writeText(
@@ -2365,6 +2620,22 @@ class Session {
         evidence: evidence?.entries,
       }),
     );
+  }
+}
+
+/** Why the path guard refuses a path for an access, or undefined when it allows it. */
+async function rejection(
+  guard: PathGuard,
+  file: string,
+  access: "write" | "prompt",
+  origin: "model" | "internal",
+): Promise<{ reason: unknown; message: string } | undefined> {
+  try {
+    await guard.check(file, { access, origin });
+    return undefined;
+  } catch (error) {
+    if (!isDevflowError(error)) throw error;
+    return { reason: error.details.reason, message: error.message };
   }
 }
 

@@ -315,8 +315,11 @@ export {
 export { PathToolchainProbe, StaticToolchainProbe } from "./security/toolchain-probe.js";
 export {
   GitClient,
+  cutPatch,
   statusPaths,
   type GitClientOptions,
+  type GitDiff,
+  type GitDiffFile,
   type GitInspection,
   type GitWorkspace,
 } from "./security/git.js";
