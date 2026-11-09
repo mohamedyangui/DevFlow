@@ -88,8 +88,8 @@ export const MODE_TRANSITIONS: Readonly<Record<WorkflowMode, ReadonlySet<Edge>>>
   ]),
 };
 
-/** Modes whose steps exist. Review mode arrives with the review engine. */
-export const IMPLEMENTED_MODES: readonly WorkflowMode[] = ["assist", "test", "implement"];
+/** Modes whose steps exist (all four since the review engine). */
+export const IMPLEMENTED_MODES: readonly WorkflowMode[] = ["assist", "test", "implement", "review"];
 
 export function isTransitionAllowed(
   mode: WorkflowMode,
@@ -117,8 +117,7 @@ export function assertModeImplemented(mode: WorkflowMode): void {
   if (!IMPLEMENTED_MODES.includes(mode)) {
     throw new DevflowError(
       ErrorCode.WorkflowModeNotImplemented,
-      `${mode} mode is not implemented yet: assist, test and implement mode are available, ` +
-        "and review mode arrives with the review engine",
+      `${mode} mode is not implemented yet: assist, test, implement and review mode are available`,
       { details: { mode } },
     );
   }

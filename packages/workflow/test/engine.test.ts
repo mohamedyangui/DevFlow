@@ -671,7 +671,7 @@ describe("assist mode: cancel, status and refusals", () => {
     await expectCode(getRun(root, "../../etc"), ErrorCode.RunNotFound);
   });
 
-  it("refuses modes that are not implemented without creating a run", async () => {
+  it("refuses a review-mode run with another goal without creating a run", async () => {
     const root = await workspace();
     const svc = await services(root, scripted({}));
     await expectCode(
@@ -679,7 +679,7 @@ describe("assist mode: cancel, status and refusals", () => {
         { task: task(), taskFile: null, mode: "review", goal: "plan", settings: settings() },
         svc,
       ),
-      ErrorCode.WorkflowModeNotImplemented,
+      ErrorCode.InvalidTransition,
     );
     expect(await listRuns(root)).toEqual([]);
   });

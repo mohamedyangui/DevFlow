@@ -15,7 +15,8 @@ import { launchProcess } from "./process-launcher.js";
  * hooks (`core.hooksPath` points to a directory that does not exist, and commits pass
  * `--no-verify`), `core.fsmonitor`, commit signing (which would start a signing program and
  * may prompt), automatic garbage collection and maintenance (which would leave a background
- * process), the pager and terminal prompts. Pathspecs are literal. The executable is looked up
+ * process), the pager and terminal prompts. Diffs pass `--no-ext-diff` and `--no-textconv`,
+ * so no diff driver or conversion filter runs. Pathspecs are literal. The executable is looked up
  * on the absolute entries of PATH and never inside the workspace, so a repository cannot ship
  * its own `git`.
  */
@@ -40,6 +41,35 @@ export type GitInspection =
       readonly reason: string;
     };
 
+/** One file of a local diff, relative to the workspace. */
+export interface GitDiffFile {
+  readonly path: string;
+  readonly change: "added" | "modified" | "deleted";
+  /** Lines added and deleted; null for binary and untracked files. */
+  readonly additions: number | null;
+  readonly deletions: number | null;
+  readonly binary: boolean;
+  /** False for a file git does not track yet (untracked and not ignored). */
+  readonly tracked: boolean;
+}
+
+/** The changes of the working tree since a commit (review mode). */
+export interface GitDiff {
+  readonly base: string;
+  /** The checked-out commit. */
+  readonly head: string;
+  /** Sorted by path; `.devflow/` is left out. */
+  readonly files: readonly GitDiffFile[];
+  /** Unified diff of the tracked files (3 lines of context); untracked files are not in it. */
+  readonly patch: string;
+  /** True when the patch was longer than the limit and was cut at a file boundary. */
+  readonly patchTruncated: boolean;
+}
+
+/** References a review may compare with: no leading dash, no spaces, no shell syntax. */
+const REF = /^[A-Za-z0-9_][A-Za-z0-9._/@{}~^-]{0,199}$/;
+const DEFAULT_MAX_PATCH_BYTES = 1024 * 1024;
+
 /** The git operations the workflow needs (ADR 0012). */
 export interface GitWorkspace {
   inspect(): Promise<GitInspection>;
@@ -54,6 +84,10 @@ export interface GitWorkspace {
    * the new commit. Other changes in the working tree or the index are not committed.
    */
   commit(paths: readonly string[], message: string): Promise<string>;
+  /** The commit a review compares with: the merge base of `ref` and HEAD. */
+  mergeBase(ref: string): Promise<string>;
+  /** The changes of the working tree (staged, unstaged and untracked) since `base`. */
+  diff(base: string, options?: { readonly maxPatchBytes?: number }): Promise<GitDiff>;
 }
 
 export interface GitClientOptions {
@@ -77,6 +111,7 @@ interface GitResult {
   readonly exitCode: number | null;
   readonly stdout: string;
   readonly stderr: string;
+  readonly outputTruncated: boolean;
 }
 
 export class GitClient implements GitWorkspace {
@@ -188,6 +223,99 @@ export class GitClient implements GitWorkspace {
     return id;
   }
 
+  async mergeBase(ref: string): Promise<string> {
+    if (!REF.test(ref)) {
+      throw new DevflowError(
+        ErrorCode.GitFailed,
+        `"${ref}" is not a git reference DevFlow accepts`,
+        {
+          details: { ref },
+        },
+      );
+    }
+    const commit = await this.git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
+    const id = commit.stdout.trim();
+    if (commit.exitCode !== 0 || !COMMIT_ID.test(id)) {
+      throw new DevflowError(ErrorCode.GitFailed, `"${ref}" is not a commit of this repository`, {
+        details: { ref },
+      });
+    }
+    const base = await this.git(["merge-base", id, "HEAD"]);
+    const baseId = base.stdout.trim();
+    if (base.exitCode !== 0 || !COMMIT_ID.test(baseId)) {
+      throw new DevflowError(
+        ErrorCode.GitFailed,
+        `"${ref}" has no common history with the checked-out commit`,
+        { details: { ref } },
+      );
+    }
+    return baseId;
+  }
+
+  async diff(base: string, options: { readonly maxPatchBytes?: number } = {}): Promise<GitDiff> {
+    if (!COMMIT_ID.test(base)) {
+      throw new DevflowError(ErrorCode.GitFailed, `"${base}" is not a commit id`);
+    }
+    const head = await this.git(["rev-parse", "--verify", "HEAD^{commit}"]);
+    if (head.exitCode !== 0) throw this.failure("rev-parse", head);
+    const common = [
+      "diff",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--no-color",
+      "--no-renames",
+      "--relative",
+    ];
+    const names = await this.git([...common, "--name-status", "-z", base, "--"]);
+    if (names.exitCode !== 0) throw this.failure("diff --name-status", names);
+    const counts = await this.git([...common, "--numstat", "-z", base, "--"]);
+    if (counts.exitCode !== 0) throw this.failure("diff --numstat", counts);
+    const patch = await this.git([...common, "--unified=3", base, "--"]);
+    if (patch.exitCode !== 0) throw this.failure("diff", patch);
+    const untracked = await this.git(["ls-files", "--others", "--exclude-standard", "-z"]);
+    if (untracked.exitCode !== 0) throw this.failure("ls-files", untracked);
+
+    const stats = numstat(counts.stdout);
+    const files: GitDiffFile[] = [];
+    const fields = names.stdout.split("\0");
+    for (let i = 0; i + 1 < fields.length; i += 2) {
+      const status = fields[i] ?? "";
+      const file = fields[i + 1] ?? "";
+      if (status === "" || file === "") continue;
+      const stat = stats.get(file);
+      files.push({
+        path: file,
+        change: status.startsWith("A") ? "added" : status.startsWith("D") ? "deleted" : "modified",
+        additions: stat?.additions ?? null,
+        deletions: stat?.deletions ?? null,
+        binary: stat?.binary ?? false,
+        tracked: true,
+      });
+    }
+    for (const file of untracked.stdout.split("\0")) {
+      if (file === "") continue;
+      files.push({
+        path: file,
+        change: "added",
+        additions: null,
+        deletions: null,
+        binary: false,
+        tracked: false,
+      });
+    }
+    const max = options.maxPatchBytes ?? DEFAULT_MAX_PATCH_BYTES;
+    const cut = cutPatch(patch.stdout, patch.outputTruncated, max);
+    return {
+      base,
+      head: head.stdout.trim(),
+      files: files
+        .filter((file) => file.path !== ".devflow" && !file.path.startsWith(".devflow/"))
+        .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0)),
+      patch: cut.patch,
+      patchTruncated: cut.truncated,
+    };
+  }
+
   private resolve(): Promise<string | undefined> {
     this.executable ??= this.lookUp();
     return this.executable;
@@ -267,6 +395,7 @@ export class GitClient implements GitWorkspace {
       exitCode: result.exitCode,
       stdout: result.stdout.toString("utf8"),
       stderr: result.stderr.toString("utf8"),
+      outputTruncated: result.outputTruncated,
     };
   }
 
@@ -277,6 +406,57 @@ export class GitClient implements GitWorkspace {
       { details: { operation, exitCode: result.exitCode } },
     );
   }
+}
+
+/** `git diff --numstat -z` without renames: `added<TAB>deleted<TAB>path<NUL>` (`-` for binary). */
+function numstat(
+  output: string,
+): Map<string, { additions: number | null; deletions: number | null; binary: boolean }> {
+  const stats = new Map<
+    string,
+    { additions: number | null; deletions: number | null; binary: boolean }
+  >();
+  for (const record of output.split("\0")) {
+    const match = /^(-|\d+)\t(-|\d+)\t(.+)$/s.exec(record);
+    if (match === null) continue;
+    const [, added = "-", deleted = "-", file = ""] = match;
+    const binary = added === "-" && deleted === "-";
+    stats.set(file, {
+      additions: binary ? null : Number(added),
+      deletions: binary ? null : Number(deleted),
+      binary,
+    });
+  }
+  return stats;
+}
+
+/**
+ * Keeps a patch within `max` bytes, cut at a file boundary. When the launcher already dropped
+ * the start of the output, the first partial file is dropped too.
+ */
+export function cutPatch(
+  patch: string,
+  launcherTruncated: boolean,
+  max: number,
+): { patch: string; truncated: boolean } {
+  let text = patch;
+  let truncated = launcherTruncated;
+  if (launcherTruncated) {
+    const start = text.indexOf("\ndiff --git ");
+    text = start === -1 ? "" : text.slice(start + 1);
+  }
+  if (Buffer.byteLength(text, "utf8") > max) {
+    truncated = true;
+    // The last file boundary before which everything fits.
+    const marker = "\ndiff --git ";
+    let end = 0;
+    for (let at = text.indexOf(marker); at !== -1; at = text.indexOf(marker, at + 1)) {
+      if (Buffer.byteLength(text.slice(0, at + 1), "utf8") > max) break;
+      end = at + 1;
+    }
+    text = text.slice(0, end);
+  }
+  return { patch: text, truncated };
 }
 
 function firstLine(text: string): string {

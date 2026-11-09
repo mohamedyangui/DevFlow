@@ -3,8 +3,9 @@
 - **Status:** Phase 1 implements `devflow --version`, `devflow --help` and
   `devflow task validate`; Phase 2 adds `devflow trust` and the assist workflow (`init`,
   `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report`);
-  Phase 3 adds `devflow verify`; Phase 4 adds `devflow test`, `devflow implement` and
-  `devflow run`. The commands listed in section 4 are planned and do **not** exist yet.
+  Phase 3 adds `devflow verify`; Phase 4 adds `devflow test`, `devflow implement`,
+  `devflow run` and `devflow review`. The commands listed in section 4 are planned and do
+  **not** exist yet.
 
 The same `devflow` CLI serves Java and JavaScript/TypeScript projects, and mixed monorepos.
 Nothing in the CLI is language-specific: languages are handled by adapters.
@@ -252,6 +253,7 @@ devflow plan    --task <file> [model options]
 devflow test    --task <file> [model options] [--allow <fingerprint> ...]
 devflow implement --task <file> [model options] [--allow <fingerprint> ...]
 devflow run     --task <file> [model options] [--allow <fingerprint> ...]
+devflow review  --task <file> [--base <ref>] [model options] [--allow <fingerprint> ...]
 devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256> | --changes-sha <sha256>] [--allow <fingerprint> ...] [--json]
 devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
 devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
@@ -323,6 +325,23 @@ acceptance criterion is reported as passed.
   every automated criterion's tests passed after the change and no confirmed high or critical
   finding remains; `failed_verification` when a gate, a criterion or such a finding failed.
   The findings are deterministic; there is no model review yet.
+- **`review`** runs review mode on the local change: the working tree (staged, unstaged and
+  untracked files, outside `.devflow/`) against the merge base of `--base` and HEAD (default
+  `HEAD`, the uncommitted change). It needs a git repository and a change; otherwise it stops
+  before creating a run (`GIT_FAILED`, `REVIEW_NO_CHANGES`, exit 2). The requirements are
+  analysed as in assist mode; then the diff is taken (`artifacts/review-diff.json`, the
+  redacted patch in `review-diff.patch`) and every gate runs once on the changed code through
+  the command policy. Deterministic checks come first, as findings with deterministic
+  evidence: a failed or skipped gate, a criterion whose tests fail or that no test that ran
+  is linked to (by its marker), an added line the secret detector matches, a changed
+  protected file or CI workflow, source changed without any test change, a removed or changed
+  public declaration (JavaScript, TypeScript, Java), a changed dependency manifest. Then one
+  model call reviews the diff against the task: its findings carry the model's confidence and
+  always stay `unverified` (at most 20). Sensitive files (`.env`, keys, ...) are never shown
+  to the model, and the patch is redacted before it is stored or sent. A criterion is
+  verified when its tests pass on the change; there is no run before the change, so failures
+  that were already there are not told apart and no red/green evidence exists. Review mode
+  changes no file and commits nothing.
 - **Git isolation** (test and implement mode, [ADR 0012](../adr/0012-git-isolation.md)). A run
   needs a clean working tree: with uncommitted changes outside `.devflow/` it does not start
   (`GIT_TREE_NOT_CLEAN`, nothing is created). Just before the first file is written (after the
@@ -396,15 +415,13 @@ $ echo $?
 
 ## 4. Planned commands
 
-| Command                                      | Phase | Purpose             |
-| -------------------------------------------- | ----- | ------------------- |
-| `devflow review`                             | 4     | Review a local diff |
-| `devflow run --issue <n>`, `review --pr <n>` | 5     | GitHub sources      |
+| Command                                      | Phase | Purpose        |
+| -------------------------------------------- | ----- | -------------- |
+| `devflow run --issue <n>`, `review --pr <n>` | 5     | GitHub sources |
 
 Module detection by `devflow init` waits for the Phase 3 adapters. `analyze` and `plan`
-accept `--mode assist|review`; only `assist` is implemented, and test and implement mode have
-their own commands. The functions exported by `@devflow/workflow` (`startRun`, `approvePlan`,
+accept `--mode assist`; test, implement and review mode have their own commands. The functions exported by `@devflow/workflow` (`startRun`, `approvePlan`,
 `rejectPlan`, `approveTests`, `rejectTests`, `approveChanges`, `rejectChanges`,
 `answerQuestions`, `resumeRun`, `cancelRun`, `getRun`, `listRuns`) expose the same operations
-programmatically; test and implement mode need a `testRunner` in the services, which supplies
-the modules and runs gates through the command policy.
+programmatically; test, implement and review mode need a `testRunner` in the services, which
+supplies the modules and runs gates through the command policy, and review mode needs `git`.

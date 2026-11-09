@@ -1,12 +1,13 @@
 import { UNTRUSTED_CONTENT_RULE, untrustedBlock } from "@devflow/ai";
 import type { ContextPack } from "@devflow/context";
-import type { ImplementationPlan, TaskContract } from "@devflow/core";
+import type { GateResult, ImplementationPlan, TaskContract } from "@devflow/core";
 import type {
   ClarificationRecord,
   DesignedTest,
   ImplementationRecord,
   PlanCheck,
   RequirementsAnalysis,
+  ReviewDiff,
 } from "./schemas.js";
 import type { TestModule } from "./test-design.js";
 
@@ -24,6 +25,7 @@ export const ANALYSIS_TEMPLATE: PromptTemplate = { id: "requirements-analysis", 
 export const PLAN_TEMPLATE: PromptTemplate = { id: "implementation-plan", version: "1" };
 export const TEST_DESIGN_TEMPLATE: PromptTemplate = { id: "test-design", version: "1" };
 export const IMPLEMENTATION_TEMPLATE: PromptTemplate = { id: "implementation", version: "1" };
+export const REVIEW_TEMPLATE: PromptTemplate = { id: "change-review", version: "1" };
 
 export interface RenderedPrompt {
   readonly system: string;
@@ -314,6 +316,91 @@ export function implementationPrompt(input: {
   ];
   const files = new Set(promptFiles(input.pack));
   for (const file of [...input.testFiles, ...input.sources]) files.add(file.path);
+  return { system, user: sections.filter((s) => s !== "").join("\n\n"), files: [...files] };
+}
+
+export function reviewPrompt(input: {
+  task: TaskContract;
+  pack: ContextPack;
+  analysis: RequirementsAnalysis | undefined;
+  clarifications: readonly ClarificationRecord[];
+  diff: ReviewDiff;
+  /** The redacted patch, already cut to the prompt's size. */
+  patch: string;
+  patchCut: boolean;
+  gates: readonly GateResult[];
+  /** Titles of the deterministic findings, already reported. */
+  deterministic: readonly string[];
+}): RenderedPrompt {
+  const system = [
+    "You are the code reviewer of DevFlow, an engineering workflow for software projects.",
+    "Review the change below against the task's requirements and acceptance criteria and the " +
+      "conventions of the repository. Report real problems only: a requirement missed or " +
+      "implemented wrongly, a bug, a security problem, a missing or weak test, a breaking " +
+      "change, a convention the change does not follow. Do not report style preferences.",
+    "For each finding give a short title, the file and line from the diff when you can, a " +
+      "severity, a category, the acceptance criteria it concerns (AC-n), your confidence from 0 " +
+      "to 1, what is wrong (description) and what to do (recommendation). An empty list is a " +
+      "valid answer when the change has no problem you can show.",
+    "Your findings are suggestions: DevFlow labels them unverified, and a person decides. Do " +
+      "not repeat the deterministic findings listed below, and do not claim that a test passed " +
+      "or failed beyond the gate results shown.",
+    SAFETY,
+  ].join("\n\n");
+  const gateLines = input.gates.map((gate) => {
+    const failed = gate.tests.filter((test) => test.status === "failed");
+    return (
+      `- ${gate.gateId} (${gate.required ? "required" : "optional"}): ${gate.status}` +
+      (failed.length === 0
+        ? ""
+        : `; failed: ${failed
+            .slice(0, 10)
+            .map((test) => test.id)
+            .join("; ")}`)
+    );
+  });
+  const sections = [
+    renderTask(input.task),
+    input.analysis === undefined ? "" : renderAnalysis(input.analysis),
+    renderClarifications(input.clarifications),
+    [
+      `## Changed files (since ${input.diff.base}, commit ${input.diff.baseCommit.slice(0, 12)})`,
+      ...input.diff.files.map(
+        (file) =>
+          `- ${file.change} \`${file.path}\`` +
+          (file.binary
+            ? " (binary)"
+            : file.additions === null
+              ? " (untracked)"
+              : ` (+${String(file.additions)} -${String(file.deletions ?? 0)})`) +
+          (file.test ? " [test]" : ""),
+      ),
+      ...(input.diff.withheld.length === 0
+        ? []
+        : [`Not shown (sensitive files): ${input.diff.withheld.join(", ")}`]),
+    ].join("\n"),
+    ["## Gate results (run once, on the changed code)", ...gateLines].join("\n"),
+    input.deterministic.length === 0
+      ? ""
+      : [
+          "## Deterministic findings (already reported; do not repeat them)",
+          ...input.deterministic.map((title) => `- ${title}`),
+        ].join("\n"),
+    [
+      "## Diff",
+      input.diff.patchTruncated || input.patchCut
+        ? "The diff was cut at a file boundary: later files are not shown."
+        : "",
+      untrustedBlock("diff", input.patch),
+    ]
+      .filter((part) => part !== "")
+      .join("\n\n"),
+    renderContext(input.pack),
+  ];
+  const files = new Set(promptFiles(input.pack));
+  for (const file of input.diff.files) {
+    if (!input.diff.withheld.includes(file.path)) files.add(file.path);
+  }
   return { system, user: sections.filter((s) => s !== "").join("\n\n"), files: [...files] };
 }
 

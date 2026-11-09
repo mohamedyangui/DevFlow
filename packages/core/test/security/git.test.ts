@@ -2,7 +2,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/pr
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { ErrorCode, GitClient, statusPaths } from "../../src/index.js";
+import { ErrorCode, GitClient, cutPatch, statusPaths } from "../../src/index.js";
 import { findOnPath } from "../../src/security/invocation.js";
 import { launchProcess } from "../../src/security/process-launcher.js";
 
@@ -253,6 +253,133 @@ describe("GitClient", () => {
     expect(await client.inspect()).toEqual({
       kind: "unavailable",
       reason: "git was not found on PATH (outside the workspace)",
+    });
+  });
+});
+
+describe("cutPatch", () => {
+  const patch = ["diff --git a/a.ts b/a.ts", "+one", "diff --git a/b.ts b/b.ts", "+two", ""].join(
+    "\n",
+  );
+
+  it("keeps a patch within the limit", () => {
+    expect(cutPatch(patch, false, 10_000)).toEqual({ patch, truncated: false });
+  });
+
+  it("cuts a long patch at a file boundary", () => {
+    expect(cutPatch(patch, false, 40)).toEqual({
+      patch: "diff --git a/a.ts b/a.ts\n+one\n",
+      truncated: true,
+    });
+  });
+
+  it("drops the partial first file when the launcher kept only the end", () => {
+    expect(cutPatch(`ne\n+tail\n${patch}`, true, 10_000)).toEqual({ patch, truncated: true });
+  });
+});
+
+describe("GitClient diff", () => {
+  it("lists staged, unstaged and untracked changes since the merge base, with the patch", async () => {
+    const base = await repository();
+    await git(dir, "checkout", "--quiet", "-b", "feature");
+    await writeFile(path.join(dir, "src", "a.ts"), "export const a = 1;\nexport const b = 2;\n");
+    await git(dir, "commit", "--quiet", "-am", "feature work");
+    await rm(path.join(dir, "src", "old.ts"));
+    await writeFile(path.join(dir, "README.md"), "# demo\n\nmore\n");
+    await git(dir, "add", "README.md");
+    await writeFile(path.join(dir, "src", "new.ts"), "export const n = 1;\n");
+    await writeFile(path.join(dir, "logo.bin"), Buffer.from([0, 1, 2, 0, 255]));
+    await git(dir, "add", "logo.bin");
+    await mkdir(path.join(dir, ".devflow", "runs"), { recursive: true });
+    await writeFile(path.join(dir, ".devflow", "runs", "run.json"), "{}\n");
+
+    const client = new GitClient({ root: dir });
+    expect(await client.mergeBase("main")).toBe(base);
+    const head = await git(dir, "rev-parse", "HEAD");
+    const diff = await client.diff(base);
+    expect(diff.base).toBe(base);
+    expect(diff.head).toBe(head);
+    expect(diff.files).toEqual([
+      {
+        path: "README.md",
+        change: "modified",
+        additions: 2,
+        deletions: 0,
+        binary: false,
+        tracked: true,
+      },
+      {
+        path: "logo.bin",
+        change: "added",
+        additions: null,
+        deletions: null,
+        binary: true,
+        tracked: true,
+      },
+      {
+        path: "src/a.ts",
+        change: "modified",
+        additions: 1,
+        deletions: 0,
+        binary: false,
+        tracked: true,
+      },
+      {
+        path: "src/new.ts",
+        change: "added",
+        additions: null,
+        deletions: null,
+        binary: false,
+        tracked: false,
+      },
+      {
+        path: "src/old.ts",
+        change: "deleted",
+        additions: 0,
+        deletions: 1,
+        binary: false,
+        tracked: true,
+      },
+    ]);
+    expect(diff.patch).toContain("diff --git a/src/a.ts b/src/a.ts");
+    expect(diff.patch).toContain("+export const b = 2;");
+    expect(diff.patch).toContain("-export const old = 1;");
+    expect(diff.patchTruncated).toBe(false);
+  });
+
+  it("runs no external diff driver or text conversion", async () => {
+    const base = await repository();
+    const marker = path.join(dir, "driver-ran");
+    const script = path.join(dir, "driver.sh");
+    await writeFile(script, `#!/bin/sh\necho ran >> "${marker.split(path.sep).join("/")}"\n`);
+    await chmod(script, 0o755);
+    const command = `sh "${script.split(path.sep).join("/")}"`;
+    await git(dir, "config", "diff.external", command);
+    await git(dir, "config", "diff.fake.textconv", command);
+    await writeFile(path.join(dir, ".gitattributes"), "*.ts diff=fake\n");
+    await git(dir, "add", ".gitattributes");
+    await git(dir, "commit", "--quiet", "-m", "attributes");
+    await writeFile(path.join(dir, "src", "a.ts"), "export const a = 5;\n");
+
+    // Plain git runs the driver: the setup is right.
+    await git(dir, "diff");
+    expect(await exists(marker)).toBe(true);
+    await rm(marker);
+
+    const diff = await new GitClient({ root: dir }).diff(base);
+    expect(diff.patch).toContain("+export const a = 5;");
+    expect(await exists(marker)).toBe(false);
+  });
+
+  it("refuses references that look like options, and unknown ones", async () => {
+    await repository();
+    const client = new GitClient({ root: dir });
+    await expect(client.mergeBase("--output=x")).rejects.toMatchObject({
+      code: ErrorCode.GitFailed,
+    });
+    await expect(client.mergeBase("no-such-branch")).rejects.toMatchObject({
+      code: ErrorCode.GitFailed,
+      message: '"no-such-branch" is not a commit of this repository',
     });
   });
 });

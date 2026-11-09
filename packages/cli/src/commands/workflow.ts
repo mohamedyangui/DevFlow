@@ -56,6 +56,8 @@ export interface ModelOptions {
 export interface StartOptions extends ModelOptions {
   readonly task: string;
   readonly mode: WorkflowMode;
+  /** Review mode: the reference the local change is compared with. */
+  readonly base?: string;
 }
 
 const STEP_MESSAGES: Readonly<Record<string, string>> = {
@@ -65,15 +67,16 @@ const STEP_MESSAGES: Readonly<Record<string, string>> = {
   [STEP.testDesign]: "Writing the tests...",
   [STEP.implementation]: "Writing the code change...",
   [STEP.verification]: "Running the gates...",
-  [STEP.review]: "Reviewing the evidence...",
+  [STEP.review]: "Reviewing...",
 };
 
 /**
  * `devflow analyze` and `devflow plan` start a run in assist mode; `devflow test` starts one
- * in test mode; `devflow implement` (and `devflow run`) in implement mode.
+ * in test mode; `devflow implement` (and `devflow run`) in implement mode; `devflow review` in
+ * review mode.
  */
 export async function startCommand(
-  goal: "analyze" | "plan" | "test" | "implement",
+  goal: "analyze" | "plan" | "test" | "implement" | "review",
   options: StartOptions,
   io: CliIo,
 ): Promise<ExitCode> {
@@ -106,6 +109,7 @@ export async function startCommand(
         goal,
         settings,
         warnings: allWarnings,
+        ...(goal === "review" ? { review: { base: options.base ?? "HEAD" } } : {}),
       },
       services,
     );
@@ -587,13 +591,16 @@ function nextSteps(outcome: RunOutcome, c: Colors): string[] {
             : "The change was verified against the tests; the report has the verdict. The approved " +
               `changes are committed on the local branch ${outcome.branch}; nothing was pushed: ` +
               "review the commits before you merge them."
-          : outcome.mode === "test"
-            ? "The tests were written and run against the current code (red baseline). No production " +
-              "code was changed, so no acceptance criterion is verified yet." +
-              (outcome.branch === undefined
-                ? ""
-                : ` The approved tests are committed on the local branch ${outcome.branch}.`)
-            : "Assist mode analysed and planned only: no file was changed and nothing was executed or verified.",
+          : outcome.mode === "review"
+            ? "The change was reviewed: the gates ran once on it and the report has the verdict " +
+              "and the findings. AI findings are suggestions and stay unverified; no file was changed."
+            : outcome.mode === "test"
+              ? "The tests were written and run against the current code (red baseline). No production " +
+                "code was changed, so no acceptance criterion is verified yet." +
+                (outcome.branch === undefined
+                  ? ""
+                  : ` The approved tests are committed on the local branch ${outcome.branch}.`)
+              : "Assist mode analysed and planned only: no file was changed and nothing was executed or verified.",
       );
       break;
     case "waiting":

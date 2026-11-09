@@ -137,8 +137,8 @@ child environment of section 5 (so `GIT_DIR` and other `GIT_*` variables of DevF
 environment never reach it), literal pathspecs and no terminal prompt. Every call disables
 hooks (`core.hooksPath` points to a directory that does not exist, commits pass
 `--no-verify`), `core.fsmonitor`, commit signing, automatic garbage collection and
-maintenance, and the pager. DevFlow runs no diff of its own, so external diff drivers and
-textconv filters never run; when it does, it will pass `--no-ext-diff` and `--no-textconv`.
+maintenance, and the pager. Its diffs (review mode) pass `--no-ext-diff` and
+`--no-textconv`, so external diff drivers and textconv filters never run.
 The repository's own configuration (`.git/config`) belongs to the user and is used as it is,
 for example the commit identity; the model cannot write it, because `.git/` is protected.
 

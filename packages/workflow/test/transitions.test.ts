@@ -85,17 +85,10 @@ describe("transition table", () => {
     }).not.toThrow();
   });
 
-  it("implements assist, test and implement mode", () => {
-    expect(IMPLEMENTED_MODES).toEqual(["assist", "test", "implement"]);
+  it("implements every mode", () => {
+    expect(IMPLEMENTED_MODES).toEqual(["assist", "test", "implement", "review"]);
     expect(() => {
-      assertModeImplemented("assist");
-      assertModeImplemented("test");
-      assertModeImplemented("implement");
+      for (const mode of IMPLEMENTED_MODES) assertModeImplemented(mode);
     }).not.toThrow();
-    for (const mode of ["review"] as const) {
-      expect(() => {
-        assertModeImplemented(mode);
-      }).toThrow(expect.objectContaining({ code: ErrorCode.WorkflowModeNotImplemented }));
-    }
   });
 });

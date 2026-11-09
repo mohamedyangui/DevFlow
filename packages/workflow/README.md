@@ -4,9 +4,7 @@ The workflow orchestrator: the typed state machine, the run store, the requireme
 planning steps, the deterministic checks of model answers, and the engineering report. The CLI
 and future IDE integrations call the same functions.
 
-**Status: assist mode (Phase 2), test mode and implement mode (Phase 4) are implemented.**
-The `review` mode arrives with the review engine; starting a run in that mode fails with
-`WORKFLOW_MODE_NOT_IMPLEMENTED` and creates nothing.
+**Status: assist mode (Phase 2), test, implement and review mode (Phase 4) are implemented.**
 
 The package may depend on `@devflow/core`, `@devflow/context` and `@devflow/ai`. It never starts
 processes itself: test mode runs gates through the `testRunner` its caller provides, which
@@ -57,6 +55,17 @@ gate runs, failed gates a second time (`assessAfterRun`: flaky tests, regression
 already there, and whether to repair), and `afterEvidence` completes the red/green evidence.
 The report's verdict follows section 7 of the
 [verification spec](../../docs/specs/verification-and-evidence.md).
+
+## Review mode
+
+```text
+TASK_RECEIVED → CONTEXT_LOADING → REQUIREMENTS_ANALYSIS (⇄ CLARIFICATION_REQUIRED)
+  → VERIFICATION (the local diff, every gate once) → REVIEW → COMPLETED
+```
+
+`reviewFindings` turns the diff, the gates and the task into deterministic findings;
+`aiFindings` maps the model's review to `unverified` AI findings with their confidence. The
+diff comes from `services.git` (`GitClient.diff`); review mode writes no file.
 
 ## Git isolation
 

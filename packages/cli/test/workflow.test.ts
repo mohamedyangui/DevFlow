@@ -645,7 +645,7 @@ describe("configuration, trust and refusals", () => {
     );
     const extra: Partial<CliIo> = { createProvider: () => Promise.resolve(model()) };
     const cases: [string[], string][] = [
-      [[...PLAN, "--mode", "review"], "WORKFLOW_MODE_NOT_IMPLEMENTED"],
+      [[...PLAN, "--mode", "review"], "Allowed choices are assist"],
       [["plan", "--task", "tasks/TASK-7.yaml"], "LLM_PROVIDER_NOT_CONFIGURED"],
       [["plan", "--task", "broken.yaml", "--model", "m"], "TASK_INVALID"],
       [["plan", "--task", "missing.yaml", "--model", "m"], "TASK_FILE_NOT_FOUND"],

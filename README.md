@@ -139,6 +139,17 @@ and a verdict that is `verified` only when every required gate and every criteri
 passed. The run needs a clean working tree; it works on its own local branch
 (`devflow/TASK-142`) and commits each approved step there. Nothing is pushed or merged.
 
+### Review a local change (review mode)
+
+```bash
+devflow review --task tasks/TASK-142.yaml --base main --model <model id>
+```
+
+Reviews your working tree against the merge base with `main`: the gates run once on it,
+deterministic checks report facts (failed gates, untested criteria, secrets, protected files,
+removed public declarations, dependency changes), and the model adds its own findings, which
+always stay unverified. No file is changed.
+
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
