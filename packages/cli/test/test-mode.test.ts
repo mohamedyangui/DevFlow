@@ -115,6 +115,28 @@ function provider(): FakeProvider {
         ],
       });
     }
+    if (request.system.includes("implementer")) {
+      return JSON.stringify({
+        summary: "Slice the orders to one page.",
+        changes: [
+          {
+            path: "src/orders.ts",
+            action: "modify",
+            content: null,
+            edits: [
+              {
+                search: "export function listOrders(orders: Order[]): Order[] {\n  return orders;",
+                replace:
+                  "export function listOrders(orders: Order[], page = 1, size = orders.length): Order[] {\n" +
+                  "  return orders.slice((page - 1) * size, page * size);",
+              },
+            ],
+            changeId: "CH-1",
+            description: "Add page and size.",
+          },
+        ],
+      });
+    }
     return JSON.stringify({
       summary: "Paginate listOrders.",
       approach: "Slice the array.",
@@ -268,5 +290,66 @@ describe("devflow test", () => {
     const root = await workspace();
     const result = await cli(root, ["plan", "--task", "tasks/TASK-7.yaml", "--mode", "test"]);
     expect(result.code).toBe(ExitCode.UsageError);
+  });
+});
+
+const IMPLEMENT = ["implement", "--task", "tasks/TASK-7.yaml", "--model", "test-model"];
+
+describe("devflow implement", () => {
+  it("stops before the baseline when the command policy does not allow the gates", async () => {
+    const root = await workspace();
+    const started = await cli(root, [...IMPLEMENT, "--json"]);
+    expect(started.code, started.stdout + started.stderr).toBe(ExitCode.WaitingForInput);
+    const runId = (JSON.parse(started.stdout) as { runId: string }).runId;
+    expect(JSON.parse(started.stdout)).toMatchObject({
+      mode: "implement",
+      waitingFor: "plan-approval",
+    });
+    await cli(root, ["approve", runId, "--json"]);
+    const denied = await cli(root, ["approve", runId]);
+    expect(denied.code, denied.stdout + denied.stderr).toBe(ExitCode.PolicyDenied);
+    expect(denied.stdout).toContain("Review the workspace with devflow trust");
+    // Nothing was implemented: the code is unchanged until the baseline has run.
+    expect(await readFile(path.join(root, "src", "orders.ts"), "utf8")).toBe(REPO["src/orders.ts"]);
+  });
+
+  it("goes through the change review and reports what did not run as not verified", async () => {
+    const root = await workspace();
+    // Without PATH, node is not found: no gate runs, before or after the change.
+    const started = await cli(
+      root,
+      ["run", "--task", "tasks/TASK-7.yaml", "--model", "m", "--json"],
+      false,
+    );
+    const runId = (JSON.parse(started.stdout) as { runId: string }).runId;
+    await cli(root, ["approve", runId, "--json"], false);
+    const change = await cli(root, ["approve", runId], false);
+    expect(change.code, change.stdout + change.stderr).toBe(ExitCode.WaitingForInput);
+    expect(change.stdout).toContain("Change:");
+    expect(change.stdout).toContain("  src/orders.ts");
+    expect(change.stdout).toContain("the change has not run");
+    expect(change.stderr).toContain("Writing the code change...");
+    expect(await readFile(path.join(root, "src", "orders.ts"), "utf8")).toContain("orders.slice(");
+
+    const wrongKind = await cli(root, ["approve", runId, "--tests-sha", "b".repeat(64)], false);
+    expect(wrongKind.code).toBe(ExitCode.UsageError);
+    expect(wrongKind.stderr).toContain("--tests-sha does not apply");
+    const wrongHash = await cli(root, ["approve", runId, "--changes-sha", "b".repeat(64)], false);
+    expect(wrongHash.code).toBe(ExitCode.UsageError);
+
+    const done = await cli(root, ["approve", runId, "--json"], false);
+    expect(done.code, done.stdout).toBe(ExitCode.Success);
+    const report = JSON.parse(
+      await cli(root, ["report", runId, "--json"], false).then((r) => r.stdout),
+    ) as {
+      verdict: string;
+      filesChanged: { path: string; change: string }[];
+      acceptanceMatrix: { status: string }[];
+    };
+    expect(report.verdict).toBe("not_verified");
+    expect(report.acceptanceMatrix[0]?.status).toBe("not_executed");
+    expect(report.filesChanged).toContainEqual(
+      expect.objectContaining({ path: "src/orders.ts", change: "modified" }),
+    );
   });
 });

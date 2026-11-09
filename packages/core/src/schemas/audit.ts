@@ -67,7 +67,7 @@ export const FileWriteAuditEntry = z.strictObject({
 export const DecisionAuditEntry = z.strictObject({
   ...base,
   type: z.literal("decision"),
-  subject: z.enum(["workspace-trust", "command", "plan", "clarification", "tests"]),
+  subject: z.enum(["workspace-trust", "command", "plan", "clarification", "tests", "changes"]),
   decision: z.enum(["approved", "rejected", "revoked", "answered"]),
   by: z.string().min(1),
   reference: z.string().min(1).optional(),

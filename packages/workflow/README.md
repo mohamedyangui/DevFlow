@@ -4,15 +4,16 @@ The workflow orchestrator: the typed state machine, the run store, the requireme
 planning steps, the deterministic checks of model answers, and the engineering report. The CLI
 and future IDE integrations call the same functions.
 
-**Status: assist mode (Phase 2) and test mode (Phase 4) are implemented.** The `implement`
-and `review` modes arrive later in Phase 4; starting a run in those modes fails with
+**Status: assist mode (Phase 2), test mode and implement mode (Phase 4) are implemented.**
+The `review` mode arrives with the review engine; starting a run in that mode fails with
 `WORKFLOW_MODE_NOT_IMPLEMENTED` and creates nothing.
 
 The package may depend on `@devflow/core`, `@devflow/context` and `@devflow/ai`. It never starts
 processes itself: test mode runs gates through the `testRunner` its caller provides, which
 goes through the command policy. In assist mode it never changes a repository file: it only
 writes its own run directory. In test mode it writes only test files, after deterministic
-checks, and restores them on rejection.
+checks, and restores them on rejection. In implement mode it also writes the production files
+of the approved plan, after the same kind of checks, and restores them on rejection.
 
 ## Assist mode
 
@@ -40,24 +41,43 @@ red/green evidence (`artifacts/test-evidence.json`, [ADR 0015](../../docs/adr/00
 and findings (`artifacts/findings.json`). A command the policy refuses interrupts the run with
 `COMMAND_NOT_APPROVED`; `resumeRun` with an approved runner continues it.
 
+## Implement mode
+
+```text
+... → TEST_DESIGN (waits for test approval) → VERIFICATION (baseline: every gate)
+  → IMPLEMENTATION (waits for change approval) → VERIFICATION (after the change)
+      → IMPLEMENTATION (a repair, while attempts remain) → VERIFICATION → ...
+      → REVIEW → COMPLETED
+```
+
+`checkImplementation` keeps the change to the plan's files, never a test file, with exact
+edits; each file is written only if it still has the content the change was computed from
+(`artifacts/change-files.json`, `artifacts/changed-files.json`). After an approved change every
+gate runs, failed gates a second time (`assessAfterRun`: flaky tests, regressions, failures
+already there, and whether to repair), and `afterEvidence` completes the red/green evidence.
+The report's verdict follows section 7 of the
+[verification spec](../../docs/specs/verification-and-evidence.md).
+
 Any non-terminal state can move to `FAILED` or `CANCELLED`. The transition table and the edges
 each mode may take are in `src/transitions.ts`
 ([ADR 0004](../../docs/adr/0004-state-machine-and-run-store.md)); a transition outside them
 fails with `INVALID_TRANSITION`.
 
-| Function             | What it does                                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------------------- |
-| `startRun`           | Lints the task, creates the run and drives it until it finishes or needs a person              |
-| `answerQuestions`    | Records answers to clarification questions; analyses again once no blocking question is open   |
-| `approvePlan`        | Approves the plan awaiting approval (optionally only if its hash matches the reviewed one)     |
-| `rejectPlan`         | Rejects the plan with feedback; plans again with the previous plan and the feedback            |
-| `approveTests`       | Test mode: approves the written tests (optionally only if their hash matches), then runs them  |
-| `rejectTests`        | Test mode: restores the files and writes the tests again with the feedback                     |
-| `resumeRun`          | Continues an interrupted run from its current step; budgets, model and provider can be changed |
-| `cancelRun`          | Cancels an unfinished run and writes its report                                                |
-| `getRun`             | Reads a run and its outcome without changing it                                                |
-| `listRuns`           | Lists the runs of a workspace, oldest first                                                    |
-| `resolveRunSettings` | Effective settings: command line, then trusted configuration, then environment, then defaults  |
+| Function             | What it does                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `startRun`           | Lints the task, creates the run and drives it until it finishes or needs a person               |
+| `answerQuestions`    | Records answers to clarification questions; analyses again once no blocking question is open    |
+| `approvePlan`        | Approves the plan awaiting approval (optionally only if its hash matches the reviewed one)      |
+| `rejectPlan`         | Rejects the plan with feedback; plans again with the previous plan and the feedback             |
+| `approveTests`       | Test mode: approves the written tests (optionally only if their hash matches), then runs them   |
+| `rejectTests`        | Test mode: restores the files and writes the tests again with the feedback                      |
+| `approveChanges`     | Implement mode: approves the written change (optionally only if its hash matches), then runs it |
+| `rejectChanges`      | Implement mode: restores the files and writes the change again with the feedback                |
+| `resumeRun`          | Continues an interrupted run from its current step; budgets, model and provider can be changed  |
+| `cancelRun`          | Cancels an unfinished run and writes its report                                                 |
+| `getRun`             | Reads a run and its outcome without changing it                                                 |
+| `listRuns`           | Lists the runs of a workspace, oldest first                                                     |
+| `resolveRunSettings` | Effective settings: command line, then trusted configuration, then environment, then defaults   |
 
 Each call returns a `RunOutcome`: `completed`, `waiting` (for `plan-approval` or
 `clarification`, with the open questions), `interrupted` (with the error; `resumeRun`

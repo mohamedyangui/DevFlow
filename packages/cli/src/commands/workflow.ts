@@ -17,11 +17,13 @@ import {
   STEP,
   answerQuestions,
   approvePlan,
+  approveChanges,
   approveTests,
   cancelRun,
   getRun,
   listRuns,
   rejectPlan,
+  rejectChanges,
   rejectTests,
   resolveRunSettings,
   resumeRun,
@@ -46,7 +48,7 @@ export interface ModelOptions {
   readonly maxInputTokens?: number | undefined;
   readonly maxOutputTokens?: number | undefined;
   readonly maxCallsPerStep?: number | undefined;
-  /** Command fingerprints approved for this invocation (`--allow`), for test mode. */
+  /** Command fingerprints approved for this invocation (`--allow`), for test and implement mode. */
   readonly allow?: readonly string[] | undefined;
   readonly json: boolean;
 }
@@ -61,16 +63,17 @@ const STEP_MESSAGES: Readonly<Record<string, string>> = {
   [STEP.analysis]: "Analysing the requirements...",
   [STEP.planning]: "Planning the implementation...",
   [STEP.testDesign]: "Writing the tests...",
-  [STEP.verification]: "Running the tests against the current code...",
-  [STEP.review]: "Reviewing the test evidence...",
+  [STEP.implementation]: "Writing the code change...",
+  [STEP.verification]: "Running the gates...",
+  [STEP.review]: "Reviewing the evidence...",
 };
 
 /**
  * `devflow analyze` and `devflow plan` start a run in assist mode; `devflow test` starts one
- * in test mode.
+ * in test mode; `devflow implement` (and `devflow run`) in implement mode.
  */
 export async function startCommand(
-  goal: "analyze" | "plan" | "test",
+  goal: "analyze" | "plan" | "test" | "implement",
   options: StartOptions,
   io: CliIo,
 ): Promise<ExitCode> {
@@ -142,12 +145,13 @@ function settingsFor(workspace: Workspace, options: StartOptions, io: CliIo) {
   }
 }
 
-/** `devflow approve <run>`: approves the plan or the tests the run is waiting on. */
+/** `devflow approve <run>`: approves the plan, the tests or the code change the run waits on. */
 export async function approveCommand(
   runId: string,
   options: {
     planSha?: string | undefined;
     testsSha?: string | undefined;
+    changesSha?: string | undefined;
     allow?: readonly string[] | undefined;
     json: boolean;
   },
@@ -162,13 +166,34 @@ export async function approveCommand(
       io,
       serviceOptions(io, { json: options.json, allow: options.allow }, interruption),
     );
-    if (record.pending?.kind === "test-approval") {
-      if (options.planSha !== undefined) {
+    const kind = record.pending?.kind;
+    const given = [
+      ["plan-approval", "--plan-sha", options.planSha],
+      ["test-approval", "--tests-sha", options.testsSha],
+      ["change-approval", "--changes-sha", options.changesSha],
+    ] as const;
+    for (const [pending, flag, value] of given) {
+      if (value !== undefined && kind !== pending) {
         throw new DevflowError(
           ErrorCode.DecisionInputInvalid,
-          `run ${runId} is waiting for its tests to be approved, not a plan: use --tests-sha`,
+          `run ${runId} is not waiting for ${pending === "plan-approval" ? "a plan" : pending === "test-approval" ? "its tests" : "its code change"} to be approved: ${flag} does not apply`,
         );
       }
+    }
+    if (kind === "change-approval") {
+      const outcome = await approveChanges(
+        runId,
+        {
+          by,
+          ...(options.changesSha === undefined
+            ? {}
+            : { changesSha256: options.changesSha.toLowerCase() }),
+        },
+        services,
+      );
+      return report(io, options.json, outcome);
+    }
+    if (kind === "test-approval") {
       const outcome = await approveTests(
         runId,
         {
@@ -180,12 +205,6 @@ export async function approveCommand(
         services,
       );
       return report(io, options.json, outcome);
-    }
-    if (options.testsSha !== undefined) {
-      throw new DevflowError(
-        ErrorCode.DecisionInputInvalid,
-        `run ${runId} is not waiting for its tests to be approved: --tests-sha does not apply`,
-      );
     }
     const outcome = await approvePlan(
       runId,
@@ -216,7 +235,13 @@ export async function rejectCommand(
       options.feedback ?? (await readInputFile(io, options.feedbackFile ?? "", "feedback"));
     const workspace = await openWorkspace(io);
     const { record } = await getRun(workspace.root, runId);
-    const reject = record.pending?.kind === "test-approval" ? rejectTests : rejectPlan;
+    const kind = record.pending?.kind;
+    const reject =
+      kind === "change-approval"
+        ? rejectChanges
+        : kind === "test-approval"
+          ? rejectTests
+          : rejectPlan;
     const outcome = await reject(
       runId,
       { by: currentUser(io.env), feedback },
@@ -554,14 +579,28 @@ function nextSteps(outcome: RunOutcome, c: Colors): string[] {
       out.push(`${c.bold("Report:")} ${outcome.reportPath ?? `${outcome.runDir}/report.md`}`);
       out.push(
         "",
-        outcome.mode === "test"
-          ? "The tests were written and run against the current code (red baseline). No production " +
+        outcome.mode === "implement"
+          ? "The change was verified against the tests; the report has the verdict. The changed " +
+              "files are in the working tree, not committed: review the diff before you keep it."
+          : outcome.mode === "test"
+            ? "The tests were written and run against the current code (red baseline). No production " +
               "code was changed, so no acceptance criterion is verified yet."
-          : "Assist mode analysed and planned only: no file was changed and nothing was executed or verified.",
+            : "Assist mode analysed and planned only: no file was changed and nothing was executed or verified.",
       );
       break;
     case "waiting":
-      if (outcome.waitingFor === "test-approval") {
+      if (outcome.waitingFor === "change-approval") {
+        out.push(`${c.bold("Change:")} ${outcome.changesPath ?? ""}`);
+        for (const file of outcome.changedFiles ?? []) out.push(`  ${file}`);
+        out.push(
+          "",
+          "The model changed these files in the workspace; the change has not run. Review it",
+          "(for example with git diff): approved code runs with the tests, with your privileges.",
+          "Then approve it or ask for changes (the files are restored first):",
+          `  devflow approve ${id}`,
+          `  devflow reject ${id} --feedback "what to change"`,
+        );
+      } else if (outcome.waitingFor === "test-approval") {
         out.push(`${c.bold("Tests:")}  ${outcome.testsPath ?? ""}`);
         for (const file of outcome.testFiles ?? []) out.push(`  ${file}`);
         out.push(

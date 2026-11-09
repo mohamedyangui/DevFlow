@@ -5,17 +5,21 @@
  * Implemented: assist mode end to end (TASK_RECEIVED to COMPLETED through analysis,
  * clarification, planning and plan approval), resumable runs and reports (Phase 2), and test
  * mode (Phase 4): test design, approval of the written tests, the red run against the current
- * code and its deterministic review. Implement and review mode arrive later in Phase 4;
- * starting a run in those modes fails with WORKFLOW_MODE_NOT_IMPLEMENTED.
+ * code and its deterministic review; implement mode (Phase 4): on top of test mode, the code
+ * change checked against the plan, its approval, the verification after it compared with the
+ * baseline, and a bounded repair loop. Review mode arrives with the review engine; starting a
+ * run in that mode fails with WORKFLOW_MODE_NOT_IMPLEMENTED.
  */
 export {
   STEP,
   answerQuestions,
+  approveChanges,
   approvePlan,
   approveTests,
   cancelRun,
   getRun,
   listRuns,
+  rejectChanges,
   rejectPlan,
   rejectTests,
   resumeRun,
@@ -32,18 +36,33 @@ export {
 } from "./engine.js";
 export { checkAnalysis, checkPlan, taskIds } from "./checks.js";
 export {
+  MAX_SOURCE_FILE_BYTES,
+  afterEvidence,
+  afterFindings,
+  assessAfterRun,
+  changeFilesRecord,
+  changesHash,
+  checkImplementation,
+  failureSummary,
+  type PlannedChangeFile,
+} from "./implementation.js";
+export {
   ANALYSIS_TEMPLATE,
+  IMPLEMENTATION_TEMPLATE,
   PLAN_TEMPLATE,
   TEST_DESIGN_TEMPLATE,
   analysisPrompt,
+  implementationPrompt,
   planPrompt,
   testDesignPrompt,
   type ExistingTestFile,
+  type PromptFile,
   type PromptTemplate,
   type RenderedPrompt,
 } from "./prompts.js";
 export {
   buildReport,
+  renderImplementationMarkdown,
   renderPlanMarkdown,
   renderReportMarkdown,
   renderTestDesignMarkdown,
@@ -51,13 +70,20 @@ export {
 } from "./report.js";
 export { RUNS_DIRECTORY, RunStore, type RunEventInput } from "./run-store.js";
 export {
+  AfterRun,
   AnalysisWire,
   BaselineRun,
   BudgetUsageRecord,
+  ChangeApproval,
+  ChangeFeedback,
+  ChangeFiles,
+  ChangedFiles,
   ClarificationRecord,
   Clarifications,
   DesignedTest,
   EvidenceEntry,
+  ImplementationRecord,
+  ImplementationWire,
   PendingInput,
   PlanCheck,
   PlanChecks,
@@ -80,7 +106,9 @@ export {
   TestFiles,
 } from "./schemas.js";
 export {
+  DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS,
   DEFAULT_MAX_OUTPUT_TOKENS,
+  DEFAULT_MAX_REPAIR_ATTEMPTS,
   DEFAULT_PROVIDER,
   DEFAULT_TEST_DESIGN_OUTPUT_TOKENS,
   resolveRunSettings,
@@ -92,10 +120,12 @@ export {
   baselineEvidence,
   baselineFindings,
   checkTestDesign,
+  designedResults,
   hasMarker,
   isTestPath,
   testFilesRecord,
   testsHash,
+  type DesignedResult,
   type PlannedTestFile,
   type TestModule,
 } from "./test-design.js";

@@ -1,7 +1,9 @@
 # ADR 0012: Dedicated local branch, commits per phase, never push
 
 - **Status:** Accepted, 2026-11-06 (decision D6). Implementation in Phase 4. Phase 1 defines
-  only the `workflow.git` configuration schema.
+  the `workflow.git` configuration schema. Implement mode (Phase 4) writes its changes into
+  the working tree with content-hash checks; the branch, the clean-tree check and the commits
+  are not implemented yet.
 - **Deciders:** Mohamed Yangui
 
 ## Context

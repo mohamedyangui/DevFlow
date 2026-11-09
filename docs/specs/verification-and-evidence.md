@@ -6,8 +6,9 @@
   `ParsedCommandResults` (`schemas/verification.ts`), `Finding` (`schemas/findings.ts`),
   `AcceptanceMatrixRow` and `EngineeringReport` (`schemas/report.ts`). The verification
   engine (section 4.1, `verification/engine.ts` and `verification/snapshot.ts`) exists since
-  Phase 3, and `devflow verify` runs it ([CLI spec](cli.md)). The red/green workflow comes in
-  Phase 4.
+  Phase 3, and `devflow verify` runs it ([CLI spec](cli.md)). The red/green workflow exists
+  since Phase 4: test mode records the baseline, implement mode the run after the change, the
+  rerun of failed gates and the comparison (`@devflow/workflow`, `implementation.ts`).
 
 ## 1. Statuses
 
