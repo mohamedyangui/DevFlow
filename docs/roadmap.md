@@ -161,13 +161,28 @@ Implemented and tested so far:
   the files and writes the tests again. Tested with the fake provider and a scripted test
   runner, and through the command line with the real adapters in an untrusted workspace (the
   policy refuses to run anything). Not yet run against a live model or with real test
-  execution: the green half of the evidence needs the implementation step.
+  execution.
+- Implement mode, `devflow implement` and `devflow run`: test mode, with every gate in the
+  baseline; then the code change as exact search and replace edits, checked against the
+  approved plan (its files only, never a test file, the path guard, content hashes before each
+  write); a person approves the change (bound by hash) before it runs; the verification after
+  the change reruns failed gates once to tell flaky tests from failures, compares the result
+  with the baseline test by test (regressions, failures already there) and completes the
+  red/green evidence; a bounded repair loop (`workflow.maxRepairAttempts`) asks for a repair
+  with the redacted failures, each repair approved like the first change; deterministic
+  findings and a real verdict (`verified` only per section 7 of the
+  [verification spec](specs/verification-and-evidence.md)). Tested with the fake provider and
+  a scripted test runner, and through the command line with the real adapters (untrusted
+  workspace, and without a toolchain). Not yet run against a live model or with real test
+  execution. The model sees the plan's files in its prompt; the read-only tools of
+  [ADR 0005](adr/0005-single-agent-loop.md) are not implemented.
 
 Planned:
 
-- Implementation with search/replace edits, the green run that completes red/green evidence,
-  bounded repair loop, regression detection, review engine.
-- `implement`, `run`, `review` commands.
+- Git isolation ([ADR 0012](adr/0012-git-isolation.md)): clean-tree check, the dedicated
+  branch and commits per phase. Until then the changes stay uncommitted in the working tree.
+- Review engine (rule checks and AI findings with their verification status) and
+  `devflow review` of a local diff.
 - Example reports from real runs.
 
 ## Phase 5: GitHub integration

@@ -676,7 +676,7 @@ describe("assist mode: cancel, status and refusals", () => {
     const svc = await services(root, scripted({}));
     await expectCode(
       startRun(
-        { task: task(), taskFile: null, mode: "implement", goal: "plan", settings: settings() },
+        { task: task(), taskFile: null, mode: "review", goal: "plan", settings: settings() },
         svc,
       ),
       ErrorCode.WorkflowModeNotImplemented,

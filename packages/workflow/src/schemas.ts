@@ -39,7 +39,7 @@ export type RunId = z.infer<typeof RunId>;
  * What the run was started for: `devflow analyze` stops after analysis, `devflow plan` plans,
  * `devflow test` writes tests and records their red baseline (test mode).
  */
-export const RunGoal = z.enum(["analyze", "plan", "test"]);
+export const RunGoal = z.enum(["analyze", "plan", "test", "implement"]);
 export type RunGoal = z.infer<typeof RunGoal>;
 
 export const RunBudgets = z.strictObject({
@@ -76,6 +76,8 @@ export const RunSettings = z.strictObject({
   }),
   prices: RunPrices.optional(),
   requirePlanApproval: z.boolean(),
+  /** Implement mode: repair attempts after a failed verification. Absent before Phase 4. */
+  maxRepairAttempts: z.int().min(0).max(5).optional(),
   budgets: RunBudgets,
   contextBudgetTokens: z.int().positive(),
   maxOutputTokens: z.strictObject({
@@ -83,6 +85,7 @@ export const RunSettings = z.strictObject({
     planning: z.int().positive(),
     /** Absent in runs created before Phase 4. */
     testDesign: z.int().positive().optional(),
+    implementation: z.int().positive().optional(),
   }),
   workspaceTrusted: z.boolean(),
   configSha256: Sha256.nullable(),
@@ -94,6 +97,8 @@ export const PendingInput = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("clarification"), questionIds: z.array(z.string()).min(1) }),
   /** Test mode: the test files written by the model must be reviewed before they run. */
   z.strictObject({ kind: z.literal("test-approval"), testsSha256: Sha256 }),
+  /** Implement mode: the code written by the model must be reviewed before it runs. */
+  z.strictObject({ kind: z.literal("change-approval"), changesSha256: Sha256 }),
 ]);
 export type PendingInput = z.infer<typeof PendingInput>;
 
@@ -143,6 +148,10 @@ export const RunRecord = z.strictObject({
     planning: z.int().nonnegative(),
     /** Absent in runs created before Phase 4. */
     testDesign: z.int().nonnegative().optional(),
+    /** Implement mode: implementations written (including rejected ones). */
+    implementation: z.int().nonnegative().optional(),
+    /** Implement mode: verifications run after a change (the first, then one per repair). */
+    verification: z.int().nonnegative().optional(),
   }),
   pending: PendingInput.nullable(),
   lastError: RunError.nullable(),
@@ -349,6 +358,8 @@ export const EvidenceEntry = z.strictObject({
   evidence: TestEvidence,
   /** The failure message, already redacted. */
   message: z.string().max(8000).optional(),
+  /** Implement mode: the failure message after the change, already redacted. */
+  afterMessage: z.string().max(8000).optional(),
 });
 export type EvidenceEntry = z.infer<typeof EvidenceEntry>;
 
@@ -447,6 +458,122 @@ export const PlanWire = z.strictObject({
 });
 export type PlanWire = z.infer<typeof PlanWire>;
 
+/** `artifacts/implementation.json`: the latest implementation, after the checks. */
+export const ImplementationRecord = z.strictObject({
+  schemaVersion: z.literal(1),
+  taskId: TaskId,
+  iteration: z.int().positive(),
+  /** True when it repairs a failed verification. */
+  repair: z.boolean(),
+  summary: z.string().min(1),
+  changes: z.array(
+    z.strictObject({
+      path: RepoPath,
+      action: z.enum(["create", "modify", "delete"]),
+      planChangeId: z.string().regex(/^CH-[1-9][0-9]*$/),
+      description: z.string().min(1),
+    }),
+  ),
+  /** True when the first draft failed a check and the model was asked for a revision. */
+  revised: z.boolean(),
+  checks: z.array(PlanCheck),
+});
+export type ImplementationRecord = z.infer<typeof ImplementationRecord>;
+
+/**
+ * `artifacts/change-files.json`: the files the latest implementation wrote, with what they held
+ * before it, so that a rejection can restore them and approval binds what a person reviewed.
+ */
+export const ChangeFiles = z.strictObject({
+  schemaVersion: z.literal(1),
+  iteration: z.int().positive(),
+  /** Hash of the paths and hashes below; the approval refers to it. */
+  changesSha256: Sha256,
+  files: z.array(
+    z.strictObject({
+      path: RepoPath,
+      action: z.enum(["create", "modify", "delete"]),
+      planChangeId: z.string().regex(/^CH-[1-9][0-9]*$/),
+      /** The content before this implementation wrote the file; null when it did not exist. */
+      before: z.string().nullable(),
+      beforeSha256: Sha256.nullable(),
+      /** Null when the file was deleted. */
+      afterSha256: Sha256.nullable(),
+    }),
+  ),
+});
+export type ChangeFiles = z.infer<typeof ChangeFiles>;
+
+/** `artifacts/changed-files.json`: every production file the run changed, since the start. */
+export const ChangedFiles = z.strictObject({
+  schemaVersion: z.literal(1),
+  files: z.array(
+    z.strictObject({
+      path: RepoPath,
+      planChangeId: z.string().regex(/^CH-[1-9][0-9]*$/),
+      /** Null when the file did not exist before the run. */
+      originalSha256: Sha256.nullable(),
+      /** Null when the run deleted it. */
+      currentSha256: Sha256.nullable(),
+    }),
+  ),
+});
+export type ChangedFiles = z.infer<typeof ChangedFiles>;
+
+/** `artifacts/change-approval.json` */
+export const ChangeApproval = z.strictObject({
+  schemaVersion: z.literal(1),
+  iteration: z.int().positive(),
+  changesSha256: Sha256,
+  by: z.string().min(1),
+  at: IsoDateTime,
+});
+export type ChangeApproval = z.infer<typeof ChangeApproval>;
+
+/** `artifacts/change-feedback.json`: rejected implementations with the reviewer's feedback. */
+export const ChangeFeedback = z.strictObject({
+  schemaVersion: z.literal(1),
+  entries: z.array(
+    z.strictObject({
+      iteration: z.int().positive(),
+      changesSha256: Sha256,
+      feedback: z.string().min(1).max(20_000),
+      by: z.string().min(1),
+      at: IsoDateTime,
+    }),
+  ),
+});
+export type ChangeFeedback = z.infer<typeof ChangeFeedback>;
+
+const TestRef = z.strictObject({ gateId: z.string().min(1), testId: z.string().min(1) });
+
+/**
+ * `artifacts/verification-<n>.json` and `artifacts/after.json` (the latest): the gates run after
+ * the n-th approved change, compared with the baseline.
+ */
+export const AfterRun = z.strictObject({
+  schemaVersion: z.literal(1),
+  /** 1 for the first verification after the change, then one more per repair. */
+  attempt: z.int().positive(),
+  ranAt: IsoDateTime,
+  changesSha256: Sha256,
+  gates: z.array(GateResult),
+  /** The failed gates, run a second time to tell flaky tests from failures. */
+  rerun: z.array(GateResult),
+  /** Tests that failed and then passed when run again. */
+  flaky: z.array(TestRef),
+  /** Passed before the change, failed after it (and again when rerun). */
+  regressions: z.array(TestRef),
+  /** Failed before the change and after it: not attributed to the change. */
+  stillFailing: z.array(TestRef),
+  /** Required gates that did not pass, after the rerun. */
+  failedGates: z.array(z.string().min(1)),
+  /** What happens next: done, another repair, or the repairs are used up. */
+  decision: z.enum(["passed", "repair", "stop"]),
+  reason: z.string().min(1),
+});
+export type AfterRun = z.infer<typeof AfterRun>;
+
 export const TestDesignWire = z.strictObject({
   summary: z.string().min(1),
   tests: z.array(
@@ -464,3 +591,21 @@ export const TestDesignWire = z.strictObject({
   ),
 });
 export type TestDesignWire = z.infer<typeof TestDesignWire>;
+
+export const ImplementationWire = z.strictObject({
+  summary: z.string().min(1),
+  changes: z.array(
+    z.strictObject({
+      path: z.string().min(1),
+      action: z.enum(["create", "modify", "delete"]),
+      /** The whole file, for `create`; null otherwise. */
+      content: z.string().nullable(),
+      /** Exact search and replace edits, for `modify`; empty otherwise. */
+      edits: z.array(z.strictObject({ search: z.string(), replace: z.string() })),
+      /** The plan change (`CH-n`) it carries out; null to let DevFlow find it by path. */
+      changeId: z.string().nullable(),
+      description: z.string().min(1),
+    }),
+  ),
+});
+export type ImplementationWire = z.infer<typeof ImplementationWire>;

@@ -121,6 +121,23 @@ code. The report shows for each acceptance criterion whether its tests failed as
 should before the change, or passed as a regression test should. Nothing is implemented, so no
 criterion is verified yet.
 
+### Implement a task test-first (implement mode)
+
+```bash
+devflow trust
+devflow implement --task tasks/TASK-142.yaml --model <model id>   # or: devflow run
+devflow approve <run id>                       # the plan
+devflow approve <run id>                       # the test files; the gates run before the change
+devflow approve <run id>                       # the code change, after reviewing the diff
+devflow report <run id>
+```
+
+The model changes only the files of the approved plan, never the tests. Each change, and each
+repair after a failed verification, runs only after you approve it. The report compares the
+gates before and after the change: red/green evidence per criterion, regressions, flaky tests,
+and a verdict that is `verified` only when every required gate and every criterion's tests
+passed. The changes stay uncommitted in your working tree.
+
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)

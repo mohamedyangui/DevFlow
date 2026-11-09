@@ -132,8 +132,11 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         )
         .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)")
         .addOption(
-          new Option("--mode <mode>", "workflow mode (devflow test runs test mode)")
-            .choices(["assist", "implement", "review"])
+          new Option(
+            "--mode <mode>",
+            "workflow mode (devflow test and devflow implement run the other modes)",
+          )
+            .choices(["assist", "review"])
             .default("assist"),
         ),
     ).action(async (options: RawModelOptions & { task: string; mode: string }) => {
@@ -142,8 +145,29 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         {
           ...modelOptions(options),
           task: options.task,
-          mode: options.mode as "assist" | "implement" | "review",
+          mode: options.mode as "assist" | "review",
         },
+        io,
+      );
+    });
+  }
+
+  for (const name of ["implement", "run"] as const) {
+    withAllowOption(
+      withModelOptions(
+        program
+          .command(name)
+          .description(
+            name === "implement"
+              ? "implement a task test-first: tests, red run, code change, green run and repairs (implement mode)"
+              : "run the full workflow for a task (the same as devflow implement)",
+          )
+          .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)"),
+      ),
+    ).action(async (options: RawModelOptions & { task: string; allow: string[] }) => {
+      exitCode = await startCommand(
+        "implement",
+        { ...modelOptions(options), task: options.task, mode: "implement", allow: options.allow },
         io,
       );
     });
@@ -169,21 +193,29 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
   withAllowOption(
     program
       .command("approve")
-      .description("approve the plan or the tests a run is waiting on")
+      .description("approve the plan, the tests or the code change a run is waiting on")
       .argument("<run>", "run id")
       .option("--plan-sha <sha256>", "approve only if the plan still has this hash")
       .option("--tests-sha <sha256>", "approve only if the written tests still have this hash")
+      .option("--changes-sha <sha256>", "approve only if the code change still has this hash")
       .option("--json", "print a machine-readable result"),
   ).action(
     async (
       run: string,
-      options: { planSha?: string; testsSha?: string; allow: string[]; json?: boolean },
+      options: {
+        planSha?: string;
+        testsSha?: string;
+        changesSha?: string;
+        allow: string[];
+        json?: boolean;
+      },
     ) => {
       exitCode = await approveCommand(
         run,
         {
           planSha: options.planSha,
           testsSha: options.testsSha,
+          changesSha: options.changesSha,
           allow: options.allow,
           json: options.json === true,
         },
@@ -196,7 +228,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
     program
       .command("reject")
       .description(
-        "reject the plan or the tests with feedback; DevFlow plans or writes the tests again",
+        "reject the plan, the tests or the code change with feedback; DevFlow writes it again",
       )
       .argument("<run>", "run id")
       .option("--feedback <text>", "what to change")

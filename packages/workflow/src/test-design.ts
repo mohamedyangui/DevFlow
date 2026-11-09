@@ -404,81 +404,92 @@ export function baselineEvidence(input: {
     task.acceptanceCriteria.map((criterion) => [criterion.id, criterion.testIntent]),
   );
   for (const test of design.tests) {
-    const gateId = input.gateOfModule.get(test.module);
-    const gate = gates.find((candidate) => candidate.gateId === gateId);
-    const inFile = gate?.tests.filter((result) => result.file === test.path) ?? [];
     for (const acId of test.acIds) {
       const intent = intentOf.get(acId) ?? "feature";
-      const record = (
-        outcome: TestOutcome,
-        testId: string,
-        gate: string,
-        message?: string,
-      ): EvidenceEntry => {
-        const assessment = assessTestEvidence(intent, outcome, "not_executed");
-        return {
+      for (const result of designedResults(test, acId, gates, input.gateOfModule)) {
+        const assessment = assessTestEvidence(intent, result.outcome, "not_executed");
+        entries.push({
           acId,
           designedTestId: test.id,
-          testId,
-          gateId: gate,
+          testId: result.testId,
+          gateId: result.gateId,
           file: test.path,
-          outcome,
+          outcome: result.outcome,
           evidence: TestEvidence.parse({
             intent,
-            baseline: outcome,
+            baseline: result.outcome,
             after: "not_executed",
             ...assessment,
           }),
-          ...(message === undefined || message === "" ? {} : { message: message.slice(0, 8000) }),
-        };
-      };
-      const matching = inFile.filter((result) => result.markers.includes(acId));
-      if (gate !== undefined && matching.length > 0) {
-        for (const result of matching) {
-          entries.push(record(result.outcome, result.id, gate.gateId, result.message));
-        }
-        continue;
-      }
-      if (gate === undefined) {
-        entries.push(
-          record(
-            "not_executed",
-            test.path,
-            "none",
-            `no test gate runs the tests of module ${test.module}`,
-          ),
-        );
-      } else if (gate.execution === undefined) {
-        entries.push(record("not_executed", test.path, gate.gateId, gate.reason));
-      } else if (gate.execution.timedOut) {
-        entries.push(record("timeout", test.path, gate.gateId, "the test command timed out"));
-      } else if (
-        gate.diagnostics.some(
-          (diagnostic) =>
-            diagnostic.severity === "error" && diagnostic.location?.path === test.path,
-        )
-      ) {
-        const diagnostic = gate.diagnostics.find(
-          (candidate) => candidate.severity === "error" && candidate.location?.path === test.path,
-        );
-        entries.push(record("compile_error", test.path, gate.gateId, diagnostic?.message));
-      } else if (gate.status === "unverified") {
-        entries.push(record("infrastructure_error", test.path, gate.gateId, gate.reason));
-      } else {
-        entries.push(
-          record(
-            "not_found",
-            test.path,
-            gate.gateId,
-            inFile.length > 0
-              ? `the report has results for ${test.path}, but none is marked with ${acId}`
-              : `the test report has no result for ${test.path}`,
-          ),
-        );
+          ...messageField("message", result.message),
+        });
       }
     }
   }
   return entries;
+}
+
+/** One result of a designed test for one criterion, or the reason there is none. */
+export interface DesignedResult {
+  /** The result's id; the designed file when there is no result (`placeholder`). */
+  readonly testId: string;
+  readonly gateId: string;
+  readonly outcome: TestOutcome;
+  readonly message?: string | undefined;
+  readonly placeholder: boolean;
+}
+
+export function messageField(
+  key: "message" | "afterMessage",
+  message: string | undefined,
+): { message?: string; afterMessage?: string } {
+  return message === undefined || message === "" ? {} : { [key]: message.slice(0, 8000) };
+}
+
+/**
+ * The results a gate run gave for a designed test and criterion: each result in the designed
+ * file carrying the criterion's marker, or one placeholder whose outcome says why there is none.
+ * A designed test without a result is never given an outcome it did not have.
+ */
+export function designedResults(
+  test: DesignedTest,
+  acId: string,
+  gates: readonly GateResult[],
+  gateOfModule: ReadonlyMap<string, string>,
+): DesignedResult[] {
+  const gateId = gateOfModule.get(test.module);
+  const gate = gates.find((candidate) => candidate.gateId === gateId);
+  const inFile = gate?.tests.filter((result) => result.file === test.path) ?? [];
+  const matching = inFile.filter((result) => result.markers.includes(acId));
+  if (gate !== undefined && matching.length > 0) {
+    return matching.map((result) => ({
+      testId: result.id,
+      gateId: gate.gateId,
+      outcome: result.outcome,
+      message: result.message,
+      placeholder: false,
+    }));
+  }
+  const none = (outcome: TestOutcome, gate: string, message: string | undefined) => [
+    { testId: test.path, gateId: gate, outcome, message, placeholder: true },
+  ];
+  if (gate === undefined) {
+    return none("not_executed", "none", `no test gate runs the tests of module ${test.module}`);
+  }
+  if (gate.execution === undefined) return none("not_executed", gate.gateId, gate.reason);
+  if (gate.execution.timedOut) return none("timeout", gate.gateId, "the test command timed out");
+  const diagnostic = gate.diagnostics.find(
+    (candidate) => candidate.severity === "error" && candidate.location?.path === test.path,
+  );
+  if (diagnostic !== undefined) return none("compile_error", gate.gateId, diagnostic.message);
+  if (gate.status === "unverified") return none("infrastructure_error", gate.gateId, gate.reason);
+  return none(
+    "not_found",
+    gate.gateId,
+    inFile.length > 0
+      ? `the report has results for ${test.path}, but none is marked with ${acId}`
+      : `the test report has no result for ${test.path}`,
+  );
 }
 
 /**

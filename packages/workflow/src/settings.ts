@@ -11,10 +11,17 @@ export const DEFAULT_MAX_COST_USD = 5;
 /** Output token limit of a test-design call: it writes whole test files. */
 export const DEFAULT_TEST_DESIGN_OUTPUT_TOKENS = 32_000;
 
+/** Output token limit of an implementation call: it writes whole files or many edits. */
+export const DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS = 32_000;
+
+/** The default of `workflow.maxRepairAttempts`. */
+export const DEFAULT_MAX_REPAIR_ATTEMPTS = 2;
+
 export const DEFAULT_MAX_OUTPUT_TOKENS = Object.freeze({
   analysis: 8_000,
   planning: 16_000,
   testDesign: DEFAULT_TEST_DESIGN_OUTPUT_TOKENS,
+  implementation: DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS,
 });
 
 /** Command-line choices; they win over configuration and environment. */
@@ -22,6 +29,7 @@ export interface SettingsOverrides {
   readonly provider?: string;
   readonly model?: string;
   readonly requirePlanApproval?: boolean;
+  readonly maxRepairAttempts?: number;
   readonly budgets?: Partial<RunBudgets>;
   readonly contextBudgetTokens?: number;
 }
@@ -127,6 +135,8 @@ export function resolveRunSettings(input: ResolveSettingsInput): {
       },
       ...(Object.keys(prices).length > 0 ? { prices } : {}),
       requirePlanApproval: overrides.requirePlanApproval ?? workflow?.requirePlanApproval ?? true,
+      maxRepairAttempts:
+        overrides.maxRepairAttempts ?? workflow?.maxRepairAttempts ?? DEFAULT_MAX_REPAIR_ATTEMPTS,
       budgets,
       contextBudgetTokens: overrides.contextBudgetTokens ?? DEFAULT_CONTEXT_BUDGET_TOKENS,
       maxOutputTokens: { ...DEFAULT_MAX_OUTPUT_TOKENS },

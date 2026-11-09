@@ -73,6 +73,10 @@ export const ErrorCode = {
   TestFilesChanged: "TEST_FILES_CHANGED",
   /** The caller did not provide what is needed to run tests (modules, command policy). */
   TestRunnerUnavailable: "TEST_RUNNER_UNAVAILABLE",
+  /** The implementation still fails the deterministic change checks after a revision. */
+  ImplementationInvalid: "IMPLEMENTATION_INVALID",
+  /** Files changed by a run's implementation were changed after they were written or approved. */
+  ImplementationFilesChanged: "IMPLEMENTATION_FILES_CHANGED",
   /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */
   AdapterInvalid: "ADAPTER_INVALID",
   /** A language adapter returned data that does not match the core schemas. */

@@ -3,8 +3,8 @@
 - **Status:** Phase 1 implements `devflow --version`, `devflow --help` and
   `devflow task validate`; Phase 2 adds `devflow trust` and the assist workflow (`init`,
   `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report`);
-  Phase 3 adds `devflow verify`. The commands listed in section 4 are planned and do **not**
-  exist yet.
+  Phase 3 adds `devflow verify`; Phase 4 adds `devflow test`, `devflow implement` and
+  `devflow run`. The commands listed in section 4 are planned and do **not** exist yet.
 
 The same `devflow` CLI serves Java and JavaScript/TypeScript projects, and mixed monorepos.
 Nothing in the CLI is language-specific: languages are handled by adapters.
@@ -250,7 +250,9 @@ devflow init [--json]
 devflow analyze --task <file> [model options]
 devflow plan    --task <file> [model options]
 devflow test    --task <file> [model options] [--allow <fingerprint> ...]
-devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256>] [--allow <fingerprint> ...] [--json]
+devflow implement --task <file> [model options] [--allow <fingerprint> ...]
+devflow run     --task <file> [model options] [--allow <fingerprint> ...]
+devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256> | --changes-sha <sha256>] [--allow <fingerprint> ...] [--json]
 devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
 devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
 devflow resume  <run> [model options] [--allow <fingerprint> ...]
@@ -280,8 +282,8 @@ acceptance criterion is reported as passed.
   contradiction with the answer that resolved it. **`plan`** continues with an implementation plan, checked deterministically (paths,
   scope, protected files, acceptance-criterion coverage), and waits for approval unless the
   trusted configuration sets `workflow.requirePlanApproval: false`. `--mode` accepts `assist`;
-  `implement` and `review` fail with `WORKFLOW_MODE_NOT_IMPLEMENTED` (exit 2), and test mode
-  runs only through `devflow test`.
+  `review` fails with `WORKFLOW_MODE_NOT_IMPLEMENTED` (exit 2). Test and implement mode run
+  only through their own commands.
 - **`test`** runs test mode ([ADR 0015](../adr/0015-test-intent-and-red-green.md)): analysis
   and plan as above, then the model writes tests for the automated acceptance criteria. The
   tests are checked before anything is written: test files only, inside a module's test roots
@@ -300,12 +302,36 @@ acceptance criterion is reported as passed.
   not run, a criterion without a test). No production code changes, so no criterion is
   verified and the verdict is `not_verified`; the report lists the evidence, the gates, the
   findings and the test files.
-- **`approve`** approves whatever the run waits for: the plan (`--plan-sha`) or the tests
-  (`--tests-sha`, the approval hash in `test-design.md`). A test file changed after DevFlow
-  wrote it cannot be approved (`TEST_FILES_CHANGED`). **`reject`** of the tests restores the
-  files as they were before the run (never overwriting a file someone changed) and writes the
-  tests again with the feedback. Cancelling a run leaves the files; the report lists the
-  unapproved test files to review or remove.
+- **`implement`** (and **`run`**, the same command) runs implement mode: test mode as above,
+  except that the baseline runs **every** gate against the code before the change, so that the
+  change can be compared with it. The model then writes the code change, given the plan, the
+  approved test files (read only) and the current content of the plan's files. The change is
+  checked before anything is written: only files the approved plan lists, never a test file,
+  writable by the path guard, `create` for a new file, exact search and replace edits that
+  change something, `delete` only where the plan deletes. A change that fails a check gets one
+  revision, then the run fails with `IMPLEMENTATION_INVALID`. Each file is written only if it
+  still has the content the change was computed from. The run **waits for a person to approve
+  the change** (exit 3, `artifacts/implementation.md`), for the same reason as the tests.
+  `approve` then runs every gate on the changed code, and the gates that failed a second time:
+  a test that fails and then passes is flaky, never a regression. The result is compared with
+  the baseline test by test (`artifacts/verification-<n>.json`): regressions (passed before,
+  failed after), failures that were already there, and the red/green evidence of each
+  criterion. While a required gate fails and repair attempts remain
+  (`workflow.maxRepairAttempts`, default 2, from a trusted configuration), the model is asked
+  for a repair with the failures (redacted), and the repair waits for approval like the first
+  change. The report has a real verdict: `verified` only when every required gate passed,
+  every automated criterion's tests passed after the change and no confirmed high or critical
+  finding remains; `failed_verification` when a gate, a criterion or such a finding failed.
+  The changes stay in the working tree: nothing is committed, pushed or merged, and the report
+  asks for a review of the diff. The findings are deterministic; there is no model review yet.
+- **`approve`** approves whatever the run waits for: the plan (`--plan-sha`), the tests
+  (`--tests-sha`, the approval hash in `test-design.md`) or the code change (`--changes-sha`,
+  the hash in `implementation.md`); a hash flag for something the run is not waiting for is a
+  usage error. A test file changed after DevFlow wrote it cannot be approved
+  (`TEST_FILES_CHANGED`), nor a changed production file (`IMPLEMENTATION_FILES_CHANGED`).
+  **`reject`** of the tests or of a change restores the files as they were before it (never
+  overwriting a file someone changed) and writes them again with the feedback. Cancelling a
+  run leaves the files; the report lists the unapproved files to review or remove.
 - **Model selection.** There is no default model. The model comes from `--model`, then from
   `ai.models` of a **trusted** configuration, then from `DEVFLOW_MODEL`; the provider from
   `--provider`, the trusted configuration, `DEVFLOW_PROVIDER`, or `anthropic`. The Anthropic
@@ -328,7 +354,8 @@ acceptance criterion is reported as passed.
   finished run, and exits 1 for a run that has not finished.
 - Progress lines are written to stderr; with `--json`, stdout holds one JSON document:
   the outcome `{ runId, mode, state, status, waitingFor?, questions?, error?, runDir,
-planPath?, testsPath?, testFiles?, denials?, reportPath?, exitCode }`, or
+planPath?, testsPath?, testFiles?, changesPath?, changedFiles?, denials?, reportPath?,
+exitCode }`, or
   `{ error: { code, message } }`.
 - Ctrl+C stops the run after saving its state (exit 130); `devflow resume` continues it. A
   second Ctrl+C ends the process at once.
@@ -353,16 +380,15 @@ $ echo $?
 
 ## 4. Planned commands
 
-| Command                                                 | Phase | Purpose             |
-| ------------------------------------------------------- | ----- | ------------------- |
-| `devflow implement --task <file>` / `run --task <file>` | 4     | Full workflow       |
-| `devflow review`                                        | 4     | Review a local diff |
-| `devflow run --issue <n>`, `review --pr <n>`            | 5     | GitHub sources      |
+| Command                                      | Phase | Purpose             |
+| -------------------------------------------- | ----- | ------------------- |
+| `devflow review`                             | 4     | Review a local diff |
+| `devflow run --issue <n>`, `review --pr <n>` | 5     | GitHub sources      |
 
 Module detection by `devflow init` waits for the Phase 3 adapters. `analyze` and `plan`
-accept `--mode assist|implement|review`; only `assist` is implemented, and test mode has its
-own command. The functions exported by `@devflow/workflow` (`startRun`, `approvePlan`,
-`rejectPlan`, `approveTests`, `rejectTests`, `answerQuestions`, `resumeRun`, `cancelRun`,
-`getRun`, `listRuns`) expose the same operations programmatically; test mode needs a
-`testRunner` in the services, which supplies the modules and runs gates through the command
-policy.
+accept `--mode assist|review`; only `assist` is implemented, and test and implement mode have
+their own commands. The functions exported by `@devflow/workflow` (`startRun`, `approvePlan`,
+`rejectPlan`, `approveTests`, `rejectTests`, `approveChanges`, `rejectChanges`,
+`answerQuestions`, `resumeRun`, `cancelRun`, `getRun`, `listRuns`) expose the same operations
+programmatically; test and implement mode need a `testRunner` in the services, which supplies
+the modules and runs gates through the command policy.

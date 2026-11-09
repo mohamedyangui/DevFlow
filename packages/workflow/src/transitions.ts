@@ -69,9 +69,10 @@ export const MODE_TRANSITIONS: Readonly<Record<WorkflowMode, ReadonlySet<Edge>>>
     "PLANNING->TEST_DESIGN",
     "AWAITING_PLAN_APPROVAL->PLANNING",
     "AWAITING_PLAN_APPROVAL->TEST_DESIGN",
-    "TEST_DESIGN->IMPLEMENTATION",
-    "IMPLEMENTATION->VERIFICATION",
+    // The approved tests run first against the code before the change (the red run).
+    "TEST_DESIGN->VERIFICATION",
     "VERIFICATION->IMPLEMENTATION",
+    "IMPLEMENTATION->VERIFICATION",
     "VERIFICATION->REVIEW",
     "REVIEW->COMPLETED",
   ]),
@@ -87,8 +88,8 @@ export const MODE_TRANSITIONS: Readonly<Record<WorkflowMode, ReadonlySet<Edge>>>
   ]),
 };
 
-/** Modes whose steps exist. Implement and review mode arrive later in Phase 4. */
-export const IMPLEMENTED_MODES: readonly WorkflowMode[] = ["assist", "test"];
+/** Modes whose steps exist. Review mode arrives with the review engine. */
+export const IMPLEMENTED_MODES: readonly WorkflowMode[] = ["assist", "test", "implement"];
 
 export function isTransitionAllowed(
   mode: WorkflowMode,
@@ -116,8 +117,8 @@ export function assertModeImplemented(mode: WorkflowMode): void {
   if (!IMPLEMENTED_MODES.includes(mode)) {
     throw new DevflowError(
       ErrorCode.WorkflowModeNotImplemented,
-      `${mode} mode is not implemented yet: assist and test mode are available, and the ` +
-        "implement and review modes arrive later in Phase 4",
+      `${mode} mode is not implemented yet: assist, test and implement mode are available, ` +
+        "and review mode arrives with the review engine",
       { details: { mode } },
     );
   }

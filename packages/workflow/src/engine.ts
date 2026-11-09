@@ -36,27 +36,46 @@ import {
 import { z } from "zod";
 import { checkAnalysis, checkPlan } from "./checks.js";
 import {
+  type PlannedChangeFile,
+  afterEvidence,
+  afterFindings,
+  assessAfterRun,
+  changeFilesRecord,
+  checkImplementation,
+  failureSummary,
+} from "./implementation.js";
+import {
   ANALYSIS_TEMPLATE,
   type ExistingTestFile,
+  IMPLEMENTATION_TEMPLATE,
   PLAN_TEMPLATE,
   TEST_DESIGN_TEMPLATE,
   analysisPrompt,
+  implementationPrompt,
   planPrompt,
   testDesignPrompt,
 } from "./prompts.js";
 import {
   buildReport,
+  renderImplementationMarkdown,
   renderPlanMarkdown,
   renderReportMarkdown,
   renderTestDesignMarkdown,
 } from "./report.js";
 import { RunStore } from "./run-store.js";
 import {
+  AfterRun,
   AnalysisWire,
   BaselineRun,
+  ChangeApproval,
+  ChangeFeedback,
+  ChangeFiles,
+  ChangedFiles,
   type ClarificationRecord,
   Clarifications,
   type DesignedTest,
+  ImplementationRecord,
+  ImplementationWire,
   type PlanChecks,
   PlanFeedback,
   PlanWire,
@@ -72,7 +91,11 @@ import {
   TestFeedback,
   TestFiles,
 } from "./schemas.js";
-import { DEFAULT_TEST_DESIGN_OUTPUT_TOKENS } from "./settings.js";
+import {
+  DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS,
+  DEFAULT_MAX_REPAIR_ATTEMPTS,
+  DEFAULT_TEST_DESIGN_OUTPUT_TOKENS,
+} from "./settings.js";
 import {
   type PlannedTestFile,
   type TestModule,
@@ -92,6 +115,7 @@ export const STEP = {
   analysis: "requirements-analysis",
   planning: "planning",
   testDesign: "test-design",
+  implementation: "implementation",
   verification: "verification",
   review: "review",
 } as const;
@@ -116,6 +140,15 @@ const ARTIFACT = {
   testEvidence: "artifacts/test-evidence.json",
   findings: "artifacts/findings.json",
   commandDenials: "artifacts/command-denials.json",
+  baselineEvidence: "artifacts/baseline-evidence.json",
+  implementation: "artifacts/implementation.json",
+  implementationMarkdown: "artifacts/implementation.md",
+  implementationChecks: "artifacts/implementation-checks.json",
+  changeFiles: "artifacts/change-files.json",
+  changedFiles: "artifacts/changed-files.json",
+  changeApproval: "artifacts/change-approval.json",
+  changeFeedback: "artifacts/change-feedback.json",
+  after: "artifacts/after.json",
 } as const;
 
 const PlanApproval = z.strictObject({
@@ -151,11 +184,17 @@ const TERMINAL_ERRORS: ReadonlySet<string> = new Set([
   ErrorCode.PlanInvalid,
   ErrorCode.TestDesignInvalid,
   ErrorCode.TestFilesChanged,
+  ErrorCode.ImplementationInvalid,
+  ErrorCode.ImplementationFilesChanged,
 ]);
 
 /** Existing test files shown to the test designer: at most this many, each at most this size. */
 const MAX_EXISTING_TEST_FILES = 8;
 const MAX_EXISTING_TEST_FILE_BYTES = 64 * 1024;
+
+/** Files of the plan shown to the implementer: at most this many, each at most this size. */
+const MAX_SOURCE_FILES = 12;
+const MAX_SOURCE_FILE_PROMPT_BYTES = 128 * 1024;
 
 /**
  * What test mode needs to write and run tests: the workspace's modules (with their adapters)
@@ -214,7 +253,7 @@ export interface RunOutcome {
   readonly mode: WorkflowMode;
   readonly state: WorkflowState;
   readonly status: RunStatus;
-  readonly waitingFor?: "plan-approval" | "clarification" | "test-approval";
+  readonly waitingFor?: "plan-approval" | "clarification" | "test-approval" | "change-approval";
   /** Blocking questions that still need an answer, when waiting for clarification. */
   readonly questions?: readonly ClarificationRecord[];
   /** Why the run stopped, when it was interrupted or failed. */
@@ -226,6 +265,10 @@ export interface RunOutcome {
   readonly testsPath?: string;
   /** The test files to review, when waiting for test approval. */
   readonly testFiles?: readonly string[];
+  /** The implementation to review, when waiting for change approval. */
+  readonly changesPath?: string;
+  /** The changed files to review, when waiting for change approval. */
+  readonly changedFiles?: readonly string[];
   /** Commands the policy did not let run, when the run stopped for that reason. */
   readonly denials?: readonly CommandDenial[];
   readonly reportPath?: string;
@@ -246,14 +289,16 @@ export async function startRun(
   services: WorkflowServices,
 ): Promise<RunOutcome> {
   assertModeImplemented(input.mode);
-  if ((input.mode === "test") !== (input.goal === "test")) {
-    throw new DevflowError(
-      ErrorCode.InvalidTransition,
-      input.mode === "test"
-        ? `test mode writes and runs tests; start it with the test goal (devflow test), not ${input.goal}`
-        : `the test goal needs test mode, not ${input.mode} mode`,
-      { details: { mode: input.mode, goal: input.goal } },
-    );
+  for (const mode of ["test", "implement"] as const) {
+    if ((input.mode === mode) !== (input.goal === mode)) {
+      throw new DevflowError(
+        ErrorCode.InvalidTransition,
+        input.mode === mode
+          ? `${mode} mode runs to its end; start it with the ${mode} goal (devflow ${mode}), not ${input.goal}`
+          : `the ${input.goal} goal needs ${input.goal} mode, not ${input.mode} mode`,
+        { details: { mode: input.mode, goal: input.goal } },
+      );
+    }
   }
   const task = TaskContract.parse(input.task);
   const errors = lintTask(task).filter((issue) => issue.severity === "error");
@@ -412,7 +457,7 @@ export async function approvePlan(
     });
     session.record.pending = null;
     await session.transition(
-      session.record.mode === "test" ? "TEST_DESIGN" : "COMPLETED",
+      writesCode(session.record.mode) ? "TEST_DESIGN" : "COMPLETED",
       "plan approved",
     );
     return session.drive();
@@ -561,6 +606,113 @@ export async function rejectTests(
     await session.save();
     return session.drive();
   });
+}
+
+/**
+ * Approves the code an implement-mode run wrote. Like tests, model-written code runs only after
+ * a person approved it: the approval is bound to the hash of every written file, and the gates
+ * then run on the changed code.
+ */
+export async function approveChanges(
+  runId: string,
+  decision: { by: string; changesSha256?: string },
+  services: WorkflowServices,
+): Promise<RunOutcome> {
+  return withSession(runId, services, async (session) => {
+    const pending = session.expectChangeApproval();
+    if (decision.changesSha256 !== undefined && decision.changesSha256 !== pending.changesSha256) {
+      throw new DevflowError(
+        ErrorCode.RunNotAwaitingInput,
+        "the changes awaiting approval are not the ones you reviewed (their hash differs); review them again",
+        { details: { runId, expected: pending.changesSha256, given: decision.changesSha256 } },
+      );
+    }
+    const files = await session.changeFiles();
+    if (files.changesSha256 !== pending.changesSha256) {
+      throw new DevflowError(
+        ErrorCode.RunCorrupt,
+        `${session.store.workspacePath(ARTIFACT.changeFiles)} does not match the changes awaiting approval`,
+        { details: { runId } },
+      );
+    }
+    await session.verifyWrittenFilesUnchanged();
+    await (
+      await session.audit()
+    ).append({
+      type: "decision",
+      subject: "changes",
+      decision: "approved",
+      by: decision.by,
+      reference: pending.changesSha256,
+    });
+    await session.store.writeJson(ARTIFACT.changeApproval, {
+      schemaVersion: 1,
+      iteration: files.iteration,
+      changesSha256: pending.changesSha256,
+      by: decision.by,
+      at: session.now(),
+    } satisfies ChangeApproval);
+    await session.store.appendEvent({
+      type: "decision",
+      state: session.record.state,
+      detail: `changes approved by ${decision.by}`,
+    });
+    session.record.pending = null;
+    await session.transition("VERIFICATION", "changes approved");
+    return session.drive();
+  });
+}
+
+/**
+ * Rejects the code an implement-mode run wrote: its files are restored to what they were before
+ * this implementation, and the code is written again with the feedback.
+ */
+export async function rejectChanges(
+  runId: string,
+  decision: { by: string; feedback: string },
+  services: WorkflowServices,
+): Promise<RunOutcome> {
+  const feedback = checkedFeedback(runId, decision.feedback);
+  return withSession(runId, services, async (session) => {
+    const pending = session.expectChangeApproval();
+    const files = await session.changeFiles();
+    await session.verifyWrittenFilesUnchanged();
+    await (
+      await session.audit()
+    ).append({
+      type: "decision",
+      subject: "changes",
+      decision: "rejected",
+      by: decision.by,
+      reference: pending.changesSha256,
+      feedback,
+    });
+    const existing =
+      (await session.store.readJsonIfExists(ARTIFACT.changeFeedback, ChangeFeedback)) ??
+      ({ schemaVersion: 1, entries: [] } satisfies ChangeFeedback);
+    existing.entries.push({
+      iteration: files.iteration,
+      changesSha256: pending.changesSha256,
+      feedback,
+      by: decision.by,
+      at: session.now(),
+    });
+    await session.store.writeJson(ARTIFACT.changeFeedback, existing);
+    await session.restoreChangeFiles(files);
+    await session.store.appendEvent({
+      type: "decision",
+      state: session.record.state,
+      detail: `changes rejected by ${decision.by}`,
+    });
+    session.record.pending = null;
+    await session.save();
+    return session.drive();
+  });
+}
+
+/** Modes that write files into the workspace: tests, then (implement mode) code. */
+function writesCode(mode: WorkflowMode): boolean {
+  return mode === "test" || mode === "implement";
 }
 
 /** Why the policy stopped the test commands, and what makes them runnable. */
@@ -810,11 +962,22 @@ async function outcomeOf(store: RunStore, record: RunRecord): Promise<RunOutcome
         };
       }
       return { ...base, status: "interrupted", ...error };
+    case "IMPLEMENTATION":
+      if (record.pending?.kind === "change-approval") {
+        const files = await store.readJsonIfExists(ARTIFACT.changeFiles, ChangeFiles);
+        return {
+          ...base,
+          status: "waiting",
+          waitingFor: "change-approval",
+          changesPath: store.workspacePath(ARTIFACT.implementationMarkdown),
+          changedFiles: files?.files.map((file) => file.path) ?? [],
+        };
+      }
+      return { ...base, status: "interrupted", ...error };
     case "TASK_RECEIVED":
     case "CONTEXT_LOADING":
     case "REQUIREMENTS_ANALYSIS":
     case "PLANNING":
-    case "IMPLEMENTATION":
     case "VERIFICATION":
     case "REVIEW": {
       // A run outside a terminal or waiting state is not being driven: it was interrupted.
@@ -889,8 +1052,65 @@ class Session {
     return pending;
   }
 
+  expectChangeApproval(): { kind: "change-approval"; changesSha256: string } {
+    const pending = this.record.pending;
+    if (this.record.state !== "IMPLEMENTATION" || pending?.kind !== "change-approval") {
+      throw notWaiting(this.record, "a decision on the changes");
+    }
+    return pending;
+  }
+
   async testFiles(): Promise<TestFiles> {
     return this.store.readJson(ARTIFACT.testFiles, TestFiles);
+  }
+
+  async changeFiles(): Promise<ChangeFiles> {
+    return this.store.readJson(ARTIFACT.changeFiles, ChangeFiles);
+  }
+
+  private async changedFiles(): Promise<ChangedFiles> {
+    return (
+      (await this.store.readJsonIfExists(ARTIFACT.changedFiles, ChangedFiles)) ?? {
+        schemaVersion: 1,
+        files: [],
+      }
+    );
+  }
+
+  /**
+   * Throws unless the approved tests and every production file the run changed are as DevFlow
+   * left them: what a person approves, and what runs, is what DevFlow wrote.
+   */
+  async verifyWrittenFilesUnchanged(): Promise<void> {
+    await this.verifyTestFilesUnchanged(await this.testFiles());
+    for (const file of (await this.changedFiles()).files) {
+      const { sha256 } = await this.currentHash(file.path);
+      if (sha256 !== file.currentSha256) {
+        throw new DevflowError(
+          ErrorCode.ImplementationFilesChanged,
+          `${file.path} was ${sha256 === null ? "deleted" : "changed"} after DevFlow wrote it; ` +
+            "the code a person approves must be the code that runs. Restore it, or cancel the run",
+          { details: { runId: this.record.id, path: file.path } },
+        );
+      }
+    }
+  }
+
+  /** Puts back the files of an implementation that was rejected. */
+  async restoreChangeFiles(files: ChangeFiles): Promise<void> {
+    await this.restoreFiles(files.files, ErrorCode.ImplementationFilesChanged);
+    const changed = await this.changedFiles();
+    for (const file of files.files) {
+      const entry = changed.files.find((candidate) => candidate.path === file.path);
+      if (entry !== undefined) entry.currentSha256 = file.beforeSha256;
+    }
+    changed.files = changed.files.filter((entry) => entry.currentSha256 !== entry.originalSha256);
+    await this.store.writeJson(ARTIFACT.changedFiles, changed);
+    await this.store.writeJson(ARTIFACT.changeFiles, {
+      ...files,
+      changesSha256: testsHash([]),
+      files: [],
+    } satisfies ChangeFiles);
   }
 
   /** The current hash of a workspace file, or null when it does not exist. */
@@ -922,13 +1142,31 @@ class Session {
    * was is left alone; a file someone changed since is never overwritten.
    */
   async restoreTestFiles(files: TestFiles): Promise<void> {
+    await this.restoreFiles(files.files, ErrorCode.TestFilesChanged);
+    await this.store.writeJson(ARTIFACT.testFiles, {
+      schemaVersion: 1,
+      testsSha256: testsHash([]),
+      files: [],
+    } satisfies TestFiles);
+  }
+
+  private async restoreFiles(
+    files: readonly {
+      path: string;
+      before: string | null;
+      beforeSha256: string | null;
+      afterSha256: string | null;
+      planChangeId?: string;
+    }[],
+    code: typeof ErrorCode.TestFilesChanged | typeof ErrorCode.ImplementationFilesChanged,
+  ): Promise<void> {
     const audit = await this.audit();
-    for (const file of [...files.files].reverse()) {
+    for (const file of [...files].reverse()) {
       const { absolute, sha256 } = await this.currentHash(file.path);
       if (sha256 === file.beforeSha256) continue;
       if (sha256 !== file.afterSha256) {
         throw new DevflowError(
-          ErrorCode.TestFilesChanged,
+          code,
           `${file.path} was changed after DevFlow wrote it, so it is not restored; restore or ` +
             "remove it yourself, or cancel the run",
           { details: { runId: this.record.id, path: file.path } },
@@ -937,6 +1175,7 @@ class Session {
       if (file.before === null) {
         await unlink(absolute);
       } else {
+        await mkdir(path.dirname(absolute), { recursive: true });
         await writeFile(absolute, file.before, "utf8");
       }
       await audit.append({
@@ -944,14 +1183,9 @@ class Session {
         path: file.path,
         sha256Before: file.afterSha256,
         sha256After: file.beforeSha256,
-        planChangeId: null,
+        planChangeId: file.planChangeId ?? null,
       });
     }
-    await this.store.writeJson(ARTIFACT.testFiles, {
-      schemaVersion: 1,
-      testsSha256: testsHash([]),
-      files: [],
-    } satisfies TestFiles);
   }
 
   async verifyPlanUnchanged(expected: string): Promise<void> {
@@ -1026,7 +1260,7 @@ class Session {
               return await this.outcome();
             }
             await this.transition(
-              this.record.mode === "test" ? "TEST_DESIGN" : "COMPLETED",
+              writesCode(this.record.mode) ? "TEST_DESIGN" : "COMPLETED",
               "plan ready (approval not required)",
             );
             break;
@@ -1039,12 +1273,36 @@ class Session {
             return await this.outcome();
           }
           case "VERIFICATION":
-            await this.step(STEP.verification, () => this.runBaseline());
-            await this.transition("REVIEW", "tests run against the current code");
+            if (this.record.mode !== "implement") {
+              await this.step(STEP.verification, () => this.runBaseline());
+              await this.transition("REVIEW", "tests run against the current code");
+            } else if ((this.record.iterations.implementation ?? 0) === 0) {
+              await this.step(STEP.verification, () => this.runBaseline());
+              await this.transition(
+                "IMPLEMENTATION",
+                "gates run against the code before the change",
+              );
+            } else {
+              const after = await this.step(STEP.verification, () => this.runAfter());
+              await this.transition(
+                after.decision === "repair" ? "IMPLEMENTATION" : "REVIEW",
+                `verified after the change: ${after.reason}`,
+              );
+            }
             break;
+          case "IMPLEMENTATION": {
+            if (this.record.pending?.kind === "change-approval") return await this.outcome();
+            const changesSha256 = await this.step(STEP.implementation, () => this.implement());
+            this.record.pending = { kind: "change-approval", changesSha256 };
+            await this.save();
+            return await this.outcome();
+          }
           case "REVIEW":
             await this.step(STEP.review, () => this.review());
-            await this.transition("COMPLETED", "red baseline reviewed");
+            await this.transition(
+              "COMPLETED",
+              this.record.mode === "implement" ? "change reviewed" : "red baseline reviewed",
+            );
             break;
           // Waiting states stop the drive; terminal states are handled before the switch.
           case "CLARIFICATION_REQUIRED":
@@ -1053,12 +1311,6 @@ class Session {
           case "FAILED":
           case "CANCELLED":
             return await this.outcome();
-          case "IMPLEMENTATION":
-            throw new DevflowError(
-              ErrorCode.WorkflowModeNotImplemented,
-              `the ${state} step is not implemented yet`,
-              { details: { state } },
-            );
         }
       } catch (error) {
         return this.handleFailure(state, error);
@@ -1315,9 +1567,21 @@ class Session {
         ...previous.map((test) => test.path),
       ]),
     ].filter((candidate) => modules.some((module) => isTestPath(candidate, module)));
+    return this.promptFiles(candidates, MAX_EXISTING_TEST_FILES, MAX_EXISTING_TEST_FILE_BYTES);
+  }
+
+  /**
+   * The full, redacted content of workspace files for a prompt: files the path guard lets a
+   * model see, that exist and are small enough; at most `max` of them.
+   */
+  private async promptFiles(
+    candidates: readonly string[],
+    max: number,
+    maxBytes: number,
+  ): Promise<ExistingTestFile[]> {
     const files: ExistingTestFile[] = [];
-    for (const candidate of candidates) {
-      if (files.length >= MAX_EXISTING_TEST_FILES) break;
+    for (const candidate of new Set(candidates)) {
+      if (files.length >= max) break;
       try {
         const checked = await this.services.guard.check(candidate, {
           access: "prompt",
@@ -1325,7 +1589,7 @@ class Session {
         });
         if (!checked.exists) continue;
         const buffer = await readFile(checked.absolute);
-        if (buffer.length > MAX_EXISTING_TEST_FILE_BYTES) continue;
+        if (buffer.length > maxBytes) continue;
         files.push({
           path: candidate,
           content: this.services.redactor.redactText(buffer.toString("utf8")),
@@ -1479,21 +1743,47 @@ class Session {
     const task = await this.task();
     const design = await this.store.readJson(ARTIFACT.testDesign, TestDesign);
     const runner = await this.testRunner();
-    const affected = new Set(design.tests.map((test) => test.module));
-    const gates = (await runner.gates()).filter(
-      (gate) => gate.use === "test" && affected.has(gate.module),
+    const all = await runner.gates();
+    const gateOfModule = testGateOfModule(all, design);
+    // Test mode runs the tests only; implement mode runs every gate, to compare the change with.
+    const selected =
+      this.record.mode === "implement"
+        ? [...all]
+        : all.filter((gate) => gateOfModule.get(gate.module) === gate.id);
+    const run = await this.runGatesChecked(runner, selected, "logs/commands");
+    const entries = baselineEvidence({ task, design, gates: run.gates, gateOfModule });
+    // The runner's results are validated before they are trusted as evidence.
+    await this.store.writeJson(
+      ARTIFACT.baseline,
+      BaselineRun.parse({
+        schemaVersion: 1,
+        ranAt: this.now(),
+        testsSha256: files.testsSha256,
+        gates: [...run.gates],
+      }),
     );
-    const gateOfModule = new Map<string, string>();
-    for (const gate of gates) {
-      if (!gateOfModule.has(gate.module)) gateOfModule.set(gate.module, gate.id);
+    const evidence = { schemaVersion: 1, entries } satisfies TestEvidenceRecord;
+    await this.store.writeJson(ARTIFACT.testEvidence, evidence);
+    if (this.record.mode === "implement") {
+      await this.store.writeJson(ARTIFACT.baselineEvidence, evidence);
     }
-    const selected = gates.filter((gate) => gateOfModule.get(gate.module) === gate.id);
+  }
+
+  /**
+   * Runs gates through the runner (and so the command policy). A command the policy does not
+   * allow interrupts the run, so that it can be resumed once the command is approved.
+   */
+  private async runGatesChecked(
+    runner: TestRunner,
+    gates: readonly GateDefinition[],
+    logDir: string,
+  ): Promise<VerificationRun> {
     const run =
-      selected.length === 0
+      gates.length === 0
         ? { gates: [], denials: [] }
-        : await runner.run(selected, {
+        : await runner.run(gates, {
             audit: await this.audit(),
-            logDir: this.store.workspacePath("logs/commands"),
+            logDir: this.store.workspacePath(logDir),
             ...this.signalOption(),
           });
     if (this.services.signal?.aborted === true) {
@@ -1520,30 +1810,289 @@ class Session {
         { details: { runId: this.record.id } },
       );
     }
-    const entries = baselineEvidence({ task, design, gates: run.gates, gateOfModule });
-    // The runner's results are validated before they are trusted as evidence.
-    await this.store.writeJson(
-      ARTIFACT.baseline,
-      BaselineRun.parse({
-        schemaVersion: 1,
+    return run;
+  }
+
+  /**
+   * Asks the model for the code change (a repair after a failed verification), checks it (one
+   * revision on failed checks), writes it and returns the hash a person approves.
+   */
+  private async implement(): Promise<string> {
+    const task = await this.task();
+    const pack = await this.store.readJson(ARTIFACT.context, ContextPack);
+    const analysis = await this.store.readJsonIfExists(ARTIFACT.analysis, RequirementsAnalysis);
+    const plan = await this.store.readJson(ARTIFACT.plan, ImplementationPlan);
+    const registry = await this.clarifications();
+    const design = await this.store.readJson(ARTIFACT.testDesign, TestDesign);
+    const tests = await this.testFiles();
+    const modules = await this.testModules();
+    await this.verifyWrittenFilesUnchanged();
+    const done = this.record.iterations.implementation ?? 0;
+    const iteration = done + 1;
+    const after =
+      (this.record.iterations.verification ?? 0) > 0
+        ? await this.store.readJson(ARTIFACT.after, AfterRun)
+        : undefined;
+    const repair =
+      after?.decision === "repair"
+        ? { attempt: after.attempt, failures: failureSummary(after) }
+        : undefined;
+    const feedback = await this.store.readJsonIfExists(ARTIFACT.changeFeedback, ChangeFeedback);
+    const latest = feedback?.entries.at(-1);
+    const previous =
+      latest !== undefined && done > 0 && latest.iteration === done
+        ? {
+            changes: (await this.store.readJson(ARTIFACT.implementation, ImplementationRecord))
+              .changes,
+            feedback: latest.feedback,
+          }
+        : undefined;
+    const testPaths = new Set(tests.files.map((file) => file.path));
+    const testFiles = await this.promptFiles(
+      [...testPaths],
+      MAX_EXISTING_TEST_FILES,
+      MAX_EXISTING_TEST_FILE_BYTES,
+    );
+    const sources = await this.promptFiles(
+      plan.changes.map((change) => change.path).filter((file) => !testPaths.has(file)),
+      MAX_SOURCE_FILES,
+      MAX_SOURCE_FILE_PROMPT_BYTES,
+    );
+
+    const gateway = await this.gateway();
+    let failedChecks: PlanChecks["checks"] | undefined;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const prompt = implementationPrompt({
+        task,
+        pack,
+        analysis,
+        plan,
+        clarifications: registry.questions,
+        tests: design.tests,
+        testFiles,
+        sources,
+        repair,
+        previous,
+        failedChecks,
+      });
+      const result = await gateway.generateStructured({
+        step: STEP.implementation,
+        templateId: IMPLEMENTATION_TEMPLATE.id,
+        templateVersion: IMPLEMENTATION_TEMPLATE.version,
+        model: this.record.settings.models.implementation ?? this.record.settings.models.planning,
+        system: prompt.system,
+        user: prompt.user,
+        files: prompt.files,
+        schema: ImplementationWire,
+        schemaName: "implementation",
+        maxOutputTokens:
+          this.record.settings.maxOutputTokens.implementation ??
+          DEFAULT_IMPLEMENTATION_OUTPUT_TOKENS,
+        ...this.signalOption(),
+      });
+      const { changes, files, checks } = await checkImplementation({
+        wire: result.value,
+        plan,
+        modules,
+        testFiles: testPaths,
+        guard: this.services.guard,
+        repair: repair !== undefined,
+      });
+      const errors = checks.filter((check) => check.severity === "error");
+      if (errors.length === 0) {
+        const implementation = ImplementationRecord.parse({
+          schemaVersion: 1,
+          taskId: task.id,
+          iteration,
+          repair: repair !== undefined,
+          summary: result.value.summary,
+          changes,
+          revised: attempt > 1,
+          checks,
+        });
+        const record = ChangeFiles.parse(changeFilesRecord(files, iteration));
+        await this.store.writeJson(ARTIFACT.implementation, implementation);
+        // The record is written first, so that an interrupted write can be restored.
+        await this.store.writeJson(ARTIFACT.changeFiles, record);
+        await this.writeChangeFiles(files);
+        await this.store.writeText(
+          ARTIFACT.implementationMarkdown,
+          renderImplementationMarkdown(implementation, {
+            task,
+            runId: this.record.id,
+            files: record,
+            failures: repair?.failures,
+          }),
+        );
+        this.record.iterations = { ...this.record.iterations, implementation: iteration };
+        return record.changesSha256;
+      }
+      if (attempt === 2) {
+        await this.store.writeJson(ARTIFACT.implementationChecks, {
+          schemaVersion: 1,
+          iteration,
+          revised: true,
+          checks,
+        } satisfies PlanChecks);
+        throw new DevflowError(
+          ErrorCode.ImplementationInvalid,
+          `the implementation still fails ${String(errors.length)} check(s) after a revision: ${errors[0]?.message ?? ""}`,
+          { details: { runId: this.record.id, checks: errors.map((check) => check.message) } },
+        );
+      }
+      failedChecks = errors;
+    }
+    throw new Error("unreachable");
+  }
+
+  /**
+   * Writes the implementation's files. Each file's content is checked against what the change
+   * was computed from just before it is written, so an edit made meanwhile is never overwritten.
+   */
+  private async writeChangeFiles(files: readonly PlannedChangeFile[]): Promise<void> {
+    const audit = await this.audit();
+    const changed = await this.changedFiles();
+    for (const file of files) {
+      const { absolute, sha256: current } = await this.currentHash(file.path);
+      const before = file.before === null ? null : sha256Of(file.before);
+      if (current !== before) {
+        throw new DevflowError(
+          ErrorCode.ImplementationFilesChanged,
+          `${file.path} changed while the implementation was being written; nothing more was written`,
+          { details: { runId: this.record.id, path: file.path } },
+        );
+      }
+      if (file.after === null) {
+        await unlink(absolute);
+      } else {
+        await mkdir(path.dirname(absolute), { recursive: true });
+        await writeFile(absolute, file.after, "utf8");
+      }
+      const after = file.after === null ? null : sha256Of(file.after);
+      await audit.append({
+        type: "file-write",
+        path: file.path,
+        sha256Before: before,
+        sha256After: after,
+        planChangeId: file.planChangeId,
+      });
+      const entry = changed.files.find((candidate) => candidate.path === file.path);
+      if (entry === undefined) {
+        changed.files.push({
+          path: file.path,
+          planChangeId: file.planChangeId,
+          originalSha256: before,
+          currentSha256: after,
+        });
+      } else {
+        entry.currentSha256 = after;
+      }
+      changed.files = changed.files.filter(
+        (candidate) => candidate.currentSha256 !== candidate.originalSha256,
+      );
+      await this.store.writeJson(ARTIFACT.changedFiles, changed);
+    }
+  }
+
+  /**
+   * The verification after an approved change (the green run): every gate, the failed ones a
+   * second time, compared with the baseline. Decides whether a repair follows.
+   */
+  private async runAfter(): Promise<AfterRun> {
+    const files = await this.changeFiles();
+    const approval = await this.store.readJson(ARTIFACT.changeApproval, ChangeApproval);
+    if (approval.changesSha256 !== files.changesSha256 || approval.iteration !== files.iteration) {
+      throw new DevflowError(
+        ErrorCode.RunCorrupt,
+        `${this.store.workspacePath(ARTIFACT.changeFiles)} does not match the approved changes`,
+        { details: { runId: this.record.id } },
+      );
+    }
+    await this.verifyWrittenFilesUnchanged();
+    const task = await this.task();
+    const design = await this.store.readJson(ARTIFACT.testDesign, TestDesign);
+    const baseline = await this.store.readJson(ARTIFACT.baseline, BaselineRun);
+    const baselineEntries = await this.store.readJson(
+      ARTIFACT.baselineEvidence,
+      TestEvidenceRecord,
+    );
+    const runner = await this.testRunner();
+    const all = await runner.gates();
+    const attempt = (this.record.iterations.verification ?? 0) + 1;
+    const run = await this.runGatesChecked(runner, all, `logs/commands/after-${String(attempt)}`);
+    const failed = all.filter((gate) =>
+      run.gates.some((result) => result.gateId === gate.id && result.status === "failed"),
+    );
+    const rerun =
+      failed.length === 0
+        ? []
+        : (
+            await this.runGatesChecked(
+              runner,
+              failed,
+              `logs/commands/after-${String(attempt)}-rerun`,
+            )
+          ).gates;
+    const after = AfterRun.parse(
+      assessAfterRun({
+        attempt,
         ranAt: this.now(),
-        testsSha256: files.testsSha256,
-        gates: [...run.gates],
+        changesSha256: files.changesSha256,
+        baseline: baseline.gates,
+        gates: run.gates,
+        rerun,
+        maxRepairAttempts: this.record.settings.maxRepairAttempts ?? DEFAULT_MAX_REPAIR_ATTEMPTS,
       }),
     );
+    const entries = afterEvidence({
+      task,
+      design,
+      baseline: baselineEntries.entries,
+      gates: run.gates,
+      gateOfModule: testGateOfModule(all, design),
+    });
+    await this.store.writeJson(`artifacts/verification-${String(attempt)}.json`, after);
+    await this.store.writeJson(ARTIFACT.after, after);
     await this.store.writeJson(ARTIFACT.testEvidence, {
       schemaVersion: 1,
       entries,
     } satisfies TestEvidenceRecord);
+    this.record.iterations = { ...this.record.iterations, verification: attempt };
+    return after;
   }
 
-  /** Deterministic review of the red run. The model review arrives with the review engine. */
+  /**
+   * Deterministic review: the red run's findings and, in implement mode, those of the
+   * verification after the change. The model review arrives with the review engine.
+   */
   private async review(): Promise<void> {
     const task = await this.task();
     const design = await this.store.readJson(ARTIFACT.testDesign, TestDesign);
-    const evidence = await this.store.readJson(ARTIFACT.testEvidence, TestEvidenceRecord);
-    const findings = baselineFindings({ task, design, entries: evidence.entries });
-    await this.store.writeJson(ARTIFACT.findings, { schemaVersion: 1, findings });
+    const implement = this.record.mode === "implement";
+    const baselineEntries = await this.store.readJson(
+      implement ? ARTIFACT.baselineEvidence : ARTIFACT.testEvidence,
+      TestEvidenceRecord,
+    );
+    const findings: Omit<Finding, "id">[] = baselineFindings({
+      task,
+      design,
+      entries: baselineEntries.entries,
+    }).map(({ id: _id, ...finding }) => finding);
+    if (implement) {
+      const after = await this.store.readJson(ARTIFACT.after, AfterRun);
+      const evidence = await this.store.readJson(ARTIFACT.testEvidence, TestEvidenceRecord);
+      const baseline = await this.store.readJson(ARTIFACT.baseline, BaselineRun);
+      findings.push(
+        ...afterFindings({ entries: evidence.entries, after, baselineGates: baseline.gates }),
+      );
+    }
+    await this.store.writeJson(
+      ARTIFACT.findings,
+      Findings.parse({
+        schemaVersion: 1,
+        findings: findings.map((finding, index) => ({ ...finding, id: `F-${String(index + 1)}` })),
+      }),
+    );
   }
 
   private async writeReport(): Promise<void> {
@@ -1566,6 +2115,25 @@ class Session {
     const baseline = await this.store.readJsonIfExists(ARTIFACT.baseline, BaselineRun);
     const evidence = await this.store.readJsonIfExists(ARTIFACT.testEvidence, TestEvidenceRecord);
     const findings = await this.store.readJsonIfExists(ARTIFACT.findings, Findings);
+    const implementation = await this.store.readJsonIfExists(
+      ARTIFACT.implementation,
+      ImplementationRecord,
+    );
+    const changedFiles = await this.store.readJsonIfExists(ARTIFACT.changedFiles, ChangedFiles);
+    const changeFiles = await this.store.readJsonIfExists(ARTIFACT.changeFiles, ChangeFiles);
+    const changeApproval = await this.store.readJsonIfExists(
+      ARTIFACT.changeApproval,
+      ChangeApproval,
+    );
+    const after = await this.store.readJsonIfExists(ARTIFACT.after, AfterRun);
+    // Files of the latest implementation that no person approved (the run ended waiting).
+    const unapprovedChanges =
+      changeFiles === undefined ||
+      changeFiles.files.length === 0 ||
+      (changeApproval?.changesSha256 === changeFiles.changesSha256 &&
+        changeApproval.iteration === changeFiles.iteration)
+        ? []
+        : changeFiles.files.map((file) => file.path);
     const testsApproval =
       testApproval === undefined || testApproval.testsSha256 !== testFiles?.testsSha256
         ? undefined
@@ -1583,6 +2151,10 @@ class Session {
       baseline,
       evidence,
       findings: findings?.findings,
+      implementation,
+      changedFiles,
+      unapprovedChanges,
+      after,
     });
     await this.store.writeJson("report.json", report);
     await this.store.writeText(
@@ -1595,4 +2167,18 @@ class Session {
       }),
     );
   }
+}
+
+/** The gate that runs each affected module's tests: its first test gate. */
+function testGateOfModule(
+  gates: readonly GateDefinition[],
+  design: TestDesign,
+): Map<string, string> {
+  const affected = new Set(design.tests.map((test) => test.module));
+  const gateOfModule = new Map<string, string>();
+  for (const gate of gates) {
+    if (gate.use !== "test" || !affected.has(gate.module)) continue;
+    if (!gateOfModule.has(gate.module)) gateOfModule.set(gate.module, gate.id);
+  }
+  return gateOfModule;
 }

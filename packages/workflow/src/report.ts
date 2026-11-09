@@ -1,15 +1,21 @@
 import {
+  type AcceptanceMatrixRow,
   EngineeringReport,
   type Finding,
+  type GateResult,
   type ImplementationPlan,
   type Risk,
   type TaskContract,
   statusForOutcome,
 } from "@devflow/core";
 import type {
+  AfterRun,
   BaselineRun,
+  ChangeFiles,
+  ChangedFiles,
   Clarifications,
   EvidenceEntry,
+  ImplementationRecord,
   PlanCheck,
   RequirementsAnalysis,
   RunRecord,
@@ -33,6 +39,12 @@ export interface ReportInput {
   readonly baseline?: BaselineRun | undefined;
   readonly evidence?: TestEvidenceRecord | undefined;
   readonly findings?: readonly Finding[] | undefined;
+  /** Implement mode: the latest implementation, every changed file, and the green run. */
+  readonly implementation?: ImplementationRecord | undefined;
+  readonly changedFiles?: ChangedFiles | undefined;
+  /** Files of the latest implementation that no person approved. */
+  readonly unapprovedChanges?: readonly string[] | undefined;
+  readonly after?: AfterRun | undefined;
 }
 
 /**
@@ -41,8 +53,10 @@ export interface ReportInput {
  * Assist mode runs no gates and no tests, so the verdict is always `not_verified` and every
  * automated acceptance criterion is `not_executed`. Test mode runs the tests once, before any
  * change: the red/green evidence is reported per criterion, but nothing is implemented, so no
- * criterion is verified and the verdict stays `not_verified`. The report is validated against
- * the core schema, whose invariants reject any overstatement.
+ * criterion is verified and the verdict stays `not_verified`. Implement mode verifies the
+ * change: a criterion is verified only by its approved tests passing after the change, and the
+ * verdict follows docs/specs/verification-and-evidence.md section 7. The report is validated
+ * against the core schema, whose invariants reject any overstatement.
  */
 export function buildReport(input: ReportInput): EngineeringReport {
   const { record, task, analysis, plan } = input;
@@ -103,59 +117,51 @@ export function buildReport(input: ReportInput): EngineeringReport {
       : [
           `Review or remove the test files this run wrote, which no person approved: ${written.map((file) => file.path).join(", ")}.`,
         ]),
+    ...((input.unapprovedChanges ?? []).length === 0
+      ? []
+      : [
+          `Review or revert the code changes this run wrote, which no person approved: ${(input.unapprovedChanges ?? []).join(", ")}.`,
+        ]),
+    ...((input.changedFiles?.files ?? []).length === 0
+      ? []
+      : [
+          "Review the diff of the changed files before you keep it: the code was written by a " +
+            "model, and its content can be influenced by the repository it read.",
+        ]),
   ];
 
   const entries = input.evidence?.entries ?? [];
   const designed = (acId: string) =>
     written.length > 0 &&
     input.testDesign?.tests.some((test) => test.acIds.includes(acId)) === true;
+  const after = record.mode === "implement" ? input.after : undefined;
+  const gates: readonly GateResult[] = after?.gates ?? input.baseline?.gates ?? [];
 
-  return EngineeringReport.parse({
-    schemaVersion: 1,
-    run: {
-      id: record.id,
-      devflowVersion: record.devflowVersion,
-      mode: record.mode,
-      state: record.state,
-      startedAt: record.createdAt,
-      finishedAt: record.finishedAt ?? record.updatedAt,
-    },
-    verdict: "not_verified",
-    task: { id: task.id, title: task.title, source: task.source },
-    ...(plan === undefined ? {} : { plan }),
-    ...(analysisSection === undefined ? {} : { analysis: analysisSection }),
-    filesChanged: written.map((file) => ({
-      path: file.path,
-      change: file.action === "create" ? "added" : "modified",
-    })),
-    acceptanceMatrix: task.acceptanceCriteria.map((criterion) => {
-      const row = {
-        acId: criterion.id,
-        requirementIds: criterion.covers,
-        verification: criterion.verification,
+  const acceptanceMatrix = task.acceptanceCriteria.map((criterion): AcceptanceMatrixRow => {
+    const row = {
+      acId: criterion.id,
+      requirementIds: criterion.covers,
+      verification: criterion.verification,
+    };
+    if (criterion.verification === "manual") {
+      return { ...row, tests: [], status: "manual", note: "verified by a person, outside DevFlow" };
+    }
+    const linked = entries.filter((entry) => entry.acId === criterion.id);
+    if (linked.length === 0) {
+      return {
+        ...row,
+        tests: [],
+        status: "not_executed",
+        note:
+          record.mode === "assist"
+            ? "assist mode does not write or run tests"
+            : designed(criterion.id)
+              ? "the test written for it has not run"
+              : "no test was written for it",
       };
-      if (criterion.verification === "manual") {
-        return {
-          ...row,
-          tests: [],
-          status: "manual",
-          note: "verified by a person, outside DevFlow",
-        };
-      }
-      const linked = entries.filter((entry) => entry.acId === criterion.id);
-      if (linked.length === 0) {
-        return {
-          ...row,
-          tests: [],
-          status: "not_executed",
-          note:
-            record.mode === "assist"
-              ? "assist mode does not write or run tests"
-              : designed(criterion.id)
-                ? "the test written for it has not run"
-                : "no test was written for it",
-        };
-      }
+    }
+    const before = `before the change: ${linked.map((entry) => `${entry.outcome} (${entry.evidence.baselineAssessment.replace("_", " ")})`).join(", ")}`;
+    if (after === undefined) {
       return {
         ...row,
         tests: linked.map((entry) => ({
@@ -168,13 +174,71 @@ export function buildReport(input: ReportInput): EngineeringReport {
         status: linked.every((entry) => entry.outcome === "not_executed")
           ? "not_executed"
           : "unverified",
-        note:
-          `before the change: ${linked.map((entry) => `${entry.outcome} (${entry.evidence.baselineAssessment.replace("_", " ")})`).join(", ")}; ` +
-          "the implementation has not run",
+        note: `${before}; the implementation has not run`,
       };
-    }),
-    gates: input.baseline?.gates ?? [],
-    findings: input.findings ?? [],
+    }
+    const statuses = linked.map((entry) => statusForOutcome(entry.evidence.after));
+    const established = linked.every((entry) => entry.evidence.established);
+    return {
+      ...row,
+      tests: linked.map((entry, index) => ({
+        testId: entry.testId,
+        gateId: entry.gateId,
+        status: statuses[index] ?? "not_executed",
+        evidence: entry.evidence,
+      })),
+      status: statuses.every((status) => status === "passed")
+        ? "verified"
+        : statuses.some((status) => status === "failed")
+          ? "failed"
+          : statuses.every((status) => status === "not_executed")
+            ? "not_executed"
+            : "unverified",
+      note:
+        `${before}; after the change: ${linked.map((entry) => entry.evidence.after).join(", ")}` +
+        (established ? "; red/green evidence established" : "; red/green evidence not established"),
+    };
+  });
+  const findings = input.findings ?? [];
+
+  const changed = (input.changedFiles?.files ?? []).map((file) => ({
+    path: file.path,
+    change:
+      file.originalSha256 === null
+        ? ("added" as const)
+        : file.currentSha256 === null
+          ? ("deleted" as const)
+          : ("modified" as const),
+    planChangeId: file.planChangeId,
+  }));
+
+  return EngineeringReport.parse({
+    schemaVersion: 1,
+    run: {
+      id: record.id,
+      devflowVersion: record.devflowVersion,
+      mode: record.mode,
+      state: record.state,
+      startedAt: record.createdAt,
+      finishedAt: record.finishedAt ?? record.updatedAt,
+    },
+    verdict:
+      after === undefined
+        ? "not_verified"
+        : verdictOf({ state: record.state, gates, acceptanceMatrix, findings }),
+    task: { id: task.id, title: task.title, source: task.source },
+    ...(plan === undefined ? {} : { plan }),
+    ...(analysisSection === undefined ? {} : { analysis: analysisSection }),
+    filesChanged: [
+      ...written.map((file) => ({
+        path: file.path,
+        change: file.action === "create" ? ("added" as const) : ("modified" as const),
+      })),
+      ...changed,
+    ],
+    acceptanceMatrix,
+    gates,
+    findings,
     risks,
     assumptions,
     manualChecks,
@@ -190,6 +254,44 @@ export function buildReport(input: ReportInput): EngineeringReport {
         : {}),
     },
   });
+}
+
+/**
+ * The verdict of a verified change (docs/specs/verification-and-evidence.md section 7): verified
+ * only when every required gate passed, every automated criterion is verified and no confirmed
+ * critical or high finding remains; failed when a required gate, a criterion or such a finding
+ * says so.
+ */
+function verdictOf(input: {
+  state: RunRecord["state"];
+  gates: readonly GateResult[];
+  acceptanceMatrix: readonly AcceptanceMatrixRow[];
+  findings: readonly Finding[];
+}): EngineeringReport["verdict"] {
+  const required = input.gates.filter((gate) => gate.required);
+  const automated = input.acceptanceMatrix.filter((row) => row.verification === "automated");
+  const blocking = input.findings.some(
+    (finding) =>
+      (finding.severity === "critical" || finding.severity === "high") &&
+      finding.verification === "confirmed",
+  );
+  if (
+    input.state === "COMPLETED" &&
+    input.gates.length > 0 &&
+    required.every((gate) => gate.status === "passed") &&
+    automated.every((row) => row.status === "verified") &&
+    !blocking
+  ) {
+    return "verified";
+  }
+  if (
+    required.some((gate) => gate.status === "failed") ||
+    automated.some((row) => row.status === "failed") ||
+    blocking
+  ) {
+    return "failed_verification";
+  }
+  return automated.some((row) => row.status === "verified") ? "partially_verified" : "not_verified";
 }
 
 /** Renders the Markdown report from the JSON report; it adds nothing (ADR 0013). */
@@ -248,7 +350,27 @@ export function renderReportMarkdown(
   lines.push("");
 
   const evidence = extra.evidence ?? [];
-  if (evidence.length > 0) {
+  const greenRun =
+    report.run.mode === "implement" &&
+    evidence.some((entry) => entry.evidence.after !== "not_executed");
+  if (evidence.length > 0 && greenRun) {
+    lines.push(
+      "## Test evidence (red/green)",
+      "",
+      "Feature tests must fail on an assertion before the change (red) and pass after it " +
+        "(green); regression and characterization tests must pass both times. Established " +
+        "evidence shows the test detects the change; it does not prove business correctness.",
+      "",
+      "| Criterion | Test | Intent | Before | After | Established |",
+      "| --- | --- | --- | --- | --- | --- |",
+    );
+    for (const entry of evidence) {
+      lines.push(
+        `| ${entry.acId} | ${escapeCell(entry.testId)} | ${entry.evidence.intent} | ${entry.outcome} (${entry.evidence.baselineAssessment}) | ${entry.evidence.after} (${entry.evidence.afterAssessment}) | ${entry.evidence.established ? "yes" : "no"} |`,
+      );
+    }
+    lines.push("");
+  } else if (evidence.length > 0) {
     lines.push(
       "## Test evidence before the change",
       "",
@@ -351,14 +473,34 @@ export function renderReportMarkdown(
 
 function verdictNote(report: EngineeringReport): string {
   if (report.verdict !== "not_verified") return "";
-  return report.gates.length === 0
-    ? " (nothing was executed or verified)"
-    : " (no criterion is verified: the implementation has not run)";
+  if (report.gates.length === 0) return " (nothing was executed or verified)";
+  return report.acceptanceMatrix.some((row) =>
+    row.tests.some((test) => test.status === "passed"),
+  ) && report.run.mode === "implement"
+    ? " (not every check that a verified verdict needs has passed)"
+    : report.run.mode === "implement"
+      ? " (no criterion is verified by a passing test after the change)"
+      : " (no criterion is verified: the implementation has not run)";
 }
 
 function notDone(report: EngineeringReport): string {
   if (report.run.mode === "assist") {
     return "Assist mode analyses and plans only: no file was changed, no command was run and no test was executed.";
+  }
+  if (report.run.mode === "implement") {
+    const verified =
+      report.gates.length > 0 &&
+      report.acceptanceMatrix.some((row) =>
+        row.tests.some((test) => test.status !== "not_executed"),
+      );
+    return (
+      "Implement mode changed the files listed above in the working tree; nothing was " +
+      "committed or pushed, so review the diff before you keep it. No model review of the " +
+      "change was made: the findings are deterministic. " +
+      (verified
+        ? "The gates ran before and after the change."
+        : "The verification after the change did not run.")
+    );
   }
   const ran =
     report.gates.length > 0
@@ -403,6 +545,62 @@ export function renderTestDesignMarkdown(
   }
   lines.push("", `Approval hash: ${context.files.testsSha256}`, "");
   const warnings = design.checks.filter((check) => check.severity === "warning");
+  if (warnings.length > 0) {
+    lines.push("## Check warnings", "");
+    for (const check of warnings) {
+      lines.push(
+        `- ${check.location === undefined ? "" : `\`${check.location}\`: `}${escapeInline(check.message)}`,
+      );
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+/** Renders `implementation.md` for review before the change is approved and run. */
+export function renderImplementationMarkdown(
+  implementation: ImplementationRecord,
+  context: {
+    task: TaskContract;
+    runId: string;
+    files: ChangeFiles;
+    /** The failures a repair addresses. */
+    failures?: readonly string[] | undefined;
+  },
+): string {
+  const lines = [
+    `# Code change to review: ${context.task.id} - ${escapeInline(context.task.title)}`,
+    "",
+    `Run ${context.runId}, implementation ${String(implementation.iteration)}${implementation.repair ? " (a repair)" : ""}. ` +
+      "Written by a model into the workspace and checked by DevFlow's deterministic change " +
+      "checks (files of the approved plan only, never a test file); it has not run. Review the " +
+      "files themselves (for example with git diff): approved code runs with the tests, with " +
+      "your privileges.",
+    "",
+    "## Summary",
+    "",
+    escapeHtml(implementation.summary),
+    "",
+  ];
+  if (context.failures !== undefined && context.failures.length > 0) {
+    lines.push("## What it repairs", "");
+    for (const failure of context.failures) lines.push(`    ${failure.replace(/\r?\n/g, " ")}`);
+    lines.push("");
+  }
+  lines.push("## Changes", "");
+  for (const change of implementation.changes) {
+    lines.push(
+      `- **${change.planChangeId}** ${change.action} \`${change.path}\`: ${escapeInline(change.description)}`,
+    );
+  }
+  lines.push("", "## Files", "", "| File | Change | SHA-256 |", "| --- | --- | --- |");
+  for (const file of context.files.files) {
+    lines.push(
+      `| \`${file.path}\` | ${file.action === "create" ? "added" : file.action === "delete" ? "deleted" : "modified"} | ${file.afterSha256 ?? "-"} |`,
+    );
+  }
+  lines.push("", `Approval hash: ${context.files.changesSha256}`, "");
+  const warnings = implementation.checks.filter((check) => check.severity === "warning");
   if (warnings.length > 0) {
     lines.push("## Check warnings", "");
     for (const check of warnings) {
