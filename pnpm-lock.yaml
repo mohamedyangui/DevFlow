@@ -95,6 +95,9 @@ importers:
       '@devflow/context':
         specifier: workspace:*
         version: link:../context
+      '@devflow/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@devflow/core':
         specifier: workspace:*
         version: link:../core
@@ -141,6 +144,18 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
 
+  packages/contracts:
+    dependencies:
+      '@devflow/core':
+        specifier: workspace:*
+        version: link:../core
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+
   packages/core:
     dependencies:
       picomatch:
@@ -174,6 +189,9 @@ importers:
       '@devflow/context':
         specifier: workspace:*
         version: link:../context
+      '@devflow/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@devflow/core':
         specifier: workspace:*
         version: link:../core

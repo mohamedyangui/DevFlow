@@ -37,10 +37,14 @@
       "github": [
         "core"
       ],
+      "contracts": [
+        "core"
+      ],
       "workflow": [
         "core",
         "context",
-        "ai"
+        "ai",
+        "contracts"
       ],
       "cli": "*"
     }

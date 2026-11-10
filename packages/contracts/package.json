@@ -1,0 +1,27 @@
+{
+  "name": "@devflow/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DevFlow AI contract compatibility: OpenAPI and Protobuf parsers, built-in breaking-change rules, and optional oasdiff and buf integration.",
+  "license": "Apache-2.0",
+  "author": "Mohamed Yangui <mohamed.yangui@esprit.tn>",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "devflow-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@devflow/core": "workspace:*",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  }
+}

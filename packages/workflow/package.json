@@ -22,6 +22,7 @@
   "dependencies": {
     "@devflow/ai": "workspace:*",
     "@devflow/context": "workspace:*",
+    "@devflow/contracts": "workspace:*",
     "@devflow/core": "workspace:*",
     "zod": "^4.6.7"
   }

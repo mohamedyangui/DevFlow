@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { DevflowError, ErrorCode } from "../errors.js";
+import { checkRepoRelativePath } from "../schemas/primitives.js";
 import { childEnvironment } from "./environment.js";
 import { findOnPath } from "./invocation.js";
 import { launchProcess } from "./process-launcher.js";
@@ -90,6 +91,11 @@ export interface GitWorkspace {
   diff(base: string, options?: { readonly maxPatchBytes?: number }): Promise<GitDiff>;
   /** The configured URL of a remote (`origin` by default), or null when it has none. */
   remoteUrl(name?: string): Promise<string | null>;
+  /**
+   * The content of a workspace-relative file at a commit, or null when the file does not exist
+   * there (review mode reads the base version of changed contract files with it).
+   */
+  show?(commit: string, file: string): Promise<string | null>;
 }
 
 export interface GitClientOptions {
@@ -186,6 +192,32 @@ export class GitClient implements GitWorkspace {
     if (result.exitCode !== 0) throw this.failure("config", result);
     const url = result.stdout.trim();
     return url === "" ? null : url;
+  }
+
+  async show(commit: string, file: string): Promise<string | null> {
+    if (!COMMIT_ID.test(commit)) {
+      throw new DevflowError(ErrorCode.GitFailed, `"${commit}" is not a commit id`);
+    }
+    const problem = checkRepoRelativePath(file);
+    if (problem !== null || file === ".") {
+      throw new DevflowError(ErrorCode.GitFailed, `"${file}" is not a workspace-relative file`, {
+        details: { file },
+      });
+    }
+    // `<commit>:./<path>` is relative to the workspace, which may be a subdirectory.
+    const object = `${commit}:./${file}`;
+    const type = await this.git(["cat-file", "-t", object]);
+    if (type.exitCode !== 0 || type.stdout.trim() !== "blob") return null;
+    const content = await this.git(["cat-file", "blob", object]);
+    if (content.exitCode !== 0) throw this.failure("cat-file", content);
+    if (content.outputTruncated) {
+      throw new DevflowError(
+        ErrorCode.GitFailed,
+        `${file} at ${commit.slice(0, 12)} is too large to read`,
+        { details: { file } },
+      );
+    }
+    return content.stdout;
   }
 
   async freeBranchName(base: string): Promise<string> {

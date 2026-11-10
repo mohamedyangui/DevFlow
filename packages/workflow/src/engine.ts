@@ -11,6 +11,12 @@ import {
 } from "@devflow/ai";
 import { ContextPack, buildContext } from "@devflow/context";
 import {
+  type ContractDiff,
+  type ContractToolset,
+  compareContract,
+  contractKindOf,
+} from "@devflow/contracts";
+import {
   AuditLog,
   DevflowError,
   ErrorCode,
@@ -93,6 +99,7 @@ import {
   PlanFeedback,
   PlanWire,
   RequirementsAnalysis,
+  ReviewContracts,
   ReviewDiff,
   ReviewGates,
   type ReviewPullRequest,
@@ -172,6 +179,7 @@ const ARTIFACT = {
   reviewDiff: "artifacts/review-diff.json",
   reviewPatch: "artifacts/review-diff.patch",
   reviewGates: "artifacts/review-gates.json",
+  reviewContracts: "artifacts/review-contracts.json",
   review: "artifacts/review.json",
 } as const;
 
@@ -218,6 +226,10 @@ const MAX_REVIEW_PATCH_BYTES = 1024 * 1024;
 const MAX_REVIEW_PROMPT_PATCH_BYTES = 192 * 1024;
 /** Untracked files larger than this are listed but not shown. */
 const MAX_UNTRACKED_FILE_BYTES = 256 * 1024;
+/** Review mode: contract files larger than this are not compared. */
+const MAX_CONTRACT_FILE_BYTES = 4 * 1024 * 1024;
+/** Review mode: at most this many changed contract files are compared. */
+const MAX_REVIEW_CONTRACTS = 50;
 
 /** Existing test files shown to the test designer: at most this many, each at most this size. */
 const MAX_EXISTING_TEST_FILES = 8;
@@ -277,6 +289,17 @@ export interface WorkflowServices {
    * working tree and the report says so.
    */
   readonly git?: GitWorkspace;
+  /**
+   * Review mode: the probe, command policy and executor that let `oasdiff` and `buf` decide
+   * contract compatibility (ADR 0021). Without it, or when the tools are missing or not
+   * approved, the built-in rules decide.
+   */
+  readonly contractTools?: (context: {
+    readonly audit: AuditLog;
+    /** Workspace-relative directory for the command logs. */
+    readonly logDir: string;
+    readonly signal?: AbortSignal;
+  }) => Promise<ContractToolset>;
   /** Gateway tuning (timeouts, retries); injected in tests. */
   readonly gateway?: Pick<
     LlmGatewayOptions,
@@ -2478,6 +2501,7 @@ class Session {
         withheld,
       }),
     );
+    await this.reviewContracts(raw.base, raw.files, review.gatesSkipped === undefined);
 
     if (review.gatesSkipped !== undefined) {
       await this.store.writeJson(
@@ -2498,6 +2522,91 @@ class Session {
       ARTIFACT.reviewGates,
       ReviewGates.parse({ schemaVersion: 1, ranAt: this.now(), gates: [...run.gates] }),
     );
+  }
+
+  /**
+   * Review mode: compares every changed contract file (OpenAPI, Protobuf) at the base commit
+   * and in the working tree (ADR 0021). `oasdiff` or `buf` decide when they are installed and
+   * the command policy lets them run (never when the gates are skipped, for example on a pull
+   * request DevFlow must not run tools for); the built-in rules decide otherwise.
+   */
+  private async reviewContracts(
+    baseCommit: string,
+    files: readonly { path: string; change: string; binary: boolean }[],
+    toolsAllowed: boolean,
+  ): Promise<void> {
+    const git = this.services.git;
+    const contracts: ContractDiff[] = [];
+    const skipped: { path: string; reason: string }[] = [];
+    let toolset: ContractToolset | undefined;
+    for (const file of files) {
+      if (file.binary || !/\.(proto|ya?ml|json)$/i.test(file.path)) continue;
+      const head = file.change === "deleted" ? null : await this.contractText(file.path);
+      if (head === undefined) {
+        if (contractKindOf(file.path) !== null) {
+          skipped.push({ path: file.path, reason: "the working tree file cannot be read" });
+        }
+        continue;
+      }
+      let base: string | null = null;
+      if (file.change !== "added") {
+        if (git?.show === undefined) {
+          if (contractKindOf(file.path, head) !== null) {
+            skipped.push({
+              path: file.path,
+              reason: "the base version cannot be read without git",
+            });
+          }
+          continue;
+        }
+        base = await git.show(baseCommit, file.path);
+      }
+      const kind = contractKindOf(file.path, base, head);
+      if (kind === null) continue;
+      if (contracts.length >= MAX_REVIEW_CONTRACTS) {
+        skipped.push({
+          path: file.path,
+          reason: `only the first ${String(MAX_REVIEW_CONTRACTS)} contract files are compared`,
+        });
+        continue;
+      }
+      if ((base?.length ?? 0) > MAX_CONTRACT_FILE_BYTES) {
+        skipped.push({ path: file.path, reason: "the base version is too large" });
+        continue;
+      }
+      let tools: Parameters<typeof compareContract>[1];
+      if (toolsAllowed && base !== null && head !== null && this.services.contractTools) {
+        const copy = `contracts/base/${file.path}`;
+        await this.store.writeText(copy, base);
+        toolset ??= await this.services.contractTools({
+          audit: await this.audit(),
+          logDir: this.store.workspacePath("logs/contracts"),
+          ...this.signalOption(),
+        });
+        tools = { toolset, basePath: this.store.workspacePath(copy), headPath: file.path };
+      }
+      contracts.push(await compareContract({ file: file.path, kind, base, head }, tools));
+    }
+    if (contracts.length === 0 && skipped.length === 0) return;
+    await this.store.writeJson(
+      ARTIFACT.reviewContracts,
+      ReviewContracts.parse({ schemaVersion: 1, checkedAt: this.now(), contracts, skipped }),
+    );
+  }
+
+  /** A working-tree contract file's text, or undefined when it cannot be read. */
+  private async contractText(file: string): Promise<string | undefined> {
+    try {
+      const checked = await this.services.guard.check(file, { access: "read", origin: "internal" });
+      const content = await readFile(checked.absolute);
+      if (content.length > MAX_CONTRACT_FILE_BYTES || content.includes(0)) return undefined;
+      return content.toString("utf8");
+    } catch (error) {
+      if (isDevflowError(error)) return undefined;
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "EISDIR" || code === "EACCES") return undefined;
+      throw error;
+    }
   }
 
   /** The text of an untracked file for the review, or undefined when it cannot be shown. */
@@ -2537,11 +2646,13 @@ class Session {
       );
     }
     const { gates, skipped } = await this.store.readJson(ARTIFACT.reviewGates, ReviewGates);
+    const contracts = await this.store.readJsonIfExists(ARTIFACT.reviewContracts, ReviewContracts);
     const deterministic = reviewFindings({
       task,
       diff,
       patch,
       gates,
+      contracts,
       ...(skipped === undefined ? {} : { gatesSkipped: skipped }),
     });
     const cut = cutPatch(patch, false, MAX_REVIEW_PROMPT_PATCH_BYTES);
@@ -2637,6 +2748,10 @@ class Session {
     const reviewDiff = await this.store.readJsonIfExists(ARTIFACT.reviewDiff, ReviewDiff);
     const reviewGates = await this.store.readJsonIfExists(ARTIFACT.reviewGates, ReviewGates);
     const reviewRecord = await this.store.readJsonIfExists(ARTIFACT.review, ReviewRecord);
+    const reviewContracts = await this.store.readJsonIfExists(
+      ARTIFACT.reviewContracts,
+      ReviewContracts,
+    );
     // Files of the latest implementation that no person approved (the run ended waiting).
     const unapprovedChanges =
       changeFiles === undefined ||
@@ -2669,6 +2784,7 @@ class Session {
       reviewDiff,
       reviewGates,
       reviewRecord,
+      reviewContracts,
     });
     await this.store.writeJson("report.json", report);
     await this.store.writeText(

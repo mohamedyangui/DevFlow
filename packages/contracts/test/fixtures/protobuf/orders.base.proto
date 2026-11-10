@@ -1,0 +1,72 @@
+// Orders API, version 1.
+syntax = "proto3";
+
+package shop.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.example.shop.v1";
+option java_multiple_files = true;
+
+/* An order, with its items.
+   Field 4 was removed long ago. */
+message Order {
+  reserved 4, 20 to 29;
+  reserved "legacy_total";
+
+  string id = 1;
+  repeated Item items = 2;
+  Status status = 3;
+  int64 total_cents = 5 [deprecated = true];
+  string note = 6;
+  google.protobuf.Timestamp created_at = 7;
+  map<string, string> labels = 8;
+  oneof payment {
+    string card_token = 9;
+    string voucher = 10;
+  }
+  optional string coupon = 11;
+  string customer = 12;
+
+  message Item {
+    string sku = 1;
+    int32 quantity = 2;
+  }
+
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_OPEN = 1;
+    STATUS_PAID = 2;
+    STATUS_SHIPPED = 3;
+  }
+}
+
+message Refund {
+  string order_id = 1;
+}
+
+enum Channel {
+  CHANNEL_UNSPECIFIED = 0;
+  CHANNEL_WEB = 1;
+  CHANNEL_STORE = 2;
+}
+
+service OrderService {
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  rpc ListOrders(ListOrdersRequest) returns (stream Order);
+  rpc CancelOrder(GetOrderRequest) returns (Order) {
+    option deprecated = true;
+  }
+}
+
+service RefundService {
+  rpc Refund(Refund) returns (Refund);
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message ListOrdersRequest {
+  int32 page_size = 1;
+}

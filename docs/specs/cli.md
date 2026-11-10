@@ -373,6 +373,14 @@ acceptance criterion is reported as passed.
   verified when its tests pass on the change; there is no run before the change, so failures
   that were already there are not told apart and no red/green evidence exists. Review mode
   changes no file and commits nothing.
+- **Contracts in a review** (Phase 6, [ADR 0021](../adr/0021-contract-compatibility.md)):
+  every changed OpenAPI or Protobuf file is compared at the base commit and in the working
+  tree (`artifacts/review-contracts.json`). `oasdiff` or `buf` decide when they are on PATH
+  and the command policy lets them run (approved like a gate, `--allow` works; never when
+  the gates are skipped, and `oasdiff` never on documents with external references); the
+  built-in rules decide otherwise. Each file with breaking changes is a `confirmed`, `high`
+  `compatibility` finding whose evidence names each rule and who decided it; changes the
+  rules cannot decide (`unknown`) and files that could not be compared are manual checks.
 - **`review --pr <ref>`** (Phase 5) reviews a pull request: `57`, `#57`, `owner/name#57` or
   the pull request URL (the repository as for `--issue`). DevFlow reads the pull request from
   the GitHub API but never fetches or checks out its code: check out its head commit first
@@ -490,6 +498,31 @@ Review the plan, then approve it or ask for changes:
 $ echo $?
 3
 ```
+
+### `devflow contracts diff`
+
+```text
+devflow contracts diff <base-file> <head-file> [--kind openapi|protobuf] [--json]
+devflow contracts diff --base <ref> <file>... [--kind openapi|protobuf] [--json]
+```
+
+Compares two versions of an OpenAPI 3.x (YAML or JSON) or Protobuf contract with the built-in
+rules ([ADR 0021](../adr/0021-contract-compatibility.md)) and prints every change with its
+compatibility (`breaking`, `non-breaking`, `unknown`), rule, message and line.
+
+- With two files, the first is the base version and the second the head version.
+- With `--base <ref>`, each file (relative to the current directory, inside it) is compared in
+  the working tree against its version at the merge base of `<ref>` and HEAD, read through
+  git, as `devflow review --base <ref>` does. A file missing on one side is an added or
+  removed contract.
+- The kind comes from the file (`.proto`; YAML or JSON named `openapi.*`/`swagger.*` or with
+  a top-level `openapi:` key); `--kind` sets it otherwise.
+- Only the built-in rules run here; `oasdiff` and `buf` run in review mode, through the
+  command policy.
+- `--json` prints `{ "breaking": boolean, "contracts": ContractDiff[] }`.
+- Exit code 1 when a change is breaking, 0 otherwise (unknown changes are printed for a
+  person to check), 2 for unusable input (`CONTRACT_FILE_INVALID`, `OPTIONS_INVALID`,
+  `PATH_REJECTED`, `GIT_FAILED`).
 
 ## 4. Planned commands
 

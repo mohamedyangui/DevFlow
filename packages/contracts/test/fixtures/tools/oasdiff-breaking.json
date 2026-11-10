@@ -1,0 +1,32 @@
+[
+  {
+    "id": "api-removed-without-deprecation",
+    "text": "api removed without deprecation",
+    "level": 3,
+    "operation": "DELETE",
+    "operationId": "deletePet",
+    "path": "/pets/{id}",
+    "source": "petstore.base.yaml",
+    "section": "paths"
+  },
+  {
+    "id": "response-property-removed",
+    "text": "removed the optional property 'tag' from the response with the '200' status",
+    "level": 3,
+    "operation": "GET",
+    "operationId": "getPet",
+    "path": "/pets/{petId}",
+    "source": "petstore.head.json",
+    "section": "paths"
+  },
+  {
+    "id": "response-property-enum-value-added",
+    "text": "added the new 'pending' enum value to the 'status' response property for the response status '200'",
+    "level": 2,
+    "operation": "GET",
+    "operationId": "getPet",
+    "path": "/pets/{petId}",
+    "source": "petstore.head.json",
+    "section": "paths"
+  }
+]

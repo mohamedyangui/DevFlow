@@ -129,6 +129,8 @@ export const ErrorCode = {
   GateNotFound: "GATE_NOT_FOUND",
   /** A baseline given to `devflow verify` cannot be read or is not a saved verification. */
   VerificationBaselineInvalid: "VERIFICATION_BASELINE_INVALID",
+  /** A contract file given to `devflow contracts diff` is missing, unreadable or not a contract. */
+  ContractFileInvalid: "CONTRACT_FILE_INVALID",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 

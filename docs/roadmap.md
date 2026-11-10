@@ -238,9 +238,21 @@ Implemented:
   mounted; the backend and image are part of the command fingerprint; images are never pulled;
   no fallback to the host.
 
-Protobuf and OpenAPI compatibility verification (`buf`, `oasdiff`, built-in rules), cross-
-language change impact, container execution backend, external adapter plugins, Python adapter,
-observability export, evidence-seeking review.
+- Contract compatibility verification: `@devflow/contracts`
+  ([ADR 0021](adr/0021-contract-compatibility.md)) with in-house OpenAPI 3.x (YAML, JSON,
+  local `$ref`s) and Protobuf (proto3, proto2, editions syntax) parsers and built-in
+  breaking-change rules, each change `breaking`, `non-breaking` or `unknown`; review mode
+  compares every changed contract at the base commit and the head and reports breaking changes
+  as confirmed deterministic findings, unknown ones as manual checks;
+  `devflow contracts diff`. The built-in rules are tested with fixture pairs for every rule.
+  `oasdiff` and `buf` run through the command policy when they are on PATH; their output
+  mapping is tested with recorded output and a fake executor only: neither tool has been run
+  by the test suite.
+
+Planned:
+
+- Cross-language change impact (consumers of a changed contract), external adapter plugins, Python adapter, observability export, evidence-seeking
+  review.
 
 ## Before the first publication
 

@@ -1,0 +1,3 @@
+{"path":"orders.proto","start_line":10,"start_column":1,"end_line":31,"end_column":2,"type":"FIELD_NO_DELETE","message":"Previously present field \"6\" with name \"note\" on message \"Order\" was deleted."}
+{"path":"orders.proto","start_line":19,"start_column":3,"end_line":19,"end_column":34,"type":"FIELD_SAME_TYPE","message":"Field \"8\" with name \"labels\" on message \"Order\" changed type from \"string\" to \"int32\"."}
+{"path":"orders.proto","start_line":0,"start_column":0,"end_line":0,"end_column":0,"type":"SERVICE_NO_DELETE","message":"Previously present service \"RefundService\" was deleted from file."}
