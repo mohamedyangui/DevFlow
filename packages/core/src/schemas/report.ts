@@ -111,6 +111,14 @@ export const EngineeringReport = z
       baseCommit: GitCommit.optional(),
       headCommit: GitCommit.optional(),
       branch: z.string().optional(),
+      /** Review mode: the pull request that was reviewed (Phase 5). */
+      pullRequest: z
+        .strictObject({
+          repository: z.string().min(1),
+          number: z.int().positive(),
+          url: z.string().min(1),
+        })
+        .optional(),
     }),
     verdict: Verdict,
     task: z.strictObject({ id: TaskId, title: z.string().min(1), source: TaskSource }),

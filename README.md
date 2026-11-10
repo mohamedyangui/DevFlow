@@ -42,7 +42,8 @@ planned, tested and verified change, and reports what was actually verified, wit
 | Example repositories with real Maven, Gradle and npm builds (`pnpm test:examples`)                                        | Implemented      |
 | Test generation, implementation, review, `devflow run`                                                                    | Implemented      |
 | GitHub issues as tasks (`--issue`)                                                                                        | Implemented      |
-| GitHub pull request review, publishing, draft pull requests, GitHub Action                                                | Planned, Phase 5 |
+| GitHub pull request review (`review --pr`), opt-in publishing as a comment or check run                                   | Implemented      |
+| Draft pull requests, GitHub Action                                                                                        | Planned, Phase 5 |
 | OpenAPI and Protobuf compatibility, container sandbox                                                                     | Planned, Phase 6 |
 
 See the [roadmap](docs/roadmap.md) for details.
@@ -161,6 +162,19 @@ devflow plan --issue 142 --model <model id>
 Every workflow command accepts `--issue` instead of `--task`: a number (the repository comes
 from the `origin` remote, or `--repo owner/name`), `owner/name#142` or the issue URL. The
 issue body is read as a Markdown task file; its text is treated as untrusted data.
+
+### Review a pull request
+
+```bash
+git fetch origin pull/57/head && git checkout --detach FETCH_HEAD
+devflow review --task task.yaml --pr 57 --model <model id> --publish
+```
+
+DevFlow reads the pull request from the GitHub API but never fetches its code: check out its
+head commit first. The review compares it with the pull request's base commit. The code of a
+pull request from a fork is not run unless you pass `--run-fork-code`. `--publish` (opt-in,
+needs `GITHUB_TOKEN`) posts the summary as a comment, or as a check run with
+`--publish check`; it never approves or merges.
 
 ## Documentation
 

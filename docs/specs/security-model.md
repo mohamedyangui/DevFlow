@@ -239,6 +239,16 @@ they are shown, and the token is never written to a run, sent to a model or pass
 process (the child environment is an allowlist). Every answer has a timeout, a size limit and a
 schema. Issue text is `external`: it defines a task, and prompts present it as untrusted data.
 
+**Pull requests.** `devflow review --pr` never fetches or checks out pull request code: the
+user does, and DevFlow checks that HEAD is the pull request's head commit and the tree is
+clean. The code of a pull request from a fork (or a deleted fork) is not run, so no gate
+executes it, unless the user passes `--run-fork-code` after reading the change; the report
+then says the gates did not run. Publishing is opt-in (`--publish`), needs a token and writes
+only a comment or a check run: it never approves, requests changes or merges. The published
+body is built from the report, redacted with the known secrets, and every piece of model text
+in it is cut to 300 characters and neutralised (Markdown, HTML and table syntax escaped, `@`
+mentions and links broken), so a review cannot ping people, inject markup or hide links.
+
 ## 8. Audit log
 
 `audit.jsonl` records every model call (provider, model, template and version, prompt hash,

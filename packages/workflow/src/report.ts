@@ -146,6 +146,11 @@ export function buildReport(input: ReportInput): EngineeringReport {
       ? [
           "Read the diff yourself before you merge it: the AI findings are a model's suggestions " +
             "and stay unverified until a test or a person confirms them.",
+          ...(input.reviewGates?.skipped === undefined
+            ? []
+            : [
+                `The gates did not run: ${input.reviewGates.skipped}. Run them yourself on the change before you merge it.`,
+              ]),
           ...(input.reviewDiff.withheld.length === 0
             ? []
             : [
@@ -276,6 +281,15 @@ export function buildReport(input: ReportInput): EngineeringReport {
       ...(record.mode === "review" && input.reviewDiff !== undefined
         ? { baseCommit: input.reviewDiff.baseCommit, headCommit: input.reviewDiff.headCommit }
         : {}),
+      ...(record.review?.pullRequest === undefined
+        ? {}
+        : {
+            pullRequest: {
+              repository: record.review.pullRequest.repository,
+              number: record.review.pullRequest.number,
+              url: record.review.pullRequest.url,
+            },
+          }),
     },
     verdict:
       after === undefined && reviewed === undefined
@@ -372,6 +386,10 @@ export function renderReportMarkdown(
     `- **Started:** ${report.run.startedAt}`,
     `- **Finished:** ${report.run.finishedAt}`,
   );
+  if (report.run.pullRequest !== undefined) {
+    const pull = report.run.pullRequest;
+    lines.push(`- **Pull request:** ${pull.repository}#${String(pull.number)} (${pull.url})`);
+  }
   if (report.run.mode === "review" && report.run.baseCommit !== undefined) {
     lines.push(
       `- **Reviewed:** the working tree at \`${(report.run.headCommit ?? "").slice(0, 12)}\` ` +

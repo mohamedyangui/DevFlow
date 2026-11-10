@@ -82,6 +82,8 @@ const untracked = (file: string): DiffFile => ({
 class DiffGit implements GitWorkspace {
   readonly bases: string[] = [];
   unavailable: string | undefined;
+  /** The diff is committed (a checked-out pull request): the working tree is clean. */
+  committed = false;
 
   constructor(
     private readonly files: DiffFile[],
@@ -95,7 +97,7 @@ class DiffGit implements GitWorkspace {
             kind: "repository",
             head: HEAD,
             branch: "feature",
-            changes: this.files.map((f) => f.path),
+            changes: this.committed ? [] : this.files.map((f) => f.path),
           }
         : { kind: "unavailable", reason: this.unavailable },
     );
@@ -418,6 +420,78 @@ describe("review mode", () => {
     expect(report.manualChecks.join("\n")).toContain(
       "These changed files were not shown to the model (sensitive): .env",
     );
+  });
+
+  it("reviews a checked-out pull request, and does not run the code of a fork", async () => {
+    const root = await workspace();
+    const git = new DiffGit([modified("src/orders.ts")], ORDERS_PATCH);
+    git.committed = true;
+    const { provider } = reviewer({ summary: "Looks fine.", findings: [] });
+    const { testRunner, ran } = runner([]);
+    const svc = await services(root, provider, {
+      git,
+      testRunner: () => Promise.resolve(testRunner),
+    });
+    const pullRequest = {
+      repository: "acme/shop",
+      number: 57,
+      url: "https://github.com/acme/shop/pull/57",
+      headCommit: HEAD,
+      fromFork: true,
+    };
+    const reason = "acme/shop#57 comes from someone/shop, so its code was not run";
+    const outcome = await startRun(
+      {
+        task: task(),
+        taskFile: null,
+        mode: "review",
+        goal: "review",
+        settings: settings(),
+        review: { base: BASE, pullRequest, skipGates: reason },
+      },
+      svc,
+    );
+    expect(outcome.status).toBe("completed");
+    expect(ran).toEqual([]);
+    expect(git.bases).toEqual([BASE]);
+    const store = await RunStore.open(root, outcome.runId);
+    const report = EngineeringReport.parse(JSON.parse(await store.readText("report.json")));
+    expect(report.run.pullRequest).toEqual({
+      repository: "acme/shop",
+      number: 57,
+      url: "https://github.com/acme/shop/pull/57",
+    });
+    expect(report.gates).toEqual([]);
+    expect(report.findings[0]).toMatchObject({
+      title: "The gates did not run on this change",
+      verification: "confirmed",
+      evidence: [expect.objectContaining({ description: reason })],
+    });
+    expect(report.verdict).not.toBe("verified");
+    expect(report.manualChecks.join("\n")).toContain(`The gates did not run: ${reason}`);
+    expect(await store.readText("report.md")).toContain(
+      "- **Pull request:** acme/shop#57 (https://github.com/acme/shop/pull/57)",
+    );
+
+    // Another commit checked out, or local changes: the pull request is not what would be reviewed.
+    const start = (other: DiffGit, head: string) =>
+      startRun(
+        {
+          task: task(),
+          taskFile: null,
+          mode: "review",
+          goal: "review",
+          settings: settings(),
+          review: { base: BASE, pullRequest: { ...pullRequest, headCommit: head } },
+        },
+        { ...svc, git: other },
+      );
+    await expect(start(git, "d".repeat(40))).rejects.toMatchObject({
+      code: ErrorCode.ReviewPullRequestNotCheckedOut,
+    });
+    await expect(
+      start(new DiffGit([modified("src/orders.ts")], ORDERS_PATCH), HEAD),
+    ).rejects.toMatchObject({ code: ErrorCode.GitTreeNotClean });
   });
 
   it("refuses to start without a change or a repository, and creates no run", async () => {

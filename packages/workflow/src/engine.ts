@@ -95,6 +95,7 @@ import {
   RequirementsAnalysis,
   ReviewDiff,
   ReviewGates,
+  type ReviewPullRequest,
   ReviewRecord,
   ReviewWire,
   type RunBudgets,
@@ -321,7 +322,16 @@ export interface StartRunInput {
   readonly settings: RunSettings;
   readonly warnings?: readonly string[];
   /** Review mode: the reference the local change is compared with (default `HEAD`). */
-  readonly review?: { readonly base: string };
+  readonly review?: {
+    readonly base: string;
+    /**
+     * A pull request under review: its head must be the checked-out commit and the working tree
+     * clean, so that exactly the pull request is reviewed.
+     */
+    readonly pullRequest?: ReviewPullRequest;
+    /** Why the gates must not run on this change (they are then reported as not run). */
+    readonly skipGates?: string;
+  };
 }
 
 /** Starts a run and drives it until it finishes or needs a person. */
@@ -803,8 +813,9 @@ async function checkGitBeforeStart(
 async function reviewBase(
   input: StartRunInput,
   services: WorkflowServices,
-): Promise<{ base: string; baseCommit: string }> {
+): Promise<NonNullable<RunRecord["review"]>> {
   const base = input.review?.base ?? "HEAD";
+  const pullRequest = input.review?.pullRequest;
   const git = services.git;
   if (git === undefined) {
     throw new DevflowError(ErrorCode.GitFailed, "review mode needs git to read the local change");
@@ -816,7 +827,32 @@ async function reviewBase(
       `review mode needs a git repository with a commit: ${inspection.reason}`,
     );
   }
-  const baseCommit = await git.mergeBase(base);
+  if (pullRequest !== undefined) {
+    const label = `${pullRequest.repository}#${String(pullRequest.number)}`;
+    if (inspection.head !== pullRequest.headCommit) {
+      throw new DevflowError(
+        ErrorCode.ReviewPullRequestNotCheckedOut,
+        `the checked-out commit ${inspection.head.slice(0, 12)} is not the head of ${label} ` +
+          `(${pullRequest.headCommit.slice(0, 12)}); check it out first, for example ` +
+          `\`git fetch origin pull/${String(pullRequest.number)}/head\` and ` +
+          "`git checkout --detach FETCH_HEAD`",
+        { details: { pullRequest: label, head: inspection.head } },
+      );
+    }
+    if (inspection.changes.length > 0) throw treeNotClean(inspection.changes);
+  }
+  let baseCommit: string;
+  try {
+    baseCommit = await git.mergeBase(base);
+  } catch (error) {
+    if (pullRequest === undefined || !isDevflowError(error)) throw error;
+    throw new DevflowError(
+      ErrorCode.GitFailed,
+      `the base of the pull request (${base.slice(0, 12)}) is not in this repository; fetch ` +
+        "its base branch first, for example `git fetch origin <base branch>`",
+      { details: { base }, cause: error },
+    );
+  }
   const diff = await git.diff(baseCommit, { maxPatchBytes: 0 });
   if (diff.files.length === 0) {
     throw new DevflowError(
@@ -825,7 +861,13 @@ async function reviewBase(
       { details: { base, baseCommit } },
     );
   }
-  return { base, baseCommit };
+  const skipGates = input.review?.skipGates;
+  return {
+    base,
+    baseCommit,
+    ...(pullRequest === undefined ? {} : { pullRequest }),
+    ...(skipGates === undefined ? {} : { gatesSkipped: skipGates }),
+  };
 }
 
 function treeNotClean(changes: readonly string[]): DevflowError {
@@ -2437,6 +2479,18 @@ class Session {
       }),
     );
 
+    if (review.gatesSkipped !== undefined) {
+      await this.store.writeJson(
+        ARTIFACT.reviewGates,
+        ReviewGates.parse({
+          schemaVersion: 1,
+          ranAt: this.now(),
+          gates: [],
+          skipped: review.gatesSkipped,
+        }),
+      );
+      return;
+    }
     const runner = await this.testRunner();
     const gates = await runner.gates();
     const run = await this.runGatesChecked(runner, [...gates], "logs/commands");
@@ -2482,8 +2536,14 @@ class Session {
         { details: { runId: this.record.id } },
       );
     }
-    const { gates } = await this.store.readJson(ARTIFACT.reviewGates, ReviewGates);
-    const deterministic = reviewFindings({ task, diff, patch, gates });
+    const { gates, skipped } = await this.store.readJson(ARTIFACT.reviewGates, ReviewGates);
+    const deterministic = reviewFindings({
+      task,
+      diff,
+      patch,
+      gates,
+      ...(skipped === undefined ? {} : { gatesSkipped: skipped }),
+    });
     const cut = cutPatch(patch, false, MAX_REVIEW_PROMPT_PATCH_BYTES);
     const prompt = reviewPrompt({
       task,

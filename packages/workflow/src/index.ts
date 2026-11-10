@@ -111,6 +111,7 @@ export {
   ReviewDiff,
   ReviewDiffFile,
   ReviewGates,
+  ReviewPullRequest,
   ReviewRecord,
   ReviewWire,
   RunBudgets,

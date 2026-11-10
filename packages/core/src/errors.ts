@@ -87,6 +87,8 @@ export const ErrorCode = {
   ReviewNoChanges: "REVIEW_NO_CHANGES",
   /** The configured git isolation is not implemented (`workflow.git.isolation: worktree`). */
   GitIsolationUnsupported: "GIT_ISOLATION_UNSUPPORTED",
+  /** Command line options that cannot be used together, or not without another one. */
+  OptionsInvalid: "OPTIONS_INVALID",
   /** Neither or both of a task file and an issue were given. */
   TaskSourceInvalid: "TASK_SOURCE_INVALID",
   /** A GitHub API request failed: network, HTTP status or an answer DevFlow cannot use. */
@@ -95,6 +97,10 @@ export const ErrorCode = {
   GitHubRepositoryUnknown: "GITHUB_REPOSITORY_UNKNOWN",
   /** A GitHub issue cannot be a task: a bad reference, a pull request, or a body too long. */
   GitHubIssueInvalid: "GITHUB_ISSUE_INVALID",
+  /** A pull request reference cannot be used (not a number, owner/name#number or URL). */
+  GitHubPullRequestInvalid: "GITHUB_PULL_REQUEST_INVALID",
+  /** The checked-out commit is not the head of the pull request to review. */
+  ReviewPullRequestNotCheckedOut: "REVIEW_PULL_REQUEST_NOT_CHECKED_OUT",
   /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */
   AdapterInvalid: "ADAPTER_INVALID",
   /** A language adapter returned data that does not match the core schemas. */
