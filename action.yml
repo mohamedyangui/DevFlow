@@ -1,0 +1,225 @@
+# DevFlow GitHub Action (composite). Specification: docs/specs/github-action.md
+#
+# Builds DevFlow from the source of the pinned commit this action is used at (DevFlow is not
+# published to npm) and runs `devflow verify` or `devflow review --pr` in the checked-out
+# repository. Pin this action to a full commit SHA in your workflow.
+#
+# Security rules of this file (checked by tests/repo/github-action.test.ts):
+# - every input reaches the scripts through `env:`; no `${{ }}` expression appears inside a
+#   `run:` script, so an input cannot inject shell code;
+# - every input is checked against an allowlist before anything is installed or run;
+# - every action used is pinned to a full commit SHA;
+# - the GitHub token and the model API keys are given only to the step that runs DevFlow, and
+#   only for `review`. DevFlow sends the token to api.github.com only, never to a model or a
+#   child process.
+name: DevFlow AI
+description: Run DevFlow verify (deterministic gates) or an evidence-driven pull request review.
+author: Mohamed Yangui
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  command:
+    description: "verify (deterministic gates, no model) or review (pull request review with a model)."
+    required: true
+  task:
+    description: "review: task file, relative to working-directory. Exactly one of task and issue."
+    required: false
+    default: ""
+  issue:
+    description: "review: number of the GitHub issue used as the task (external, untrusted text)."
+    required: false
+    default: ""
+  pr:
+    description: "review: number of the pull request. Its head commit must be checked out."
+    required: false
+    default: ""
+  publish:
+    description: "review: none (default), comment (needs pull-requests: write) or check (needs checks: write)."
+    required: false
+    default: "none"
+  model:
+    description: "review: model id. No default: also ai.models of a trusted configuration."
+    required: false
+    default: ""
+  provider:
+    description: "review: anthropic or openai (default: DevFlow's own default, anthropic)."
+    required: false
+    default: ""
+  allow:
+    description: "Approved command fingerprints (64 hexadecimal characters each), separated by spaces or new lines."
+    required: false
+    default: ""
+  trust-workspace:
+    description: "true runs `devflow trust --yes` first, so that approved commands can run. Default false."
+    required: false
+    default: "false"
+  run-fork-code:
+    description: "review: true runs the gates on a pull request from a fork. Default false; read the specification first."
+    required: false
+    default: "false"
+  working-directory:
+    description: "Repository root to work in, relative to the workspace. Default: the workspace."
+    required: false
+    default: "."
+  github-token:
+    description: "review: token to read the pull request and issue and to publish. Default: the job token."
+    required: false
+    default: ${{ github.token }}
+  anthropic-api-key:
+    description: "review: API key of the anthropic provider. Pass a secret."
+    required: false
+    default: ""
+  openai-api-key:
+    description: "review: API key of the openai provider. Pass a secret."
+    required: false
+    default: ""
+
+outputs:
+  exit-code:
+    description: "Exit code of the devflow command (see docs/specs/cli.md, section 2)."
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check the inputs
+      shell: bash
+      env:
+        IN_COMMAND: ${{ inputs.command }}
+        IN_TASK: ${{ inputs.task }}
+        IN_ISSUE: ${{ inputs.issue }}
+        IN_PR: ${{ inputs.pr }}
+        IN_PUBLISH: ${{ inputs.publish }}
+        IN_MODEL: ${{ inputs.model }}
+        IN_PROVIDER: ${{ inputs.provider }}
+        IN_ALLOW: ${{ inputs.allow }}
+        IN_TRUST: ${{ inputs.trust-workspace }}
+        IN_RUN_FORK_CODE: ${{ inputs.run-fork-code }}
+        IN_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        set -f
+        # Messages name the input, never echo its value: a value could hold workflow commands.
+        fail() { echo "::error title=DevFlow action::$1"; exit 2; }
+        relative_path() {
+          (( ${#1} <= 300 )) || return 1
+          [[ "$1" =~ ^[A-Za-z0-9_.][A-Za-z0-9_./-]*$ ]] || return 1
+          [[ "/$1/" != *"/../"* ]] || return 1
+        }
+        case "$IN_COMMAND" in verify|review) ;; *) fail "command must be verify or review" ;; esac
+        case "$IN_PUBLISH" in none|comment|check) ;; *) fail "publish must be none, comment or check" ;; esac
+        case "$IN_PROVIDER" in ""|anthropic|openai) ;; *) fail "provider must be anthropic or openai" ;; esac
+        case "$IN_TRUST" in true|false) ;; *) fail "trust-workspace must be true or false" ;; esac
+        case "$IN_RUN_FORK_CODE" in true|false) ;; *) fail "run-fork-code must be true or false" ;; esac
+        relative_path "$IN_WORKING_DIRECTORY" || fail "working-directory must be a relative path inside the workspace"
+        [[ -z "$IN_TASK" ]] || relative_path "$IN_TASK" || fail "task must be a relative path without '..'"
+        [[ -z "$IN_ISSUE" || "$IN_ISSUE" =~ ^[1-9][0-9]{0,9}$ ]] || fail "issue must be an issue number"
+        [[ -z "$IN_PR" || "$IN_PR" =~ ^[1-9][0-9]{0,9}$ ]] || fail "pr must be a pull request number"
+        [[ -z "$IN_MODEL" || "$IN_MODEL" =~ ^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$ ]] || fail "model has characters a model id does not use"
+        for fingerprint in $(printf '%s' "$IN_ALLOW" | tr ',\r\n\t' '    '); do
+          [[ "$fingerprint" =~ ^[0-9a-f]{64}$ ]] || fail "allow must list fingerprints of 64 lowercase hexadecimal characters"
+        done
+        if [[ "$IN_COMMAND" == "verify" ]]; then
+          [[ -z "$IN_TASK$IN_ISSUE$IN_PR$IN_MODEL$IN_PROVIDER" ]] || fail "verify takes no task, issue, pr, model or provider"
+          [[ "$IN_PUBLISH" == "none" && "$IN_RUN_FORK_CODE" == "false" ]] || fail "publish and run-fork-code are review inputs"
+        else
+          [[ -n "$IN_PR" ]] || fail "review needs pr"
+          [[ -n "$IN_TASK" || -n "$IN_ISSUE" ]] || fail "review needs task or issue"
+          [[ -z "$IN_TASK" || -z "$IN_ISSUE" ]] || fail "review takes task or issue, not both"
+        fi
+        if [[ "$IN_RUN_FORK_CODE" == "true" ]]; then
+          echo "::warning title=DevFlow action::run-fork-code is set: the gates run the pull request's code in a job that holds the token and the model API key."
+        fi
+
+    - name: Set up pnpm
+      # pnpm/action-setup v6.1.1. The version is that of "packageManager" in DevFlow's package.json.
+      uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      with:
+        version: 10.34.1
+
+    - name: Set up Node.js
+      # actions/setup-node v7.1.0. No dependency cache: a cache shared with pull requests could
+      # be poisoned.
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      with:
+        node-version: "22"
+        package-manager-cache: false
+
+    - name: Build DevFlow from the pinned source
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "$GITHUB_ACTION_PATH"
+        pnpm install --frozen-lockfile
+        pnpm build
+
+    - name: Run DevFlow
+      id: run
+      shell: bash
+      env:
+        IN_COMMAND: ${{ inputs.command }}
+        IN_TASK: ${{ inputs.task }}
+        IN_ISSUE: ${{ inputs.issue }}
+        IN_PR: ${{ inputs.pr }}
+        IN_PUBLISH: ${{ inputs.publish }}
+        IN_MODEL: ${{ inputs.model }}
+        IN_PROVIDER: ${{ inputs.provider }}
+        IN_ALLOW: ${{ inputs.allow }}
+        IN_TRUST: ${{ inputs.trust-workspace }}
+        IN_RUN_FORK_CODE: ${{ inputs.run-fork-code }}
+        IN_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        IN_GITHUB_TOKEN: ${{ inputs.github-token }}
+        IN_ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        IN_OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+      run: |
+        set -euo pipefail
+        set -f
+        bin="$GITHUB_ACTION_PATH/packages/cli/dist/bin.js"
+        # Trust and approvals live in this job only, never in the runner's home directory.
+        export DEVFLOW_HOME="$RUNNER_TEMP/devflow-home"
+        cd "$GITHUB_WORKSPACE/$IN_WORKING_DIRECTORY"
+
+        # Credentials leave the IN_ variables; DevFlow receives them only for review.
+        github_token="$IN_GITHUB_TOKEN"
+        anthropic_api_key="$IN_ANTHROPIC_API_KEY"
+        openai_api_key="$IN_OPENAI_API_KEY"
+        unset IN_GITHUB_TOKEN IN_ANTHROPIC_API_KEY IN_OPENAI_API_KEY GITHUB_TOKEN GH_TOKEN ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN OPENAI_API_KEY
+
+        args=("$IN_COMMAND")
+        for fingerprint in $(printf '%s' "$IN_ALLOW" | tr ',\r\n\t' '    '); do
+          args+=("--allow" "$fingerprint")
+        done
+        if [[ "$IN_COMMAND" == "review" ]]; then
+          if [[ -n "$IN_TASK" ]]; then args+=("--task" "$IN_TASK"); else args+=("--issue" "$IN_ISSUE"); fi
+          args+=("--repo" "$GITHUB_REPOSITORY" "--pr" "$IN_PR")
+          [[ "$IN_PUBLISH" == "none" ]] || args+=("--publish=$IN_PUBLISH")
+          [[ "$IN_RUN_FORK_CODE" == "false" ]] || args+=("--run-fork-code")
+          [[ -z "$IN_MODEL" ]] || args+=("--model" "$IN_MODEL")
+          [[ -z "$IN_PROVIDER" ]] || args+=("--provider" "$IN_PROVIDER")
+        fi
+
+        # DevFlow prints text from the repository, the pull request and the model: the runner
+        # reads no workflow command (::...::) in it while DevFlow runs.
+        stop_token="$(node -e "process.stdout.write(require('node:crypto').randomBytes(16).toString('hex'))")"
+        echo "::stop-commands::$stop_token"
+        set +e
+        code=0
+        if [[ "$IN_TRUST" == "true" ]]; then
+          node "$bin" trust --yes
+          code=$?
+        fi
+        if [[ "$code" == "0" ]]; then
+          if [[ "$IN_COMMAND" == "review" ]]; then
+            [[ -z "$github_token" ]] || export GITHUB_TOKEN="$github_token"
+            [[ -z "$anthropic_api_key" ]] || export ANTHROPIC_API_KEY="$anthropic_api_key"
+            [[ -z "$openai_api_key" ]] || export OPENAI_API_KEY="$openai_api_key"
+          fi
+          node "$bin" "${args[@]}"
+          code=$?
+        fi
+        set -e
+        echo "::$stop_token::"
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        exit "$code"

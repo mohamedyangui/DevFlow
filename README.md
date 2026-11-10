@@ -43,7 +43,8 @@ planned, tested and verified change, and reports what was actually verified, wit
 | Test generation, implementation, review, `devflow run`                                                                    | Implemented      |
 | GitHub issues as tasks (`--issue`)                                                                                        | Implemented      |
 | GitHub pull request review (`review --pr`), opt-in publishing as a comment or check run                                   | Implemented      |
-| Draft pull requests, GitHub Action                                                                                        | Planned, Phase 5 |
+| GitHub Action: fork-safe `verify` workflow and gated AI review workflow (not yet run on GitHub)                           | Implemented      |
+| Draft pull requests                                                                                                       | Planned, Phase 5 |
 | OpenAPI and Protobuf compatibility, container sandbox                                                                     | Planned, Phase 6 |
 
 See the [roadmap](docs/roadmap.md) for details.
@@ -176,6 +177,17 @@ pull request from a fork is not run unless you pass `--run-fork-code`. `--publis
 needs `GITHUB_TOKEN`) posts the summary as a comment, or as a check run with
 `--publish check`; it never approves or merges.
 
+### Use in GitHub Actions
+
+`action.yml` builds DevFlow from the commit you pin it to and runs `verify` or
+`review --pr`. Two example workflows split the work securely: a fork-safe
+[verify workflow](docs/examples/github-actions/devflow-verify.yml) that runs the approved gates
+with a read-only token and no secrets, and an
+[AI review workflow](docs/examples/github-actions/devflow-review.yml) that holds the model key,
+runs no repository code, and starts only for labelled same-repository pull requests or by hand.
+See the [GitHub Action specification](docs/specs/github-action.md); the action has not yet
+been run on GitHub.
+
 ## Documentation
 
 - [Architecture overview](docs/architecture/overview.md)
@@ -186,7 +198,8 @@ needs `GITHUB_TOKEN`) posts the summary as a comment, or as a check run with
   [language adapters](docs/specs/language-adapter.md),
   [verification and evidence](docs/specs/verification-and-evidence.md),
   [context engine](docs/specs/context-engine.md),
-  [security model](docs/specs/security-model.md)
+  [security model](docs/specs/security-model.md),
+  [GitHub Action](docs/specs/github-action.md)
 - [Roadmap](docs/roadmap.md)
 - [Original architecture proposal](docs/design/architecture-proposal.md)
 

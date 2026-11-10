@@ -1,0 +1,70 @@
+# DevFlow review: the AI review workflow. Copy it to .github/workflows/ in your repository.
+#
+# It reviews a pull request with a model and publishes the summary as a comment. This job
+# holds secrets (the model API key) and a token that can write comments, so it is gated:
+# - a pull request from this repository (never a fork) that a maintainer opted in with the
+#   `devflow-review` label (only people with triage or write access can add labels);
+# - or a maintainer starts it by hand (`workflow_dispatch`, write access needed) with the
+#   pull request number. This is the way to review a pull request from a fork: the job then
+#   uses this repository's version of the workflow, and DevFlow does not run the fork's code.
+#
+# It never uses `pull_request_target`, and it runs no repository code: no dependency install,
+# no build, no gate (`trust-workspace` stays false). The fork-safe gates run in
+# devflow-verify.yml, which holds no secrets. Specification: docs/specs/github-action.md.
+name: DevFlow review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Number of the pull request to review
+        type: number
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devflow-review-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'devflow-review') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'devflow-review'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Needed to read the pull request and to publish the comment. With `publish: check`,
+      # use `checks: write` instead; with `publish: none`, `pull-requests: read`.
+      pull-requests: write
+    steps:
+      - name: Check out the pull request head
+        # actions/checkout v7.0.1. The full history, so that the base commit is present.
+        # The checked-out code is only read (diffed), never run.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', inputs.pr) || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Review the pull request
+        # Replace DEVFLOW_COMMIT_SHA with the full 40-character SHA of the DevFlow commit you
+        # reviewed. Never use a branch or tag: the action builds and runs that source.
+        uses: mohamedyangui/DevFlow@DEVFLOW_COMMIT_SHA
+        with:
+          command: review
+          pr: ${{ github.event.pull_request.number || inputs.pr }}
+          # The task the pull request is reviewed against (or `issue:` with an issue number).
+          task: .devflow/review-task.md
+          provider: anthropic
+          # A repository variable: DevFlow has no default model.
+          model: ${{ vars.DEVFLOW_MODEL }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          publish: comment

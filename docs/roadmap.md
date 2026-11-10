@@ -214,11 +214,16 @@ Implemented:
   is given. Opt-in publishing (`--publish comment|check`, and `devflow report <run>
 --publish`) of a redacted, neutralised summary as a comment or a check run. Tested with
   fixtures and a local repository; never run against the live API.
+- GitHub Action with a documented secure workflow split: a composite `action.yml` that builds
+  DevFlow from its pinned source and runs `verify` or `review --pr`, a fork-safe verify
+  workflow and a gated AI review workflow as examples
+  ([spec](specs/github-action.md)). The test suite checks their security properties
+  statically (pinned SHAs, no `pull_request_target`, no expressions in scripts, minimal
+  permissions, gating) and runs the input check; the action has not been run on GitHub.
 
 Planned:
 
 - Draft PR preparation with explicit authorization.
-- GitHub Action with a documented secure workflow split.
 
 ## Phase 6: Advanced features
 
