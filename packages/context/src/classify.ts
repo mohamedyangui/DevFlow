@@ -93,6 +93,13 @@ const CONFIGURATION_NAMES = new Set([
   "buf.yaml",
   "buf.gen.yaml",
   "buf.work.yaml",
+  "pyproject.toml",
+  "setup.cfg",
+  "setup.py",
+  "tox.ini",
+  "pytest.ini",
+  "mypy.ini",
+  "pipfile",
 ]);
 
 const TEST_PATTERNS: readonly RegExp[] = [
@@ -102,6 +109,7 @@ const TEST_PATTERNS: readonly RegExp[] = [
   /(Test|Tests|IT|Spec)\.(java|kt|groovy|scala)$/,
   /(^|\/)test_[^/]+\.py$/,
   /_test\.(go|py)$/,
+  /(^|\/)conftest\.py$/,
 ];
 
 const GENERATED_PATTERNS: readonly RegExp[] = [
@@ -111,6 +119,7 @@ const GENERATED_PATTERNS: readonly RegExp[] = [
   /_pb\.(js|d\.ts|ts)$/,
   /\.generated\.[a-z]+$/,
   /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/,
+  /(^|\/)(uv\.lock|poetry\.lock|Pipfile\.lock)$/,
 ];
 
 export function languageOf(relative: string): string | null {
@@ -138,6 +147,9 @@ export function roleOf(relative: string): FileRole {
   if (TEST_PATTERNS.some((pattern) => pattern.test(relative))) return "test";
   if (CONFIGURATION_NAMES.has(name) || /^tsconfig.*\.json$/.test(name)) return "configuration";
   if (relative === ".devflow/config.yaml" || name.startsWith(".")) return "configuration";
+  if (/^requirements.*\.txt$/.test(name) || /(^|\/)requirements\/[^/]+\.txt$/.test(relative)) {
+    return "configuration";
+  }
   if (language === "markdown" || language === "asciidoc" || language === "rst") {
     return "documentation";
   }

@@ -9,6 +9,8 @@ you can try DevFlow on.
 | [`java-gradle`](java-gradle)               | Java library built with Gradle 9.9 (Kotlin DSL) and JUnit 6, Gradle wrapper                   |
 | [`nodejs-express`](nodejs-express)         | Orders service with Express 5, tested with Vitest and Supertest                               |
 | [`fullstack-monorepo`](fullstack-monorepo) | A Maven backend and a TypeScript web client, with modules and gates in `.devflow/config.yaml` |
+| [`python-pytest`](python-pytest)           | Pricing package in a `src` layout, `pyproject.toml`, tested with pytest                       |
+| [`python-unittest`](python-unittest)       | Stock keeping with the standard library only: `unittest` tests, strict `mypy.ini`             |
 | [`tasks`](tasks)                           | Task contracts in YAML, Markdown and JSON                                                     |
 
 [`tasks/add-pagination.task.yaml`](tasks/add-pagination.task.yaml) (TASK-142) is written for
@@ -17,7 +19,8 @@ the `backend` module of `fullstack-monorepo`.
 ## Trying `devflow verify`
 
 From a copy of an example (Java 21 or newer on PATH; for the JavaScript examples, run
-`npm ci --ignore-scripts` first):
+`npm ci --ignore-scripts` first; for the Python examples, use an environment that already has
+pytest or mypy installed):
 
 ```bash
 devflow trust

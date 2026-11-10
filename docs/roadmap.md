@@ -237,6 +237,14 @@ Implemented:
   `docker run --network none`, resource limits, no capabilities and only the workspace
   mounted; the backend and image are part of the command fingerprint; images are never pulled;
   no fallback to the host.
+- Python adapter (`@devflow/adapter-python`): detects uv, Poetry, pip and plain projects,
+  Django, Flask and FastAPI, pytest and unittest, Ruff, flake8, mypy and Pyright; prefers the
+  project's `.venv` interpreter (bound to its `pyvenv.cfg` in the approval fingerprint), never
+  installs anything, and allows `python -m` only for pytest, unittest, mypy, ruff and flake8.
+  It reads pytest JUnit XML, unittest output, Ruff JSON, flake8 and mypy text. The unittest
+  and mypy outputs and the `python-unittest` example run for real with Python 3.10 and mypy
+  0.931; pytest was not installed, so the pytest JUnit fixture is written by hand and the
+  `python-pytest` example has not been run.
 
 - Contract compatibility verification: `@devflow/contracts`
   ([ADR 0021](adr/0021-contract-compatibility.md)) with in-house OpenAPI 3.x (YAML, JSON,
@@ -251,7 +259,7 @@ Implemented:
 
 Planned:
 
-- Cross-language change impact (consumers of a changed contract), external adapter plugins, Python adapter, observability export, evidence-seeking
+- Cross-language change impact (consumers of a changed contract), external adapter plugins, observability export, evidence-seeking
   review.
 
 ## Before the first publication

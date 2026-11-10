@@ -57,6 +57,21 @@ describe("discoverFiles", () => {
     expect(paths).toEqual([...paths].sort());
   });
 
+  it("never walks Python virtual environments, tox environments or bytecode caches", async () => {
+    const dir = await workspace({
+      "shop/orders.py": "def total(): return 1\n",
+      ".venv/Lib/site-packages/requests/api.py": "def get(): pass\n",
+      ".tox/py312/lib/site.py": "x = 1\n",
+      "shop/__pycache__/orders.py": "stale = True\n",
+    });
+    try {
+      const result = await discoverFiles(await PathGuard.create(dir), { maxFileBytes: 1000 });
+      expect(result.files.map((f) => f.path)).toEqual(["shop/orders.py"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("reports large and binary files, and applies include and exclude globs", async () => {
     const dir = await workspace({
       "a.ts": "x".repeat(2000),
@@ -121,6 +136,16 @@ describe("classification", () => {
     ["AGENTS.md", "instructions", "markdown"],
     [".devflow/rules/a.md", "instructions", "markdown"],
     ["LICENSE", "other", null],
+    ["src/shop/orders.py", "source", "python"],
+    ["tests/test_orders.py", "test", "python"],
+    ["shop/orders_test.py", "test", "python"],
+    ["conftest.py", "test", "python"],
+    ["pyproject.toml", "configuration", "toml"],
+    ["setup.py", "configuration", "python"],
+    ["requirements-dev.txt", "configuration", null],
+    ["requirements/base.txt", "configuration", null],
+    ["uv.lock", "generated", null],
+    ["shop/orders_pb2.py", "generated", "python"],
   ])("%s is %s (%s)", (file, role, language) => {
     expect(roleOf(file)).toBe(role);
     expect(languageOf(file)).toBe(language);

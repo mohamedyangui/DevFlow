@@ -174,6 +174,7 @@ export {
   CommandPolicy,
   hardDenyReason,
   isApprovedCommand,
+  PYTHON_ALLOWED_MODULES,
   substituteParameters,
   toolName,
   type ApprovalVia,

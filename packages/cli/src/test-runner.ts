@@ -1,5 +1,6 @@
 import { javaAdapter } from "@devflow/adapter-java";
 import { javascriptAdapter } from "@devflow/adapter-javascript";
+import { pythonAdapter } from "@devflow/adapter-python";
 import { WorkspaceRepository } from "@devflow/context";
 import {
   AdapterRegistry,
@@ -50,7 +51,7 @@ export function testRunnerFactory(
       maxFileBytes: config?.context.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES,
       exclude: config?.context.exclude ?? [],
     });
-    const registry = new AdapterRegistry([javaAdapter, javascriptAdapter]);
+    const registry = new AdapterRegistry([javaAdapter, javascriptAdapter, pythonAdapter]);
     const declared = config?.modules;
     const discovery = await registry.discover(repo, declared === undefined ? {} : { declared });
     const toolchain =

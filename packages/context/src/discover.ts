@@ -13,6 +13,11 @@ export const ALWAYS_EXCLUDED_DIRECTORIES: readonly string[] = [
   "build",
   "dist",
   ".devflow/runs",
+  // Python virtual environments, test environments and bytecode caches.
+  ".venv",
+  ".tox",
+  ".nox",
+  "__pycache__",
 ];
 
 /** File types that are never text, recognized without reading them. */

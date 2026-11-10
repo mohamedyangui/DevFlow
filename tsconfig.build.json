@@ -8,6 +8,7 @@
     { "path": "packages/ai/tsconfig.build.json" },
     { "path": "packages/adapter-java/tsconfig.build.json" },
     { "path": "packages/adapter-javascript/tsconfig.build.json" },
+    { "path": "packages/adapter-python/tsconfig.build.json" },
     { "path": "packages/github/tsconfig.build.json" },
     { "path": "packages/contracts/tsconfig.build.json" },
     { "path": "packages/workflow/tsconfig.build.json" },

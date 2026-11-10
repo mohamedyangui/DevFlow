@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { javaAdapter } from "@devflow/adapter-java";
 import { javascriptAdapter } from "@devflow/adapter-javascript";
+import { pythonAdapter } from "@devflow/adapter-python";
 import { ExitCode, runCli, type CliIo } from "@devflow/cli";
 import { WorkspaceRepository } from "@devflow/context";
 import {
@@ -22,10 +23,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { repoRoot } from "../repo/helpers.js";
 
 /**
- * The example repositories built for real: `devflow verify` runs their Maven, Gradle, npm and
- * TypeScript commands through the command policy and the executor, and reads the reports the
- * tools write. These builds download dependencies and take minutes, so they run only with
- * DEVFLOW_EXAMPLE_BUILDS=1 (`pnpm test:examples`).
+ * The example repositories built for real: `devflow verify` runs their Maven, Gradle, npm,
+ * TypeScript and Python commands through the command policy and the executor, and reads the
+ * reports the tools write. These builds download dependencies and take minutes, so they run only
+ * with DEVFLOW_EXAMPLE_BUILDS=1 (`pnpm test:examples`). The Python examples never install
+ * anything: they need pytest or mypy to be installed already and are skipped otherwise.
  */
 
 const isWindows = process.platform === "win32";
@@ -35,8 +37,10 @@ function available(command: string, args: string[]): boolean {
   return result.status === 0;
 }
 
+const examplesEnabled = process.env.DEVFLOW_EXAMPLE_BUILDS === "1";
+
 function skipReason(): string | undefined {
-  if (process.env.DEVFLOW_EXAMPLE_BUILDS !== "1") {
+  if (!examplesEnabled) {
     return "set DEVFLOW_EXAMPLE_BUILDS=1 to run the real builds";
   }
   if (!available("java", ["-version"])) return "Java is not on PATH";
@@ -49,20 +53,30 @@ const title = (name: string) => `${name}${reason === undefined ? "" : ` (skipped
 const BUILD_TIMEOUT = 20 * 60_000;
 
 /** Build outputs and installed packages are never copied from the source tree. */
-const NOT_COPIED = new Set(["node_modules", "target", "build", ".gradle", "runs"]);
+const NOT_COPIED = new Set([
+  "node_modules",
+  "target",
+  "build",
+  ".gradle",
+  "runs",
+  ".venv",
+  "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+]);
 
 let base: string;
 let home: string;
 
 beforeAll(async () => {
-  if (reason !== undefined) return;
+  if (!examplesEnabled) return;
   base = await realpath(await mkdtemp(path.join(tmpdir(), "devflow-examples-")));
   home = path.join(base, "home");
   await mkdir(home, { recursive: true });
 });
 
 afterAll(async () => {
-  if (reason !== undefined) return;
+  if (!examplesEnabled) return;
   await rm(base, { recursive: true, force: true, maxRetries: 3 });
 });
 
@@ -167,16 +181,30 @@ const testNames = (tests: readonly { id: string; status: string }[]) =>
  * the command policy approves it with its parameter, the executor runs it, and the adapter
  * reads the reports.
  */
-async function runFiltered(dir: string, moduleId: string, params: Record<string, string>) {
+function runFiltered(dir: string, moduleId: string, params: Record<string, string>) {
+  return runCommand(dir, moduleId, "test-filter", params);
+}
+
+/** Runs one command of a module's catalog (`<module>:<suffix>`) as a targeted run does. */
+async function runCommand(
+  dir: string,
+  moduleId: string,
+  suffix: string,
+  params: Record<string, string> = {},
+) {
   const guard = await PathGuard.create(dir);
   const repo = new WorkspaceRepository(guard, { maxFileBytes: 524_288, exclude: [] });
-  const discovery = await new AdapterRegistry([javaAdapter, javascriptAdapter]).discover(repo);
+  const discovery = await new AdapterRegistry([
+    javaAdapter,
+    javascriptAdapter,
+    pythonAdapter,
+  ]).discover(repo);
   const module = discovery.modules.find((found) => found.profile.moduleId === moduleId);
   if (module === undefined) throw new Error(`no module ${moduleId} in ${dir}`);
   const toolchain = new PathToolchainProbe({ env: env() });
   const catalog = await module.adapter.commandCatalog(module.profile, toolchain, repo);
-  const spec = catalog.find((command) => command.id === `${moduleId}:test-filter`);
-  if (spec === undefined) throw new Error(`no ${moduleId}:test-filter command`);
+  const spec = catalog.find((command) => command.id === `${moduleId}:${suffix}`);
+  if (spec === undefined) throw new Error(`no ${moduleId}:${suffix} command`);
   const trust = await TrustStore.open(defaultTrustStorePath(env()));
   const policy = (allowlist: string[]) =>
     new CommandPolicy({ guard, trust, configSha256: null, allowlist });
@@ -199,6 +227,7 @@ async function runFiltered(dir: string, moduleId: string, params: Record<string,
     argv: decision.command.args,
     status: decideGate(spec, executed.record, parsed).status,
     tests: parsed.tests,
+    diagnostics: parsed.diagnostics,
     output: `${executed.stdout}\n${executed.stderr}`,
   };
 }
@@ -346,3 +375,125 @@ describe.skipIf(reason !== undefined)(title("example builds"), () => {
     BUILD_TIMEOUT,
   );
 });
+
+/**
+ * The Python examples run with the interpreter DevFlow picks on PATH (`python` on Windows,
+ * `python3` elsewhere). Nothing is ever installed: when pytest or mypy is missing for that
+ * interpreter, the tests that need it are skipped and their title says why.
+ */
+const python = isWindows ? "python" : "python3";
+
+function pythonSkipReason(module?: string): string | undefined {
+  if (!examplesEnabled) return "set DEVFLOW_EXAMPLE_BUILDS=1 to run the real builds";
+  if (!available(python, ["--version"])) return `${python} is not on PATH`;
+  if (module !== undefined && !available(python, ["-m", module, "--version"])) {
+    return `${module} is not installed for ${python} (DevFlow never installs it)`;
+  }
+  return undefined;
+}
+
+const unittestReason = pythonSkipReason();
+const pytestReason = pythonSkipReason("pytest");
+const mypyReason = pythonSkipReason("mypy");
+const pythonTitle = (name: string, why: string | undefined) =>
+  `${name}${why === undefined ? "" : ` (skipped: ${why})`}`;
+
+describe.skipIf(unittestReason !== undefined)(
+  pythonTitle("python-unittest example", unittestReason),
+  () => {
+    it(
+      "python-unittest: a plain project, unittest discovery, a regression, a -k filter",
+      async () => {
+        const dir = await copyExample("python-unittest");
+        const allow = await approveAll(dir);
+
+        const green = await verify(dir, allow);
+        expect(green.modules).toEqual([{ id: "python", adapter: "python", root: "." }]);
+        expect(passed(green)).toEqual([["python-test", "passed", ""]]);
+        expect(testNames(green.gates[0]?.tests ?? [])).toEqual([
+          "tests.test_stock.TestStock#test_ac1_reserves_items_in_stock passed",
+          "tests.test_stock.TestStock#test_ac2_refuses_more_than_the_stock passed",
+          "tests.test_stock.TestStock#test_receiving_adds_to_the_level passed",
+          "tests.test_stock.TestStock#test_rejects_empty_deliveries passed",
+        ]);
+
+        const filtered = await runFiltered(dir, "python", { testPattern: "test_ac1" });
+        expect(filtered.status, filtered.output).toBe("passed");
+        expect(testNames(filtered.tests)).toEqual([
+          "tests.test_stock.TestStock#test_ac1_reserves_items_in_stock passed",
+        ]);
+
+        await edit(
+          path.join(dir, "inventory/stock.py"),
+          "if quantity > level:",
+          "if quantity > level + 1:",
+        );
+        const red = await verify(dir, [...allow, "--baseline", green.verification ?? ""]);
+        expect(red.outcome).toBe("failed");
+        expect(red.comparison?.regressions.map((r) => r.testId)).toEqual([
+          "tests.test_stock.TestStock#test_ac2_refuses_more_than_the_stock",
+        ]);
+      },
+      BUILD_TIMEOUT,
+    );
+
+    it.skipIf(mypyReason !== undefined)(
+      pythonTitle("python-unittest: mypy, clean and then with a type error", mypyReason),
+      async () => {
+        const dir = await copyExample("python-unittest");
+        expect((await cli(dir, ["trust", "--yes"])).code).toBe(ExitCode.Success);
+        const clean = await runCommand(dir, "python", "typecheck");
+        expect(clean.status, clean.output).toBe("passed");
+        expect(clean.diagnostics).toEqual([]);
+
+        await edit(
+          path.join(dir, "inventory/stock.py"),
+          "def level(self, sku: str) -> int:",
+          "def level(self, sku: str) -> str:",
+        );
+        const broken = await runCommand(dir, "python", "typecheck");
+        expect(broken.status, broken.output).toBe("failed");
+        expect(broken.diagnostics.map((d) => [d.tool, d.severity, d.location?.path])).toEqual([
+          ["mypy", "error", "inventory/stock.py"],
+        ]);
+      },
+      BUILD_TIMEOUT,
+    );
+  },
+);
+
+describe.skipIf(pytestReason !== undefined)(
+  pythonTitle("python-pytest example", pytestReason),
+  () => {
+    it(
+      "python-pytest: src layout, a JUnit XML report, a regression, a -k filter",
+      async () => {
+        const dir = await copyExample("python-pytest");
+        const allow = await approveAll(dir);
+
+        const green = await verify(dir, allow);
+        expect(passed(green)).toEqual([["python-test", "passed", ""]]);
+        expect(green.gates[0]?.tests).toHaveLength(5);
+        expect(testNames(green.gates[0]?.tests ?? [])).toContain(
+          "tests.test_discounts#test_ac1_rounds_half_up passed",
+        );
+
+        const filtered = await runFiltered(dir, "python", { testExpression: "test_ac1" });
+        expect(filtered.status, filtered.output).toBe("passed");
+        expect(filtered.tests).toHaveLength(2);
+
+        await edit(
+          path.join(dir, "src/pricing/discounts.py"),
+          "(cents * percent + 50) // 100",
+          "(cents * percent) // 100",
+        );
+        const red = await verify(dir, [...allow, "--baseline", green.verification ?? ""]);
+        expect(red.outcome).toBe("failed");
+        expect(red.comparison?.regressions.map((r) => r.testId)).toEqual([
+          "tests.test_discounts#test_ac1_rounds_half_up",
+        ]);
+      },
+      BUILD_TIMEOUT,
+    );
+  },
+);

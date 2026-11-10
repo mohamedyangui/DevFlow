@@ -32,10 +32,11 @@ function internalDependencies(pkg: PackageManifest): string[] {
 }
 
 describe("workspace layout", () => {
-  it("has the seven MVP packages, github (Phase 5) and contracts (Phase 6), each with declared boundaries", () => {
+  it("has the seven MVP packages, github (Phase 5) contracts and adapter-python (Phase 6), each with declared boundaries", () => {
     expect(directories).toEqual([
       "adapter-java",
       "adapter-javascript",
+      "adapter-python",
       "ai",
       "cli",
       "context",

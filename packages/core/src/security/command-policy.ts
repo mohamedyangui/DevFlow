@@ -209,11 +209,28 @@ const DENIED_EXECUTABLES: ReadonlyMap<string, string> = new Map<string, string>(
     ],
     "destructive file-system tools cannot be used as executables",
   ),
-  ...denyAll(["npx", "pnpx", "bunx"], "tools that download and run packages cannot be used"),
+  ...denyAll(
+    ["npx", "pnpx", "bunx", "pipx", "uvx", "easy_install"],
+    "tools that download and run packages cannot be used",
+  ),
   ["git", "git is only run by DevFlow's own fixed internal operations"],
 ]);
 
 const DENIED_EXTENSIONS = /\.(ps1|psm1|vbs|vbe|wsf|wsh|hta|lnk|scr|msi|reg|js|jse)$/i;
+
+const CONDA_DENIED = [
+  "install",
+  "create",
+  "update",
+  "upgrade",
+  "remove",
+  "uninstall",
+  "run",
+  "env",
+  "config",
+  "clean",
+  "init",
+];
 
 /** Subcommands of package managers that publish, install or run downloaded code. */
 const PACKAGE_MANAGER_DENIED: Readonly<Record<string, readonly string[]>> = {
@@ -329,6 +346,61 @@ const PACKAGE_MANAGER_DENIED: Readonly<Record<string, readonly string[]>> = {
     "upgrade",
     "pm",
   ],
+  pip: ["install", "download", "uninstall", "wheel", "config", "cache", "index", "lock"],
+  uv: [
+    "add",
+    "remove",
+    "sync",
+    "lock",
+    "run",
+    "tool",
+    "init",
+    "venv",
+    "python",
+    "self",
+    "publish",
+    "build",
+    "install",
+    "uninstall",
+    "compile",
+  ],
+  poetry: [
+    "add",
+    "remove",
+    "install",
+    "update",
+    "lock",
+    "sync",
+    "run",
+    "shell",
+    "publish",
+    "self",
+    "source",
+    "config",
+    "init",
+    "new",
+    "cache",
+  ],
+  pipenv: ["install", "uninstall", "update", "upgrade", "lock", "sync", "run", "shell", "clean"],
+  pdm: [
+    "add",
+    "remove",
+    "install",
+    "update",
+    "lock",
+    "sync",
+    "run",
+    "publish",
+    "self",
+    "init",
+    "use",
+    "config",
+    "venv",
+  ],
+  hatch: ["run", "env", "shell", "publish", "new", "self", "python"],
+  conda: CONDA_DENIED,
+  mamba: CONDA_DENIED,
+  micromamba: CONDA_DENIED,
 };
 
 const MAVEN_DENIED_GOALS = ["deploy", "site-deploy"];
@@ -359,24 +431,76 @@ const NODE_DENIED_OPTIONS = [
   "--inspect-wait",
 ];
 const SCRIPT_INTERPRETER_DENIED: Readonly<Record<string, readonly string[]>> = {
-  python: ["-c", "-m"],
-  python3: ["-c", "-m"],
-  py: ["-c", "-m"],
   perl: ["-e", "-E"],
   ruby: ["-e"],
 };
 
+/**
+ * Modules `python -m` may run: test runners, linters and type checkers. Everything else is
+ * refused, in particular `pip`, `ensurepip`, `venv` and `http.server`.
+ */
+export const PYTHON_ALLOWED_MODULES: readonly string[] = [
+  "pytest",
+  "unittest",
+  "mypy",
+  "ruff",
+  "flake8",
+];
+
 /** The executable's tool name: lower case, without directory and Windows extensions. */
 export function toolName(executable: string): string {
   const base = executable.startsWith("./") ? executable.slice(2) : executable;
-  return base.toLowerCase().replace(/\.(exe|com|cmd|bat)$/, "");
+  return base
+    .slice(base.lastIndexOf("/") + 1)
+    .toLowerCase()
+    .replace(/\.(exe|com|cmd|bat)$/, "");
+}
+
+/** `python3.12` and `pip3` count as `python` and `pip` for the deny list. */
+function canonicalTool(name: string): string {
+  return name.replace(/^(python|pip)[0-9][0-9.]*$/, "$1");
+}
+
+/**
+ * Why a Python interpreter command is refused: inline code (`-c`, also inside clustered flags
+ * such as `-Bc`), a program read from standard input (`-`), or `-m` with a module that is not
+ * a test runner, linter or type checker. Interpreter options are read up to the script or the
+ * module; the arguments after them belong to the script or module (`python -m pytest -m slow`
+ * selects pytest markers). The `py` launcher's version selectors (`-3`, `-3.12`, `-V:3.12`) are
+ * accepted.
+ */
+function pythonDenyReason(name: string, args: readonly string[]): string | undefined {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index] ?? "";
+    if (arg === "-") return `${name} -: reading a program from standard input is not allowed`;
+    if (arg === "--" || !arg.startsWith("-")) return undefined; // The script follows.
+    if (arg.startsWith("--")) {
+      if (arg === "--check-hash-based-pycs") index += 1;
+      continue;
+    }
+    if (name === "py" && /^-(?:[0-9][0-9.]*(?:-(?:32|64))?|V:.+)$/.test(arg)) continue;
+    for (let at = 1; at < arg.length; at += 1) {
+      const option = arg[at];
+      if (option === "c") return `${name} -c: inline code is not allowed`;
+      if (option === "m") {
+        const module = at + 1 < arg.length ? arg.slice(at + 1) : args[index + 1];
+        if (module !== undefined && PYTHON_ALLOWED_MODULES.includes(module)) return undefined;
+        return `${name} -m${module === undefined ? "" : ` ${module}`}: only these modules may be run: ${PYTHON_ALLOWED_MODULES.join(", ")}`;
+      }
+      if (option === "W" || option === "X") {
+        if (at === arg.length - 1) index += 1; // The value is the next argument.
+        break;
+      }
+    }
+  }
+  return undefined;
 }
 
 /** Returns why a command is on the hard deny list, or undefined. */
 export function hardDenyReason(executable: string, args: readonly string[]): string | undefined {
   if (DENIED_EXTENSIONS.test(executable))
     return "script types run by other interpreters are not allowed";
-  const name = toolName(executable);
+  const name = canonicalTool(toolName(executable));
   const denied = DENIED_EXECUTABLES.get(name);
   if (denied !== undefined) return `${name}: ${denied}`;
 
@@ -414,6 +538,9 @@ export function hardDenyReason(executable: string, args: readonly string[]): str
       if (NODE_DENIED_OPTIONS.includes(option))
         return `node ${option}: inline code and debuggers are not allowed`;
     }
+  }
+  if (name === "python" || name === "pythonw" || name === "py") {
+    return pythonDenyReason(name, args);
   }
   const interpreter = SCRIPT_INTERPRETER_DENIED[name];
   if (interpreter !== undefined) {
@@ -682,9 +809,13 @@ export class CommandPolicy {
 
 /**
  * Files whose content an approval of wrapper `name` covers: the wrapper itself, its Windows or
- * POSIX sibling (the executor may run either), and the wrapper JARs and properties.
+ * POSIX sibling (the executor may run either), and the wrapper JARs and properties. For a
+ * virtual environment interpreter: the interpreter and `pyvenv.cfg`, which names the Python
+ * installation the interpreter starts.
  */
 function companionFiles(name: string): string[] {
+  const venv = /^(\.?venv)\/(?:bin|Scripts)\//.exec(name);
+  if (venv !== null) return [name, `${venv[1] ?? ".venv"}/pyvenv.cfg`];
   const stem = name.replace(/\.(cmd|bat)$/i, "");
   const files = [name, stem, `${stem}.cmd`, `${stem}.bat`];
   if (/^gradlew$/i.test(stem)) {

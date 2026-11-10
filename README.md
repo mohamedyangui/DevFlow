@@ -22,7 +22,7 @@ planned, tested and verified change, and reports what was actually verified, wit
   run only in workspaces you have explicitly trusted.
 - **Humans stay in control.** Plans need approval, changes land on a local branch, and DevFlow
   never pushes or merges on its own.
-- **One tool for Java and JavaScript/TypeScript**, including mixed monorepos.
+- **One tool for Java, JavaScript/TypeScript and Python**, including mixed monorepos.
 
 ## What exists today
 
@@ -38,6 +38,7 @@ planned, tested and verified change, and reports what was actually verified, wit
 | LLM gateway with redaction, budgets, costs, retries and validated JSON answers; Anthropic, OpenAI, Fake and Replay        | Implemented |
 | Assist workflow: `devflow init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report` | Implemented |
 | Java and JS/TS adapters, verification engine, `devflow verify`                                                            | Implemented |
+| Python adapter: uv, Poetry, pip, pytest, unittest, Ruff, flake8, mypy (pytest not yet run for real)                       | Implemented |
 | Source parser: tree-sitter outlines and imports for Java, TypeScript and JavaScript                                       | Implemented |
 | Example repositories with real Maven, Gradle and npm builds (`pnpm test:examples`)                                        | Implemented |
 | Test generation, implementation, review, `devflow run`                                                                    | Implemented |
@@ -225,6 +226,7 @@ packages/
   ai/                   @devflow/ai                  LLM gateway and model providers
   adapter-java/         @devflow/adapter-java        Maven, Gradle, Spring Boot, JUnit
   adapter-javascript/   @devflow/adapter-javascript  npm, pnpm, Yarn, Vitest, Jest, ESLint
+  adapter-python/       @devflow/adapter-python      uv, Poetry, pip, pytest, unittest, Ruff, mypy
   workflow/             @devflow/workflow            workflow engine, run store, reports
   github/               @devflow/github              GitHub REST client, issues as tasks
   cli/                  @devflow/cli                 the devflow command

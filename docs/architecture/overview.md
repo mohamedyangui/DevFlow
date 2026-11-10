@@ -12,9 +12,9 @@ and acceptance criteria, gathers the relevant context from a repository, plans, 
 and code with a language model, verifies the result with the project's own build and test
 tools, and produces a report in which every status is backed by evidence.
 
-It is language-agnostic. Language knowledge lives in adapters; the first two cover Java
-(Maven, Gradle, Spring Boot, JUnit) and JavaScript/TypeScript (npm, pnpm, yarn, Jest, Vitest,
-ESLint, tsc).
+It is language-agnostic. Language knowledge lives in adapters, which cover Java
+(Maven, Gradle, Spring Boot, JUnit), JavaScript/TypeScript (npm, pnpm, yarn, Jest, Vitest,
+ESLint, tsc) and Python (uv, Poetry, pip, pytest, unittest, Ruff, flake8, mypy).
 
 ## 2. Guiding principle: the AI proposes, deterministic code decides
 
@@ -39,6 +39,7 @@ flowchart LR
   cli["@devflow/cli"] --> workflow["@devflow/workflow"]
   cli --> java["@devflow/adapter-java"]
   cli --> js["@devflow/adapter-javascript"]
+  cli --> py["@devflow/adapter-python"]
   workflow --> context["@devflow/context"]
   workflow --> ai["@devflow/ai"]
   workflow --> contracts["@devflow/contracts"]
@@ -48,6 +49,7 @@ flowchart LR
   ai --> core
   java --> core
   js --> core
+  py --> core
   cli --> core
 ```
 
@@ -58,6 +60,7 @@ flowchart LR
 | `@devflow/ai`                 | Model gateway; Anthropic, OpenAI, Fake and Replay providers; costs                      | Implemented                                                                    |
 | `@devflow/adapter-java`       | Maven, Gradle, Spring Boot, JUnit, Mockito, Checkstyle, SpotBugs                        | Implemented, run against real Maven and Gradle builds                          |
 | `@devflow/adapter-javascript` | npm, pnpm, Yarn, Bun, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc        | Implemented, run against real npm, Vitest and tsc runs                         |
+| `@devflow/adapter-python`     | uv, Poetry, pip, Django, Flask, FastAPI, pytest, unittest, Ruff, flake8, mypy, Pyright  | Implemented; unittest and mypy run for real, pytest not yet                    |
 | `@devflow/workflow`           | State machine, steps, run store, reports, SDK entry point                               | Assist, test, implement and review modes implemented                           |
 | `@devflow/github`             | GitHub REST client, issues as task sources, pull requests, publishing (Phase 5)         | Issues, pull requests and publishing implemented, tested with fixtures         |
 | `@devflow/contracts`          | OpenAPI and Protobuf parsers, breaking-change rules, oasdiff and buf (Phase 6)          | Built-in rules implemented; tool output tested with recorded fixtures only     |

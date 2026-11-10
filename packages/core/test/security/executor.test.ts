@@ -395,6 +395,37 @@ describe.runIf(process.platform === "win32")("Executor on Windows (ADR 0014)", (
   });
 });
 
+describe("virtual environment interpreters", () => {
+  it("start a venv's python.exe directly on Windows, without cmd.exe (resolution only)", async () => {
+    await mkdir(path.join(root, "py-project", ".venv", "Scripts"), { recursive: true });
+    await writeFile(path.join(root, "py-project", ".venv", "Scripts", "python.exe"), "");
+    await writeFile(path.join(root, "py-project", ".venv", "pyvenv.cfg"), "home = C:\\Py\n");
+    const command = await approve(
+      spec({
+        id: "py:test",
+        executable: "./.venv/Scripts/python.exe",
+        args: ["-m", "pytest", "-q"],
+        cwd: "py-project",
+      }),
+    );
+    const invocation = await resolveInvocation(command, {
+      platform: "win32",
+      env: { PATH: "", SystemRoot: "C:\\Windows" },
+      nodePath: process.execPath,
+    });
+    expect(invocation).toEqual({
+      strategy: "direct",
+      file: command.executable.kind === "wrapper" ? command.executable.absolute : "",
+      args: ["-m", "pytest", "-q"],
+      windowsVerbatimArguments: false,
+    });
+    expect(command.bindings.map((binding) => binding.path).sort()).toEqual([
+      "py-project/.venv/Scripts/python.exe",
+      "py-project/.venv/pyvenv.cfg",
+    ]);
+  });
+});
+
 describe("decodeTail", () => {
   it("drops a multi-byte character cut in half at the start", () => {
     const bytes = Buffer.from("éa", "utf8");
