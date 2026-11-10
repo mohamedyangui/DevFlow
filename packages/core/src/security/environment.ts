@@ -44,7 +44,7 @@ export const CHILD_ENV_ALLOWLIST: readonly string[] = [
 
 /**
  * Variables a command may never set, because they change which program runs or inject code
- * into it (preloads, interpreter options, package-manager script shells).
+ * into it (preloads, interpreter options, package-manager script shells, the Docker daemon).
  */
 export function isReservedEnvName(name: string): boolean {
   const upper = name.toUpperCase();
@@ -72,6 +72,8 @@ export function isReservedEnvName(name: string): boolean {
     upper.startsWith("LD_") ||
     upper.startsWith("DYLD_") ||
     upper.startsWith("GIT_") ||
+    // Which Docker daemon the container backend talks to, and with what configuration.
+    upper.startsWith("DOCKER_") ||
     upper.startsWith("NPM_CONFIG_") ||
     upper.startsWith("YARN_") ||
     upper.startsWith("PNPM_")

@@ -230,6 +230,14 @@ Implemented:
 
 ## Phase 6: Advanced features
 
+Implemented:
+
+- Container execution backend ([ADR 0020](adr/0020-container-execution-backend.md)):
+  `--backend container` or `execution.backend: container` runs gate commands with
+  `docker run --network none`, resource limits, no capabilities and only the workspace
+  mounted; the backend and image are part of the command fingerprint; images are never pulled;
+  no fallback to the host.
+
 Protobuf and OpenAPI compatibility verification (`buf`, `oasdiff`, built-in rules), cross-
 language change impact, container execution backend, external adapter plugins, Python adapter,
 observability export, evidence-seeking review.

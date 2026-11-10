@@ -341,6 +341,92 @@
         }
       },
       "additionalProperties": false
+    },
+    "execution": {
+      "default": {
+        "backend": "local",
+        "container": {
+          "moduleImages": {},
+          "cpus": 2,
+          "memory": "4g",
+          "pidsLimit": 1024,
+          "network": "none",
+          "readOnlyRootFilesystem": true
+        }
+      },
+      "type": "object",
+      "properties": {
+        "backend": {
+          "default": "local",
+          "description": "Where gate commands run. The --backend flag of the user's invocation takes precedence.",
+          "type": "string",
+          "enum": [
+            "local",
+            "container"
+          ]
+        },
+        "container": {
+          "default": {
+            "moduleImages": {},
+            "cpus": 2,
+            "memory": "4g",
+            "pidsLimit": 1024,
+            "network": "none",
+            "readOnlyRootFilesystem": true
+          },
+          "type": "object",
+          "properties": {
+            "image": {
+              "description": "Image every command runs in. Pin it by digest (@sha256:...) so an approval binds its content.",
+              "type": "string",
+              "maxLength": 255,
+              "pattern": "^[a-z0-9][a-z0-9._-]*(?::[0-9]{1,5})?(?:\\/[a-z0-9][a-z0-9._-]*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[0-9a-f]{64})?$"
+            },
+            "moduleImages": {
+              "default": {},
+              "description": "Per-module image overrides, by module id.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 255,
+                "pattern": "^[a-z0-9][a-z0-9._-]*(?::[0-9]{1,5})?(?:\\/[a-z0-9][a-z0-9._-]*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[0-9a-f]{64})?$"
+              }
+            },
+            "cpus": {
+              "default": 2,
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 64
+            },
+            "memory": {
+              "default": "4g",
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,5}[mg]$"
+            },
+            "pidsLimit": {
+              "default": 1024,
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 32768
+            },
+            "network": {
+              "default": "none",
+              "type": "string",
+              "const": "none"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

@@ -5,6 +5,12 @@ import { isDevflowError } from "../errors.js";
 import { CommandArgument, CommandSpec } from "../schemas/command.js";
 import type { AuditLog } from "./audit-log.js";
 import { isReservedEnvName } from "./environment.js";
+import {
+  LOCAL_EXECUTION,
+  executionTarget,
+  type ExecutionSettings,
+  type ExecutionTarget,
+} from "./execution-backend.js";
 import { fingerprintCommand, type CommandBinding } from "./fingerprint.js";
 import type { GuardedPath, PathGuard } from "./path-guard.js";
 import type { TrustStore } from "./trust-store.js";
@@ -18,7 +24,8 @@ import type { TrustStore } from "./trust-store.js";
  * 2. the hard deny list, which nothing can override;
  * 3. workspace trust for the current configuration;
  * 4. command approval by fingerprint: the trust store, an explicit CI allowlist, or an
- *    interactive approval.
+ *    interactive approval. The fingerprint includes the execution backend and image
+ *    (ADR 0020), and the approved command carries the target it was approved for.
  *
  * Only an allowed decision produces an {@link ApprovedCommand}, and the executor runs nothing
  * else. A denial carries a reason; the caller reports the gate as `not_executed` with it.
@@ -43,6 +50,8 @@ export interface CommandApprovalRequest {
   readonly cwd: string;
   readonly bindings: readonly CommandBinding[];
   readonly fingerprint: string;
+  /** Where the command would run: on the host, or in a container (and which image). */
+  readonly target: ExecutionTarget;
 }
 
 export type CommandApprovalAnswer = "approve-once" | "approve-always" | "reject";
@@ -60,6 +69,8 @@ export interface CommandPolicyOptions {
   /** Fingerprints pre-approved for this invocation with an explicit CI flag. */
   readonly allowlist?: readonly string[];
   readonly audit?: AuditLog;
+  /** The execution backend of this invocation (ADR 0020). Defaults to `local`. */
+  readonly execution?: ExecutionSettings;
 }
 
 export interface CommandRequest {
@@ -68,6 +79,8 @@ export interface CommandRequest {
   readonly params?: Readonly<Record<string, string>>;
   /** Content the command runs that DevFlow cannot see from the spec (e.g. a script body). */
   readonly bindings?: readonly CommandBinding[];
+  /** The module the command belongs to, for a per-module container image. */
+  readonly module?: string;
 }
 
 export type CommandExecutable =
@@ -85,6 +98,8 @@ export interface ApprovedCommand {
   readonly fingerprint: string;
   readonly bindings: readonly CommandBinding[];
   readonly approval: { readonly via: ApprovalVia; readonly approvedBy?: string };
+  /** Where the command was approved to run; the executor runs it there and nowhere else. */
+  readonly target: ExecutionTarget;
 }
 
 export type PolicyDecision =
@@ -468,7 +483,8 @@ export class CommandPolicy {
       return this.deny(spec, "executable-rejected", script, substituted);
 
     const bindings = [...executable.bindings, ...script, ...(request.bindings ?? [])];
-    const fingerprint = fingerprintCommand(spec, bindings);
+    const target = executionTarget(this.options.execution ?? LOCAL_EXECUTION, request.module);
+    const fingerprint = fingerprintCommand(spec, bindings, target);
     const argv = [spec.executable, ...substituted];
 
     const { trust, configSha256 } = this.options;
@@ -496,6 +512,7 @@ export class CommandPolicy {
         cwd: spec.cwd,
         bindings,
         fingerprint,
+        target,
       });
       await this.options.audit?.append({
         type: "decision",
@@ -517,7 +534,10 @@ export class CommandPolicy {
         await trust.approveCommand(root, configSha256, {
           fingerprint,
           commandId: spec.id,
-          summary: argv.join(" "),
+          summary:
+            target.backend === "local"
+              ? argv.join(" ")
+              : `${argv.join(" ")} (container ${target.image})`,
           approvedBy: by,
         });
       }
@@ -542,6 +562,7 @@ export class CommandPolicy {
       fingerprint,
       bindings,
       approval,
+      target,
     });
     approved.add(command);
     return { allowed: true, command };

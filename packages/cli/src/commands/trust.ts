@@ -23,7 +23,7 @@ export interface TrustOptions {
 /** What remains true even for a trusted workspace (ADR 0007), shown before every decision. */
 export const RESIDUAL_RISKS: readonly string[] = [
   "A trusted build runs arbitrary code with your privileges. DevFlow makes execution explicit, approved, time-bounded and scrubbed of secrets from the environment; it cannot make a malicious build safe.",
-  "There is no network or file-system isolation in local mode. A build can read files outside the workspace (for example ~/.ssh) and reach the network.",
+  "There is no network or file-system isolation in local mode. A build can read files outside the workspace (for example ~/.ssh) and reach the network. The container backend (--backend container) narrows this, but a container can still change the workspace.",
   "Trust is a point-in-time decision. New commits can change test code and dependencies without changing .devflow/config.yaml; command fingerprints only catch changed scripts and wrappers.",
   "DevFlow never installs dependencies, but installs you ran earlier may already have run lifecycle scripts.",
 ];
@@ -298,6 +298,16 @@ function renderReview(review: Review, c: Colors): string[] {
     }
     const extra = settings.security.additionalProtectedPaths;
     if (extra.length > 0) out.push(`  Extra protected paths: ${extra.join(", ")}`);
+    const { backend, container } = settings.execution;
+    const images = [
+      ...(container.image === undefined ? [] : [container.image]),
+      ...Object.entries(container.moduleImages).map(([module, image]) => `${image} (${module})`),
+    ];
+    if (backend === "container" || images.length > 0) {
+      out.push(
+        `  Execution: ${backend}${images.length > 0 ? `; container images: ${images.join(", ")}` : ""}`,
+      );
+    }
   }
 
   out.push(

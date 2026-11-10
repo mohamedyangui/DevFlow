@@ -24,6 +24,48 @@ const ModelPrice = z.strictObject({
   cacheWriteUsdPerMTok: UsdPerMTok.optional(),
 });
 
+/**
+ * A container image reference: `name[:tag][@sha256:digest]`, optionally with a registry host.
+ * It starts with a letter or digit, so it can never be read as a `docker` option.
+ */
+export const ContainerImage = z
+  .string()
+  .max(255)
+  .regex(
+    /^[a-z0-9][a-z0-9._-]*(?::[0-9]{1,5})?(?:\/[a-z0-9][a-z0-9._-]*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[0-9a-f]{64})?$/,
+    "expected an image reference such as node:22-alpine or eclipse-temurin:21@sha256:<digest>",
+  );
+
+/** Container settings (ADR 0020). There is deliberately no way to give a container a network. */
+export const ContainerSettings = z.strictObject({
+  image: ContainerImage.optional().meta({
+    description:
+      "Image every command runs in. Pin it by digest (@sha256:...) so an approval binds its content.",
+  }),
+  moduleImages: z
+    .record(ModuleId, ContainerImage)
+    .default({})
+    .meta({ description: "Per-module image overrides, by module id." }),
+  cpus: z.number().min(0.1).max(64).default(2),
+  memory: z
+    .string()
+    .regex(/^[1-9][0-9]{0,5}[mg]$/, 'expected a size such as "512m" or "4g"')
+    .default("4g"),
+  pidsLimit: z.int().min(16).max(32_768).default(1024),
+  network: z.literal("none").default("none"),
+  readOnlyRootFilesystem: z.boolean().default(true),
+});
+export type ContainerSettings = z.infer<typeof ContainerSettings>;
+
+const CONTAINER_DEFAULTS = {
+  moduleImages: {},
+  cpus: 2,
+  memory: "4g",
+  pidsLimit: 1024,
+  network: "none",
+  readOnlyRootFilesystem: true,
+} as const;
+
 export const ProjectConfig = z
   .strictObject({
     $schema: z.string().optional(),
@@ -127,8 +169,24 @@ export const ProjectConfig = z
           .meta({ description: "Extra paths DevFlow must never modify. Can only add restrictions." }),
       })
       .default({ additionalProtectedPaths: [] }),
+    execution: z
+      .strictObject({
+        backend: z.enum(["local", "container"]).default("local").meta({
+          description:
+            "Where gate commands run. The --backend flag of the user's invocation takes precedence.",
+        }),
+        container: ContainerSettings.default(CONTAINER_DEFAULTS),
+      })
+      .default({ backend: "local", container: CONTAINER_DEFAULTS }),
   })
   .superRefine((config, ctx) => {
+    if (config.execution.backend === "container" && config.execution.container.image === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["execution", "container", "image"],
+        message: "the container backend needs an image (execution.container.image)",
+      });
+    }
     const ids = new Set<string>();
     config.verification.gates.forEach((gate, index) => {
       if (ids.has(gate.id)) {

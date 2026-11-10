@@ -7,6 +7,7 @@ import {
   AdapterRegistry,
   AuditLog,
   CommandPolicy,
+  ContainerToolchainProbe,
   DevflowError,
   ErrorCode,
   Executor,
@@ -17,10 +18,12 @@ import {
   defaultGates,
   defaultTrustStorePath,
   isDevflowError,
+  resolveExecutionSettings,
   runGates,
   verificationOutcome,
   type CommandApprovalAnswer,
   type CommandApprovalRequest,
+  type ExecutionBackendKind,
   type GateDefinition,
   type GateDenial,
   type GateResult,
@@ -40,6 +43,8 @@ export interface VerifyOptions {
   readonly allow: readonly string[];
   /** A `verification.json` of an earlier verification to compare with. */
   readonly baseline?: string | undefined;
+  /** `--backend`: where the commands run; it takes precedence over `execution.backend`. */
+  readonly backend?: ExecutionBackendKind | undefined;
   readonly json: boolean;
 }
 
@@ -77,6 +82,7 @@ async function verify(options: VerifyOptions, io: CliIo): Promise<ExitCode> {
   const trust = await TrustStore.open(defaultTrustStorePath(io.env));
 
   const { config, guard } = workspace;
+  const execution = resolveExecutionSettings({ flag: options.backend, config: config?.execution });
   const repo = new WorkspaceRepository(guard, {
     maxFileBytes: config?.context.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES,
     exclude: config?.context.exclude ?? [],
@@ -84,7 +90,10 @@ async function verify(options: VerifyOptions, io: CliIo): Promise<ExitCode> {
   const registry = new AdapterRegistry([javaAdapter, javascriptAdapter]);
   const declared = config?.modules;
   const discovery = await registry.discover(repo, declared === undefined ? {} : { declared });
-  const toolchain = new PathToolchainProbe({ env: io.env });
+  const toolchain =
+    execution.backend === "container"
+      ? new ContainerToolchainProbe()
+      : new PathToolchainProbe({ env: io.env });
   const notices = [...workspace.warnings, ...discovery.warnings];
 
   const configured = config?.verification.gates ?? [];
@@ -148,8 +157,10 @@ async function verify(options: VerifyOptions, io: CliIo): Promise<ExitCode> {
     approvedBy: currentUser(io.env),
     allowlist: options.allow,
     audit,
+    execution,
     ...(interactive ? { approver: (request) => askApproval(request, io) } : {}),
   });
+  // The executor runs each command where its approval says: on the host or in a container.
   const executor = new Executor({ guard, redactor: workspace.redactor, audit, env: io.env });
 
   if (!options.json) {
@@ -205,6 +216,9 @@ async function verify(options: VerifyOptions, io: CliIo): Promise<ExitCode> {
   } else {
     const c = colorsFor(io.stdout, io.env);
     const lines = renderRun(workspace.root, discovery.modules, run, c);
+    if (execution.backend === "container") {
+      lines.splice(2, 0, `${c.bold("Backend:")}   container ${execution.image} (no network)`);
+    }
     if (comparison !== undefined && options.baseline !== undefined) {
       lines.push("", ...renderComparison(options.baseline, comparison, c));
     }
@@ -264,8 +278,16 @@ export async function askApproval(
       (binding) =>
         `  Executes:    ${binding.path} (${binding.kind}${binding.kind === "file" ? `, sha256 ${binding.sha256.slice(0, 12)}...` : ""})`,
     ),
-    `  Fingerprint: ${request.fingerprint}`,
-    "  It runs with your privileges and can read your files and reach the network.",
+    ...(request.target.backend === "container"
+      ? [
+          `  Container:   ${request.target.image} (no network, ${String(request.target.cpus)} CPUs, ${request.target.memory} memory)`,
+          `  Fingerprint: ${request.fingerprint}`,
+          "  It runs in a container without network access, but it can read and change the workspace.",
+        ]
+      : [
+          `  Fingerprint: ${request.fingerprint}`,
+          "  It runs with your privileges and can read your files and reach the network.",
+        ]),
     "",
   ];
   io.stderr.write(lines.join("\n"));

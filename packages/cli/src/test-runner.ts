@@ -4,12 +4,14 @@ import { WorkspaceRepository } from "@devflow/context";
 import {
   AdapterRegistry,
   CommandPolicy,
+  ContainerToolchainProbe,
   Executor,
   PathToolchainProbe,
   TrustStore,
   defaultGates,
   defaultTrustStorePath,
   runGates,
+  type ExecutionSettings,
   type GateDefinition,
 } from "@devflow/core";
 import type { TestRunner } from "@devflow/workflow";
@@ -23,6 +25,8 @@ const DEFAULT_MAX_FILE_BYTES = 524_288;
 export interface TestRunnerOptions {
   /** Command fingerprints approved for this invocation (`--allow`). */
   readonly allow: readonly string[];
+  /** Where gate commands run (ADR 0020), resolved from `--backend` and the configuration. */
+  readonly execution: ExecutionSettings;
   /** Ask on the terminal before running a command that is not approved yet. */
   readonly interactive: boolean;
   /** Reports each gate as it starts. */
@@ -49,7 +53,10 @@ export function testRunnerFactory(
     const registry = new AdapterRegistry([javaAdapter, javascriptAdapter]);
     const declared = config?.modules;
     const discovery = await registry.discover(repo, declared === undefined ? {} : { declared });
-    const toolchain = new PathToolchainProbe({ env: io.env });
+    const toolchain =
+      options.execution.backend === "container"
+        ? new ContainerToolchainProbe()
+        : new PathToolchainProbe({ env: io.env });
     return {
       modules: discovery.modules,
       gates: async (): Promise<readonly GateDefinition[]> => {
@@ -67,6 +74,7 @@ export function testRunnerFactory(
           approvedBy: currentUser(io.env),
           allowlist: options.allow,
           audit: context.audit,
+          execution: options.execution,
           ...(options.interactive && io.prompt !== undefined
             ? { approver: (request) => askApproval(request, io) }
             : {}),

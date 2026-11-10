@@ -45,7 +45,8 @@ planned, tested and verified change, and reports what was actually verified, wit
 | GitHub pull request review (`review --pr`), opt-in publishing as a comment or check run                                   | Implemented      |
 | GitHub Action: fork-safe `verify` workflow and gated AI review workflow (not yet run on GitHub)                           | Implemented      |
 | Draft pull requests from an implement run, with explicit authorization (`pr create --yes`)                                | Implemented      |
-| OpenAPI and Protobuf compatibility, container sandbox                                                                     | Planned, Phase 6 |
+| Container execution backend (`--backend container`: Docker, no network, resource limits)                                  | Implemented      |
+| OpenAPI and Protobuf compatibility                                                                                        | Planned, Phase 6 |
 
 See the [roadmap](docs/roadmap.md) for details.
 

@@ -187,7 +187,7 @@ export async function runGate(
     }
   }
 
-  const decision = await options.policy.evaluate({ spec: command });
+  const decision = await options.policy.evaluate({ spec: command, module: gate.module });
   if (!decision.allowed) {
     return notExecuted(command.id, `denied by the command policy: ${decision.message}`, {
       gateId: gate.id,

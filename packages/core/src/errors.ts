@@ -29,6 +29,10 @@ export const ErrorCode = {
   CommandArgumentRejected: "COMMAND_ARGUMENT_REJECTED",
   /** The operating system could not start the process. */
   ProcessStartFailed: "PROCESS_START_FAILED",
+  /** The container backend cannot run: Docker is not on PATH or its daemon does not answer. */
+  ContainerRuntimeUnavailable: "CONTAINER_RUNTIME_UNAVAILABLE",
+  /** The container backend has no image configured, or the image is not present locally. */
+  ContainerImageUnavailable: "CONTAINER_IMAGE_UNAVAILABLE",
   /** A repository file cannot be read for analysis (sensitive, binary, too large, missing). */
   RepositoryFileUnreadable: "REPOSITORY_FILE_UNREADABLE",
   /** A model call would exceed the run's token budget or the step's call budget. */
