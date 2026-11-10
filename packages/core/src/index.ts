@@ -95,7 +95,12 @@ export {
   UsageSummary,
   Verdict,
 } from "./schemas/report.js";
-export { ProjectConfig, type ProjectConfigInput } from "./schemas/config.js";
+export {
+  ContainerImage,
+  ContainerSettings,
+  ProjectConfig,
+  type ProjectConfigInput,
+} from "./schemas/config.js";
 export {
   TERMINAL_STATES,
   WorkflowMode,
@@ -203,10 +208,37 @@ export {
   DEFAULT_MAX_OUTPUT_BYTES,
   Executor,
   decodeTail,
+  type ContainerRuntimeOptions,
   type ExecuteOptions,
   type ExecutionResult,
   type ExecutorOptions,
 } from "./security/executor.js";
+export {
+  CONTAINER_ENV_ALLOWLIST,
+  CONTAINER_WORKSPACE,
+  DOCKER_CLIENT_ENV,
+  EXECUTION_BACKENDS,
+  LOCAL_EXECUTION,
+  containerEnvNames,
+  containerName,
+  containerWorkdir,
+  dockerClientEnvironment,
+  dockerImageInspectArgs,
+  dockerKillArgs,
+  dockerMountSource,
+  dockerRunArgs,
+  dockerStartFailure,
+  executionTarget,
+  imageInspectOutcome,
+  resolveExecutionSettings,
+  type ContainerExecutionSettings,
+  type ContainerTarget,
+  type DockerRunInput,
+  type ExecutionBackendKind,
+  type ExecutionSettings,
+  type ExecutionTarget,
+} from "./security/execution-backend.js";
+export type { LaunchOptions, LaunchResult, Launcher } from "./security/executor.js";
 
 // Project configuration
 export {
@@ -312,7 +344,11 @@ export {
   type ModuleDiscovery,
   type WorkspaceModule,
 } from "./adapters/registry.js";
-export { PathToolchainProbe, StaticToolchainProbe } from "./security/toolchain-probe.js";
+export {
+  ContainerToolchainProbe,
+  PathToolchainProbe,
+  StaticToolchainProbe,
+} from "./security/toolchain-probe.js";
 export {
   GitClient,
   cutPatch,

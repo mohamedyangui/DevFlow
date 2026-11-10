@@ -3,6 +3,7 @@ import { createProvider } from "@devflow/ai";
 import {
   DevflowError,
   ErrorCode,
+  type ExecutionBackendKind,
   GitClient,
   PathGuard,
   type ProjectConfig,
@@ -14,6 +15,7 @@ import {
   isDevflowError,
   type LlmProvider,
   loadProjectConfig,
+  resolveExecutionSettings,
 } from "@devflow/core";
 import type { ProgressEvent, WorkflowServices } from "@devflow/workflow";
 import type { CliIo, Interruption } from "./io.js";
@@ -85,6 +87,8 @@ export interface ServiceOptions {
   readonly interruption?: Interruption | undefined;
   /** Command fingerprints approved for this invocation (`--allow`), for test mode. */
   readonly allow?: readonly string[] | undefined;
+  /** `--backend`: where gate commands run; it takes precedence over `execution.backend`. */
+  readonly backend?: ExecutionBackendKind | undefined;
   /** Ask on the terminal before running a command that is not approved yet. */
   readonly interactiveApproval?: boolean | undefined;
   /** Reports each verification gate as it starts. */
@@ -123,6 +127,11 @@ export function workflowServices(
     provider,
     testRunner: testRunnerFactory(workspace, io, {
       allow: options.allow ?? [],
+      // Resolved now, so a container backend without an image fails before a run starts.
+      execution: resolveExecutionSettings({
+        flag: options.backend,
+        config: workspace.config?.execution,
+      }),
       interactive: options.interactiveApproval === true,
       onGate: options.onGate,
     }),

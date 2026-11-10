@@ -16,7 +16,15 @@ export interface LaunchOptions {
   readonly maxOutputBytes: number;
   readonly signal?: AbortSignal;
   readonly platform: NodeJS.Platform;
+  /**
+   * Called once when the process tree is killed (timeout or cancellation), before it is killed.
+   * The container backend uses it to kill the container, which is not a child of the process.
+   */
+  readonly onKill?: () => void;
 }
+
+/** Starts a process; {@link launchProcess}, or a fake in tests. */
+export type Launcher = (options: LaunchOptions) => Promise<LaunchResult>;
 
 export interface LaunchResult {
   readonly startedAt: Date;
@@ -92,7 +100,16 @@ export function launchProcess(options: LaunchOptions): Promise<LaunchResult> {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
+    let killNotified = false;
     const killTree = (): void => {
+      if (!killNotified) {
+        killNotified = true;
+        try {
+          options.onKill?.();
+        } catch {
+          // The process tree is killed whatever the callback does.
+        }
+      }
       const pid = child.pid;
       if (pid === undefined) return;
       if (options.platform === "win32") {

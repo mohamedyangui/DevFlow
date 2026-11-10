@@ -103,7 +103,10 @@ interface Captured {
   readonly questions: readonly string[];
 }
 
-async function run(args: string[], options: { answers?: string[] } = {}): Promise<Captured> {
+async function run(
+  args: string[],
+  options: { answers?: string[]; env?: Record<string, string | undefined> } = {},
+): Promise<Captured> {
   let stdout = "";
   let stderr = "";
   const questions: string[] = [];
@@ -118,6 +121,7 @@ async function run(args: string[], options: { answers?: string[] } = {}): Promis
       DEVFLOW_USER: "tester",
       NO_COLOR: "1",
       FORCE_COLOR: undefined,
+      ...options.env,
     },
     ...(answers === undefined
       ? {}
@@ -344,6 +348,41 @@ describe("devflow verify", () => {
     expect(missing.code).toBe(ExitCode.UsageError);
     expect(missing.stderr).toContain("the baseline missing.json cannot be read");
     await expect(readdir(path.join(workspace, ".devflow", "runs"))).rejects.toThrow();
+  });
+
+  it("runs in a container only with an image and its own approval, and never falls back to the host", async () => {
+    const noImage = await run(["verify", "--backend", "container"]);
+    expect(noImage.code).toBe(ExitCode.UsageError);
+    expect(noImage.stderr).toContain("[CONTAINER_IMAGE_UNAVAILABLE]");
+    const unknown = await run(["verify", "--backend", "vm"]);
+    expect(unknown.code).toBe(ExitCode.UsageError);
+
+    await write(
+      ".devflow/config.yaml",
+      "version: 1\nexecution:\n  container:\n    image: node:22-alpine\n",
+    );
+    await trust();
+    const local = await fingerprint();
+    const { result: denied } = await verifyJson(["--backend", "container"]);
+    const container = denied.denials[0]?.fingerprint;
+    expect(denied.denials[0]?.reason).toBe("approval-required");
+    expect(container).toMatch(/^[0-9a-f]{64}$/);
+    expect(container).not.toBe(local);
+
+    // The local approval does not let the command run in a container, nor the reverse.
+    const crossed = await verifyJson(["--backend", "container", "--allow", local]);
+    expect(crossed.result.denials[0]?.reason).toBe("approval-required");
+
+    // Approved for the container, but Docker cannot be found: not executed, never run locally.
+    const noDocker = await run(
+      ["verify", "--json", "--backend", "container", "--allow", container ?? ""],
+      { env: { PATH: path.join(base, "empty-path"), Path: undefined } },
+    );
+    const result = JSON.parse(noDocker.stdout) as VerifyJson;
+    expect(noDocker.code).toBe(ExitCode.Failure);
+    expect(result.gates[0]).toMatchObject({ status: "not_executed" });
+    expect(result.gates[0]?.reason).toContain("Docker was not found on PATH");
+    expect(result.gates[0]?.execution).toBeUndefined();
   });
 
   it("has nothing to verify in an empty workspace", async () => {

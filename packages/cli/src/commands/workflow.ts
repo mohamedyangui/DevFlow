@@ -1,6 +1,12 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { DevflowError, ErrorCode, type WorkflowMode, isDevflowError } from "@devflow/core";
+import {
+  DevflowError,
+  ErrorCode,
+  type ExecutionBackendKind,
+  type WorkflowMode,
+  isDevflowError,
+} from "@devflow/core";
 import {
   type ProgressEvent,
   type RunBudgets,
@@ -47,6 +53,8 @@ export interface ModelOptions {
   readonly maxCallsPerStep?: number | undefined;
   /** Command fingerprints approved for this invocation (`--allow`), for test and implement mode. */
   readonly allow?: readonly string[] | undefined;
+  /** Where gate commands run (`--backend`); the project configuration's choice otherwise. */
+  readonly backend?: ExecutionBackendKind | undefined;
   readonly json: boolean;
 }
 
@@ -250,6 +258,7 @@ export async function approveCommand(
     testsSha?: string | undefined;
     changesSha?: string | undefined;
     allow?: readonly string[] | undefined;
+    backend?: ExecutionBackendKind | undefined;
     json: boolean;
   },
   io: CliIo,
@@ -261,7 +270,11 @@ export async function approveCommand(
     const services = workflowServices(
       workspace,
       io,
-      serviceOptions(io, { json: options.json, allow: options.allow }, interruption),
+      serviceOptions(
+        io,
+        { json: options.json, allow: options.allow, backend: options.backend },
+        interruption,
+      ),
     );
     const kind = record.pending?.kind;
     const given = [
@@ -562,13 +575,14 @@ function exitCodeFor(outcome: RunOutcome): ExitCode {
 
 function serviceOptions(
   io: CliIo,
-  options: Pick<ModelOptions, "cassette" | "allow" | "json">,
+  options: Pick<ModelOptions, "cassette" | "allow" | "backend" | "json">,
   interruption: Interruption | undefined,
 ): ServiceOptions {
   return {
     cassette: options.cassette,
     interruption,
     allow: options.allow ?? [],
+    backend: options.backend,
     // Commands are approved on the terminal only when the output is for a person.
     interactiveApproval: !options.json,
     ...(options.json

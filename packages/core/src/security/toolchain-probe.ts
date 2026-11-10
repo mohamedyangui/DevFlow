@@ -43,6 +43,20 @@ export class PathToolchainProbe implements ToolchainProbe {
   }
 }
 
+/**
+ * The probe of the container backend (ADR 0020): tools come from the image, which DevFlow
+ * cannot inspect without running it, so every valid tool name is reported as available and
+ * the platform is Linux. A tool the image lacks makes the container fail to start, and the
+ * gate is reported as not executed, never as passed.
+ */
+export class ContainerToolchainProbe implements ToolchainProbe {
+  readonly platform: NodeJS.Platform = "linux";
+
+  probe(tool: string): Promise<ToolAvailability> {
+    return Promise.resolve({ available: TOOL_NAME.test(tool) });
+  }
+}
+
 /** A probe with a fixed answer per tool, for tests and dry runs. */
 export class StaticToolchainProbe implements ToolchainProbe {
   readonly platform: NodeJS.Platform;

@@ -145,7 +145,8 @@ Trusted. Each command is still approved separately the first time it runs.
 ### `devflow verify`
 
 ```text
-devflow verify [--gate <id>]... [--allow <fingerprint>]... [--baseline <verification.json>] [--json]
+devflow verify [--gate <id>]... [--allow <fingerprint>]... [--baseline <verification.json>]
+               [--backend local|container] [--json]
 ```
 
 Runs the verification gates of the workspace
@@ -166,6 +167,16 @@ root.
   Without a terminal, and with `--json`, it never asks. The gate is then not executed, and the
   output shows the command and the fingerprint. After reviewing the command, pass the
   fingerprint with `--allow <fingerprint>` (repeatable) to approve it for one invocation.
+- **`--backend local|container`** chooses where the commands run
+  ([ADR 0020](../adr/0020-container-execution-backend.md)); it takes precedence over
+  `execution.backend` of the configuration, whose default is `local`. `container` runs each
+  command with `docker run --network none` and the limits of `execution.container`, in the
+  configured image, which must already be present locally (DevFlow never pulls). Without an
+  image it is a usage error (`CONTAINER_IMAGE_UNAVAILABLE`); without Docker, or with an image
+  that is missing, the gates are `not_executed` with the reason. There is never a fallback to
+  the host. A container command has its own fingerprint (it includes the image), so a local
+  approval does not cover it. The same flag exists on `test`, `implement`, `run`, `review`,
+  `approve` and `resume`; it applies to that invocation only.
 - **Statuses.** A gate is `passed` only when its command ran, exited 0, and its results were
   read and contain no failure. It is `failed` for a non-zero exit code, failed tests or error
   diagnostics. It is `unverified` for a timeout, results that cannot be read, tests without a
@@ -250,15 +261,15 @@ hexadecimal characters).
 devflow init [--json]
 devflow analyze <task source> [model options]
 devflow plan    <task source> [model options]
-devflow test    <task source> [model options] [--allow <fingerprint> ...]
-devflow implement <task source> [model options] [--allow <fingerprint> ...]
-devflow run     <task source> [model options] [--allow <fingerprint> ...]
+devflow test    <task source> [model options] [--allow <fingerprint> ...] [--backend local|container]
+devflow implement <task source> [model options] [--allow <fingerprint> ...] [--backend local|container]
+devflow run     <task source> [model options] [--allow <fingerprint> ...] [--backend local|container]
 devflow review  <task source> [--base <ref> | --pr <ref> [--publish [comment|check]]
-                [--run-fork-code]] [model options] [--allow <fingerprint> ...]
-devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256> | --changes-sha <sha256>] [--allow <fingerprint> ...] [--json]
+                [--run-fork-code]] [model options] [--allow <fingerprint> ...] [--backend local|container]
+devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256> | --changes-sha <sha256>] [--allow <fingerprint> ...] [--backend local|container] [--json]
 devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
 devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
-devflow resume  <run> [model options] [--allow <fingerprint> ...]
+devflow resume  <run> [model options] [--allow <fingerprint> ...] [--backend local|container]
 devflow cancel  <run> [--reason <text>] [--json]
 devflow status  [run] [--json]
 devflow report  <run> [--json] [--publish [comment|check]]

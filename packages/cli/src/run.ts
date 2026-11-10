@@ -1,3 +1,4 @@
+import type { ExecutionBackendKind } from "@devflow/core";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { initCommand } from "./commands/init.js";
 import { prCreateCommand } from "./commands/pr.js";
@@ -99,14 +100,22 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
       [],
     )
     .option("--baseline <file>", "compare with the verification.json of an earlier run")
+    .addOption(backendOption())
     .option("--json", "print a machine-readable result")
     .action(
-      async (options: { gate: string[]; allow: string[]; baseline?: string; json?: boolean }) => {
+      async (options: {
+        gate: string[];
+        allow: string[];
+        baseline?: string;
+        backend?: ExecutionBackendKind;
+        json?: boolean;
+      }) => {
         exitCode = await verifyCommand(
           {
             gates: options.gate,
             allow: options.allow,
             baseline: options.baseline,
+            backend: options.backend,
             json: options.json === true,
           },
           io,
@@ -167,7 +176,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
             ),
         ),
       ),
-    ).action(async (options: RawModelOptions & RawTaskSource & { allow: string[] }) => {
+    ).action(async (options: RawModelOptions & RawTaskSource & RawAllow) => {
       exitCode = await startCommand(
         "implement",
         {
@@ -175,6 +184,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           ...taskSource(options),
           mode: "implement",
           allow: options.allow,
+          backend: options.backend,
         },
         io,
       );
@@ -191,10 +201,16 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           ),
       ),
     ),
-  ).action(async (options: RawModelOptions & RawTaskSource & { allow: string[] }) => {
+  ).action(async (options: RawModelOptions & RawTaskSource & RawAllow) => {
     exitCode = await startCommand(
       "test",
-      { ...modelOptions(options), ...taskSource(options), mode: "test", allow: options.allow },
+      {
+        ...modelOptions(options),
+        ...taskSource(options),
+        mode: "test",
+        allow: options.allow,
+        backend: options.backend,
+      },
       io,
     );
   });
@@ -238,6 +254,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           publish?: "comment" | "check";
           runForkCode?: boolean;
           allow: string[];
+          backend?: ExecutionBackendKind;
         },
     ) => {
       exitCode = await startCommand(
@@ -247,6 +264,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           ...taskSource(options),
           mode: "review",
           allow: options.allow,
+          backend: options.backend,
           ...(options.base === undefined ? {} : { base: options.base }),
           ...(options.pr === undefined ? {} : { pr: options.pr }),
           ...(options.publish === undefined ? {} : { publish: options.publish }),
@@ -274,6 +292,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         testsSha?: string;
         changesSha?: string;
         allow: string[];
+        backend?: ExecutionBackendKind;
         json?: boolean;
       },
     ) => {
@@ -284,6 +303,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           testsSha: options.testsSha,
           changesSha: options.changesSha,
           allow: options.allow,
+          backend: options.backend,
           json: options.json === true,
         },
         io,
@@ -346,8 +366,12 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         )
         .argument("<run>", "run id"),
     ),
-  ).action(async (run: string, options: RawModelOptions & { allow: string[] }) => {
-    exitCode = await resumeCommand(run, { ...modelOptions(options), allow: options.allow }, io);
+  ).action(async (run: string, options: RawModelOptions & RawAllow) => {
+    exitCode = await resumeCommand(
+      run,
+      { ...modelOptions(options), allow: options.allow, backend: options.backend },
+      io,
+    );
   });
 
   program
@@ -490,13 +514,29 @@ function taskSource(options: RawTaskSource): { task?: string; issue?: string; re
   };
 }
 
+interface RawAllow {
+  allow: string[];
+  backend?: ExecutionBackendKind;
+}
+
+/** `--allow` and `--backend`, for the commands that can run gates. */
 function withAllowOption(command: Command): Command {
-  return command.option(
-    "--allow <fingerprint>",
-    "approve the command with this fingerprint for this invocation, after reviewing it (repeatable)",
-    fingerprints,
-    [],
-  );
+  return command
+    .option(
+      "--allow <fingerprint>",
+      "approve the command with this fingerprint for this invocation, after reviewing it (repeatable)",
+      fingerprints,
+      [],
+    )
+    .addOption(backendOption());
+}
+
+/** `--backend local|container`: where gate commands run (ADR 0020). */
+function backendOption(): Option {
+  return new Option(
+    "--backend <backend>",
+    "where gate commands run: local, or container (Docker, no network); default: execution.backend of the configuration, else local",
+  ).choices(["local", "container"]);
 }
 
 function modelOptions(options: RawModelOptions): ModelOptions {

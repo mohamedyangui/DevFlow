@@ -136,13 +136,16 @@ export type CommandSpec = z.infer<typeof CommandSpec>;
 
 /**
  * How the executor actually launched a command. Recorded for auditability, especially on
- * Windows where `.cmd`/`.bat` wrappers need a dedicated strategy (ADR 0014).
+ * Windows where `.cmd`/`.bat` wrappers need a dedicated strategy (ADR 0014). `container` is
+ * the container backend: `docker run` with the command as the container's entry point
+ * (ADR 0020).
  */
 export const InvocationStrategy = z.enum([
   "direct",
   "node-script",
   "java-launcher",
   "windows-batch",
+  "container",
 ]);
 export type InvocationStrategy = z.infer<typeof InvocationStrategy>;
 
@@ -164,5 +167,12 @@ export const ExecutionRecord = z.strictObject({
   stdoutPath: RepoPath,
   stderrPath: RepoPath,
   outputTruncated: z.boolean(),
+  /** Present when the command ran in a container: the image as configured, and its id. */
+  container: z
+    .strictObject({
+      image: z.string().min(1).max(255),
+      imageId: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+    })
+    .optional(),
 });
 export type ExecutionRecord = z.infer<typeof ExecutionRecord>;
