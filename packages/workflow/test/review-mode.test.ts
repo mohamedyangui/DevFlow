@@ -126,6 +126,9 @@ class DiffGit implements GitWorkspace {
       patchTruncated: false,
     });
   }
+  remoteUrl(): Promise<string | null> {
+    return Promise.resolve(null);
+  }
 }
 
 function testResult(

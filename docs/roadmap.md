@@ -199,8 +199,21 @@ Planned:
 
 ## Phase 5: GitHub integration
 
-Issue source, PR review, opt-in publishing of comments and check runs, draft PR preparation
-with explicit authorization, GitHub Action with a documented secure workflow split.
+Implemented:
+
+- `@devflow/github`: a REST client on Node's `fetch` (no redirects, timeouts, size limits,
+  schema-validated answers, the token redacted and sent only to the API;
+  [ADR 0019](adr/0019-github-rest-client.md)).
+- Issues as task sources: `--issue <ref>` (with `--repo`, or the `origin` remote) on
+  `analyze`, `plan`, `test`, `implement`, `run` and `review`. The body is parsed like a
+  Markdown task file and marked `external`. Tested with API fixtures through an injected
+  `fetch`; not yet run against the live API by the test suite.
+
+Planned:
+
+- PR review (`devflow review --pr`) and opt-in publishing of comments and check runs.
+- Draft PR preparation with explicit authorization.
+- GitHub Action with a documented secure workflow split.
 
 ## Phase 6: Advanced features
 

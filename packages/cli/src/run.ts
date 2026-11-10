@@ -123,29 +123,30 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
 
   for (const goal of ["analyze", "plan"] as const) {
     withModelOptions(
-      program
-        .command(goal)
-        .description(
-          goal === "analyze"
-            ? "analyse a task's requirements against the repository (assist mode)"
-            : "analyse a task and write an implementation plan for review (assist mode)",
-        )
-        .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)")
-        .addOption(
-          new Option(
-            "--mode <mode>",
-            "workflow mode (devflow test, implement and review run the other modes)",
+      withTaskSource(
+        program
+          .command(goal)
+          .description(
+            goal === "analyze"
+              ? "analyse a task's requirements against the repository (assist mode)"
+              : "analyse a task and write an implementation plan for review (assist mode)",
           )
-            .choices(["assist"])
-            .default("assist"),
-        ),
-    ).action(async (options: RawModelOptions & { task: string; mode: string }) => {
+          .addOption(
+            new Option(
+              "--mode <mode>",
+              "workflow mode (devflow test, implement and review run the other modes)",
+            )
+              .choices(["assist"])
+              .default("assist"),
+          ),
+      ),
+    ).action(async (options: RawModelOptions & RawTaskSource & { mode: string }) => {
       exitCode = await startCommand(
         goal,
         {
           ...modelOptions(options),
-          task: options.task,
-          mode: options.mode as "assist" | "review",
+          ...taskSource(options),
+          mode: options.mode as "assist",
         },
         io,
       );
@@ -155,19 +156,25 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
   for (const name of ["implement", "run"] as const) {
     withAllowOption(
       withModelOptions(
-        program
-          .command(name)
-          .description(
-            name === "implement"
-              ? "implement a task test-first: tests, red run, code change, green run and repairs (implement mode)"
-              : "run the full workflow for a task (the same as devflow implement)",
-          )
-          .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)"),
+        withTaskSource(
+          program
+            .command(name)
+            .description(
+              name === "implement"
+                ? "implement a task test-first: tests, red run, code change, green run and repairs (implement mode)"
+                : "run the full workflow for a task (the same as devflow implement)",
+            ),
+        ),
       ),
-    ).action(async (options: RawModelOptions & { task: string; allow: string[] }) => {
+    ).action(async (options: RawModelOptions & RawTaskSource & { allow: string[] }) => {
       exitCode = await startCommand(
         "implement",
-        { ...modelOptions(options), task: options.task, mode: "implement", allow: options.allow },
+        {
+          ...modelOptions(options),
+          ...taskSource(options),
+          mode: "implement",
+          allow: options.allow,
+        },
         io,
       );
     });
@@ -175,47 +182,50 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
 
   withAllowOption(
     withModelOptions(
-      program
-        .command("test")
-        .description(
-          "write tests for a task's acceptance criteria and run them against the current code (test mode)",
-        )
-        .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)"),
+      withTaskSource(
+        program
+          .command("test")
+          .description(
+            "write tests for a task's acceptance criteria and run them against the current code (test mode)",
+          ),
+      ),
     ),
-  ).action(async (options: RawModelOptions & { task: string; allow: string[] }) => {
+  ).action(async (options: RawModelOptions & RawTaskSource & { allow: string[] }) => {
     exitCode = await startCommand(
       "test",
-      { ...modelOptions(options), task: options.task, mode: "test", allow: options.allow },
+      { ...modelOptions(options), ...taskSource(options), mode: "test", allow: options.allow },
       io,
     );
   });
 
   withAllowOption(
     withModelOptions(
-      program
-        .command("review")
-        .description(
-          "review the local change (working tree against a base) for a task: gates, deterministic checks and an AI review (review mode)",
-        )
-        .requiredOption("-t, --task <file>", "task file (YAML, JSON or Markdown)")
-        .option(
-          "--base <ref>",
-          "compare with the merge base of this branch or commit and HEAD (default: HEAD)",
-        ),
+      withTaskSource(
+        program
+          .command("review")
+          .description(
+            "review the local change (working tree against a base) for a task: gates, deterministic checks and an AI review (review mode)",
+          ),
+      ).option(
+        "--base <ref>",
+        "compare with the merge base of this branch or commit and HEAD (default: HEAD)",
+      ),
     ),
-  ).action(async (options: RawModelOptions & { task: string; base?: string; allow: string[] }) => {
-    exitCode = await startCommand(
-      "review",
-      {
-        ...modelOptions(options),
-        task: options.task,
-        mode: "review",
-        allow: options.allow,
-        ...(options.base === undefined ? {} : { base: options.base }),
-      },
-      io,
-    );
-  });
+  ).action(
+    async (options: RawModelOptions & RawTaskSource & { base?: string; allow: string[] }) => {
+      exitCode = await startCommand(
+        "review",
+        {
+          ...modelOptions(options),
+          ...taskSource(options),
+          mode: "review",
+          allow: options.allow,
+          ...(options.base === undefined ? {} : { base: options.base }),
+        },
+        io,
+      );
+    },
+  );
 
   withAllowOption(
     program
@@ -374,6 +384,31 @@ function withModelOptions(command: Command): Command {
     .option("--max-output-tokens <n>", "output token budget of the run", positiveInteger)
     .option("--max-calls-per-step <n>", "model call budget of each step", positiveInteger)
     .option("--json", "print a machine-readable result");
+}
+
+interface RawTaskSource {
+  task?: string;
+  issue?: string;
+  repo?: string;
+}
+
+/** `--task <file>` or `--issue <ref>` (with `--repo`): exactly one is required. */
+function withTaskSource(command: Command): Command {
+  return command
+    .option("-t, --task <file>", "task file (YAML, JSON or Markdown)")
+    .option(
+      "--issue <ref>",
+      "GitHub issue as the task: a number, owner/name#number or the issue URL (external text)",
+    )
+    .option("--repo <owner/name>", "GitHub repository of --issue (default: the origin remote)");
+}
+
+function taskSource(options: RawTaskSource): { task?: string; issue?: string; repo?: string } {
+  return {
+    ...(options.task === undefined ? {} : { task: options.task }),
+    ...(options.issue === undefined ? {} : { issue: options.issue }),
+    ...(options.repo === undefined ? {} : { repo: options.repo }),
+  };
 }
 
 function withAllowOption(command: Command): Command {

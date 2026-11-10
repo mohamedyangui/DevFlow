@@ -57,11 +57,13 @@ flowchart LR
 | `@devflow/adapter-java`       | Maven, Gradle, Spring Boot, JUnit, Mockito, Checkstyle, SpotBugs                        | Implemented, run against real Maven and Gradle builds                          |
 | `@devflow/adapter-javascript` | npm, pnpm, Yarn, Bun, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc        | Implemented, run against real npm, Vitest and tsc runs                         |
 | `@devflow/workflow`           | State machine, steps, run store, reports, SDK entry point                               | Assist, test, implement and review modes implemented                           |
+| `@devflow/github`             | GitHub REST client, issues as task sources (Phase 5)                                    | Issue source implemented, tested with fixtures                                 |
 | `@devflow/cli`                | The `devflow` binary, composition root                                                  | `init`, `task validate`, `trust`, `verify`, the workflow commands and `review` |
 
 Boundaries are declared once in the root `package.json` and enforced by ESLint, repository
 tests and TypeScript project references ([ADR 0003](../adr/0003-package-boundaries.md)).
-`@devflow/github` (Phase 5) and `@devflow/contracts` (Phase 6) will be added later.
+`@devflow/github` depends on `@devflow/core` only ([ADR 0019](../adr/0019-github-rest-client.md)).
+`@devflow/contracts` (Phase 6) will be added later.
 
 ## 4. Public interfaces in `@devflow/core`
 

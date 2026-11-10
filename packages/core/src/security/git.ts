@@ -88,6 +88,8 @@ export interface GitWorkspace {
   mergeBase(ref: string): Promise<string>;
   /** The changes of the working tree (staged, unstaged and untracked) since `base`. */
   diff(base: string, options?: { readonly maxPatchBytes?: number }): Promise<GitDiff>;
+  /** The configured URL of a remote (`origin` by default), or null when it has none. */
+  remoteUrl(name?: string): Promise<string | null>;
 }
 
 export interface GitClientOptions {
@@ -106,6 +108,7 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 const COMMIT_ID = /^[a-f0-9]{40}([a-f0-9]{24})?$/;
 const BRANCH_ATTEMPTS = 99;
+const REMOTE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
 interface GitResult {
   readonly exitCode: number | null;
@@ -172,6 +175,19 @@ export class GitClient implements GitWorkspace {
     if (result.exitCode === 1) return null;
     if (result.exitCode !== 0) throw this.failure("symbolic-ref", result);
     return result.stdout.trim();
+  }
+
+  async remoteUrl(name = "origin"): Promise<string | null> {
+    if (!REMOTE.test(name)) {
+      throw new DevflowError(ErrorCode.GitFailed, `"${name}" is not a git remote name`, {
+        details: { remote: name },
+      });
+    }
+    const result = await this.git(["config", "--get", `remote.${name}.url`]);
+    if (result.exitCode === 1) return null;
+    if (result.exitCode !== 0) throw this.failure("config", result);
+    const url = result.stdout.trim();
+    return url === "" ? null : url;
   }
 
   async freeBranchName(base: string): Promise<string> {

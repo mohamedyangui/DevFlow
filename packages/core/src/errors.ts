@@ -87,6 +87,14 @@ export const ErrorCode = {
   ReviewNoChanges: "REVIEW_NO_CHANGES",
   /** The configured git isolation is not implemented (`workflow.git.isolation: worktree`). */
   GitIsolationUnsupported: "GIT_ISOLATION_UNSUPPORTED",
+  /** Neither or both of a task file and an issue were given. */
+  TaskSourceInvalid: "TASK_SOURCE_INVALID",
+  /** A GitHub API request failed: network, HTTP status or an answer DevFlow cannot use. */
+  GitHubRequestFailed: "GITHUB_REQUEST_FAILED",
+  /** The GitHub repository is not a valid `owner/name` or cannot be found from the git remote. */
+  GitHubRepositoryUnknown: "GITHUB_REPOSITORY_UNKNOWN",
+  /** A GitHub issue cannot be a task: a bad reference, a pull request, or a body too long. */
+  GitHubIssueInvalid: "GITHUB_ISSUE_INVALID",
   /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */
   AdapterInvalid: "ADAPTER_INVALID",
   /** A language adapter returned data that does not match the core schemas. */

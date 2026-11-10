@@ -28,6 +28,7 @@
     "@devflow/ai": "workspace:*",
     "@devflow/context": "workspace:*",
     "@devflow/core": "workspace:*",
+    "@devflow/github": "workspace:*",
     "@devflow/workflow": "workspace:*",
     "commander": "^15.0.0",
     "picocolors": "^1.1.1",

@@ -232,6 +232,13 @@ runtime so that the file itself never contains a token-shaped literal. Redaction
 audit trail, reports and, in Phase 5, PR comments. API keys are read from environment variables
 only, never from repository files.
 
+**GitHub** ([ADR 0019](../adr/0019-github-rest-client.md)). The token is read from
+`GITHUB_TOKEN` or `GH_TOKEN` and sent only to the GitHub API origin over HTTPS. Redirects are
+never followed, so it cannot reach another host. GitHub's error messages are redacted before
+they are shown, and the token is never written to a run, sent to a model or passed to a child
+process (the child environment is an allowlist). Every answer has a timeout, a size limit and a
+schema. Issue text is `external`: it defines a task, and prompts present it as untrusted data.
+
 ## 8. Audit log
 
 `audit.jsonl` records every model call (provider, model, template and version, prompt hash,

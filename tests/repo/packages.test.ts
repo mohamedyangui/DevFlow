@@ -32,7 +32,7 @@ function internalDependencies(pkg: PackageManifest): string[] {
 }
 
 describe("workspace layout", () => {
-  it("has exactly the seven MVP packages, each with declared boundaries", () => {
+  it("has the seven MVP packages and github (Phase 5), each with declared boundaries", () => {
     expect(directories).toEqual([
       "adapter-java",
       "adapter-javascript",
@@ -40,6 +40,7 @@ describe("workspace layout", () => {
       "cli",
       "context",
       "core",
+      "github",
       "workflow",
     ]);
     expect(Object.keys(boundaries).sort()).toEqual(directories);

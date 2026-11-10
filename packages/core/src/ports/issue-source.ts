@@ -19,4 +19,16 @@ export interface IssueTaskDocument {
   readonly text: string;
   readonly format: TaskFormat;
   readonly source: TaskSource & { readonly trust: "external" };
+  /**
+   * Fields the issue itself supplies outside its text (its number as the id, its title). They
+   * are used only when the text does not define the field.
+   */
+  readonly defaults?: TaskDefaults;
+  /** Facts about the issue a person should know (for example that it is closed). */
+  readonly warnings?: readonly string[];
+}
+
+export interface TaskDefaults {
+  readonly id?: string;
+  readonly title?: string;
 }

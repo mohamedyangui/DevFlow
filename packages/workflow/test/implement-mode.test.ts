@@ -625,6 +625,10 @@ class FakeGit implements GitWorkspace {
   diff(): Promise<GitDiff> {
     return Promise.reject(new Error("implement mode does not review a diff"));
   }
+
+  remoteUrl(): Promise<string | null> {
+    return Promise.resolve(null);
+  }
 }
 
 describe("implement mode on a git branch (ADR 0012)", () => {

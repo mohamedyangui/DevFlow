@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { LineCounter, parseDocument } from "yaml";
 import { DevflowError, ErrorCode } from "../errors.js";
+import type { TaskDefaults } from "../ports/issue-source.js";
 import type { TaskSource } from "../schemas/task.js";
 import { TaskIssueCode, hasErrors, type IssuePath, type ValidationIssue } from "./issues.js";
 import { parseMarkdownTask } from "./markdown.js";
@@ -37,17 +38,21 @@ export interface LoadedTask extends TaskParseResult {
 /**
  * Parses and validates task text. Content problems (syntax, schema, lint) are returned as
  * issues with 1-based line numbers where they can be determined; nothing is thrown for them.
+ *
+ * `defaults` fill the id and the title when the text does not define them (an issue's number
+ * and title); a value in the text always wins.
  */
 export function parseTaskText(
   text: string,
   format: TaskFormat,
   source: TaskSource,
+  options: { readonly defaults?: TaskDefaults } = {},
 ): TaskParseResult {
   const parsed = parseByFormat(text, format);
   if (hasErrors(parsed.issues)) {
     return { format, valid: false, contract: undefined, issues: parsed.issues };
   }
-  const result = validateTaskInput(parsed.data, source);
+  const result = validateTaskInput(withDefaults(parsed.data, options.defaults), source);
   const issues = [...parsed.issues, ...result.issues].map((issue) =>
     issue.line !== undefined ? issue : withLine(issue, parsed.lineOf(issue.path)),
   );
@@ -120,6 +125,18 @@ export async function loadTaskFile(
 
   const source: TaskSource = { kind: "file", ref: displayPath(absolutePath, cwd), trust: "user" };
   return { ...parseTaskText(text, format, source), path: absolutePath };
+}
+
+function withDefaults(data: unknown, defaults: TaskDefaults | undefined): unknown {
+  if (defaults === undefined || typeof data !== "object" || data === null || Array.isArray(data)) {
+    return data;
+  }
+  const record = data as Record<string, unknown>;
+  return {
+    ...(defaults.id === undefined ? {} : { id: defaults.id }),
+    ...(defaults.title === undefined ? {} : { title: defaults.title }),
+    ...Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)),
+  };
 }
 
 // ---- Format-specific parsing ---------------------------------------------------------------
