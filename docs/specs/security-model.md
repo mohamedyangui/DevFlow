@@ -48,7 +48,7 @@
 | Runaway processes or cost                         | Infinite test loop, token blow-up                                   | Timeouts, process-tree kill, output caps, budgets                                                                                                 |
 | Overwriting the user's work                       | The user edits files during a run                                   | Clean-tree precondition, dedicated branch, content-hash check before every write                                                                  |
 | Windows `cmd.exe` argument injection              | A test filter containing `&` or `%`                                 | Strategy selection that avoids `cmd.exe`; strict character check on the batch path ([ADR 0014](../adr/0014-windows-invocation.md))                |
-| CI token abuse (Phase 5)                          | `pull_request_target` checking out fork code                        | Documented split between the fork-safe workflow and the AI review workflow; least-privilege permissions                                           |
+| CI token abuse (Phase 5)                          | `pull_request_target` checking out fork code                        | Split between the fork-safe verify workflow and the gated AI review workflow; least privilege ([spec](github-action.md))                          |
 
 ## 3. Local execution is restricted to trusted repositories
 

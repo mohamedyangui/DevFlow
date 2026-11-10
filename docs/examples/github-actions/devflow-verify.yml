@@ -1,0 +1,54 @@
+# DevFlow verify: the fork-safe workflow. Copy it to .github/workflows/ in your repository.
+#
+# It runs the deterministic gates (`devflow verify`, no model) on every pull request,
+# including pull requests from forks. It is safe for forks because the job has nothing worth
+# stealing: the `pull_request` event gives a fork's run no secrets and a read-only token, the
+# token is not kept in the checkout (`persist-credentials: false`) and is not given to DevFlow,
+# and no model API key is used. It runs the pull request's own build and tests, exactly like
+# ordinary CI, and only the commands whose fingerprints are listed in `allow`.
+#
+# Specification: docs/specs/github-action.md. Never switch this workflow to
+# `pull_request_target`: that event runs with the base repository's secrets and write token.
+name: DevFlow verify
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devflow-verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the pull request
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      # Install your project's dependencies and toolchain here (for example Java, or
+      # `npm ci`): DevFlow never installs dependencies itself.
+
+      - name: Run the DevFlow gates
+        # Replace DEVFLOW_COMMIT_SHA with the full 40-character SHA of the DevFlow commit you
+        # reviewed. Never use a branch or tag: the action builds and runs that source.
+        uses: mohamedyangui/DevFlow@DEVFLOW_COMMIT_SHA
+        with:
+          command: verify
+          # Trusts the checked-out configuration in this job only (DEVFLOW_HOME is in the
+          # runner's temporary directory).
+          trust-workspace: "true"
+          # Fingerprints of the commands you reviewed. A command that is not listed is not
+          # run, and the log prints its fingerprint. A changed script or wrapper changes the
+          # fingerprint. A pull request can still edit this file (the `pull_request` event
+          # runs the pull request's version of the workflow): that is why this job holds no
+          # secret and no write permission.
+          allow: ""
