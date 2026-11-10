@@ -524,6 +524,36 @@ compatibility (`breaking`, `non-breaking`, `unknown`), rule, message and line.
   person to check), 2 for unusable input (`CONTRACT_FILE_INVALID`, `OPTIONS_INVALID`,
   `PATH_REJECTED`, `GIT_FAILED`).
 
+### `devflow plugins`
+
+```text
+devflow plugins add <package|path> [--json]
+devflow plugins list [--json]
+devflow plugins remove <id> [--json]
+```
+
+Manages external language adapters ([ADR 0023](../adr/0023-external-adapter-plugins.md),
+[language adapters](language-adapter.md), section 12). The plugin list is the user's own
+`$DEVFLOW_HOME/plugins.json` (`~/.devflow/plugins.json` by default); a repository cannot add
+to it.
+
+- `add` resolves a package name only in `$DEVFLOW_HOME/plugins/node_modules` (install it
+  there with `npm install --prefix "$DEVFLOW_HOME/plugins" <package>`), never in the current
+  directory; anything else is a path to a package directory or an ES module file. It imports
+  the plugin (running its top-level code), checks its `devflowAdapter` (or default) export and
+  its API version, and records the real path of the entry file with the SHA-256 of the entry
+  file and of `package.json`. Adding an installed plugin again accepts its current files. A
+  built-in adapter's id, or an id installed from another location, is refused.
+- `list` shows the adapter API version, the built-in adapters and each plugin with its
+  status (`ok`, `changed`, `missing`, `shadowed` by a built-in adapter, `incompatible`). It
+  hashes files and imports nothing.
+- `remove` deletes an entry from the list (the package files stay where they are).
+- `devflow verify` and the workflow commands load every installed plugin. A plugin whose files
+  changed (`PLUGIN_CHANGED`), that no longer loads (`PLUGIN_INVALID`) or whose API version is
+  not supported (`ADAPTER_API_INCOMPATIBLE`) stops the command with exit code 2.
+- Exit codes: 0 on success; 1 for `remove` of an unknown id (`PLUGIN_NOT_FOUND`); 2 for
+  `PLUGIN_INVALID`, `ADAPTER_API_INCOMPATIBLE` and `PLUGIN_STORE_INVALID`.
+
 ## 4. Planned commands
 
 No command is planned at the moment: the remaining Phase 5 work, the GitHub Action, is not a

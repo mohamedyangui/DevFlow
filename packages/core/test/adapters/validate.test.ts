@@ -164,9 +164,16 @@ describe("validatedAdapter", () => {
 
   it("refuses adapters with a bad id, an unsupported API version or no display name", () => {
     expect(() => validatedAdapter(toyAdapter({ id: "Bad Id" }))).toThrow(/must match/);
-    expect(() => validatedAdapter({ ...toyAdapter(), apiVersion: 2 as 1 })).toThrow(
-      /API version 2 is not supported/,
+    expect(() => validatedAdapter(toyAdapter({ apiVersion: "2.0.0" }))).toThrow(
+      expect.objectContaining({
+        code: ErrorCode.AdapterApiIncompatible,
+        message: expect.stringContaining("API version 2.0.0 is not supported") as string,
+      }),
     );
     expect(() => validatedAdapter(toyAdapter({ displayName: " " }))).toThrow(/displayName/);
+  });
+
+  it("accepts an older minor API version and keeps the declared version", () => {
+    expect(validatedAdapter(toyAdapter({ apiVersion: "1.0.7" })).apiVersion).toBe("1.0.7");
   });
 });

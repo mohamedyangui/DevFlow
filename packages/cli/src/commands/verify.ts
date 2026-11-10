@@ -1,11 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { javaAdapter } from "@devflow/adapter-java";
-import { javascriptAdapter } from "@devflow/adapter-javascript";
-import { pythonAdapter } from "@devflow/adapter-python";
 import { WorkspaceRepository } from "@devflow/context";
 import {
-  AdapterRegistry,
   AuditLog,
   CommandPolicy,
   ContainerToolchainProbe,
@@ -32,6 +28,7 @@ import {
   type VerificationRun,
   type WorkspaceModule,
 } from "@devflow/core";
+import { workspaceAdapters } from "../adapters.js";
 import { ExitCode } from "../exit-codes.js";
 import { colorsFor, type CliIo, type Colors } from "../io.js";
 import { readCliVersion } from "../version.js";
@@ -88,14 +85,14 @@ async function verify(options: VerifyOptions, io: CliIo): Promise<ExitCode> {
     maxFileBytes: config?.context.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES,
     exclude: config?.context.exclude ?? [],
   });
-  const registry = new AdapterRegistry([javaAdapter, javascriptAdapter, pythonAdapter]);
+  const { registry, warnings: pluginWarnings } = await workspaceAdapters(io.env);
   const declared = config?.modules;
   const discovery = await registry.discover(repo, declared === undefined ? {} : { declared });
   const toolchain =
     execution.backend === "container"
       ? new ContainerToolchainProbe()
       : new PathToolchainProbe({ env: io.env });
-  const notices = [...workspace.warnings, ...discovery.warnings];
+  const notices = [...workspace.warnings, ...pluginWarnings, ...discovery.warnings];
 
   const configured = config?.verification.gates ?? [];
   let gates: GateDefinition[] =

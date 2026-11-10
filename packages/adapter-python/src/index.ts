@@ -14,6 +14,7 @@ import { ADAPTER_ID, detectPythonModules } from "./workspace.js";
 export const pythonAdapter: LanguageAdapter = defineAdapter({
   id: ADAPTER_ID,
   displayName: "Python (uv, Poetry, pip)",
+  apiVersion: "1.0.0",
   detectModules: detectPythonModules,
   analyzeModule: analyzePythonModule,
   inferConventions: inferPythonConventions,

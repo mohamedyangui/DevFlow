@@ -18,6 +18,7 @@ import { ADAPTER_ID, detectJavaScriptModules } from "./workspace.js";
 export const javascriptAdapter: LanguageAdapter = defineAdapter({
   id: ADAPTER_ID,
   displayName: "JavaScript and TypeScript (npm, pnpm, Yarn)",
+  apiVersion: "1.0.0",
   detectModules: detectJavaScriptModules,
   analyzeModule: analyzeJavaScriptModule,
   inferConventions: inferJavaScriptConventions,

@@ -18,7 +18,10 @@ to a workspace that was trusted without one. An invalid file cannot be trusted.
 The configuration can describe the project and **restrict** DevFlow. It cannot grant itself
 permissions. There are deliberately no fields for API keys, environment variable pass-through,
 extra executables, shell commands, or network access, and unknown keys are rejected. Gates
-select adapter-provided commands by purpose; they do not contain command lines.
+select adapter-provided commands by purpose; they do not contain command lines. There is no
+field to load adapter plugins: `modules[].adapter` can name a plugin's id only once the user
+has installed it with `devflow plugins add`
+([ADR 0023](../adr/0023-external-adapter-plugins.md)).
 
 ## 2. Example
 

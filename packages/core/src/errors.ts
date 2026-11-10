@@ -117,8 +117,18 @@ export const ErrorCode = {
   PullRequestTargetInvalid: "PULL_REQUEST_TARGET_INVALID",
   /** The checked-out commit is not the head of the pull request to review. */
   ReviewPullRequestNotCheckedOut: "REVIEW_PULL_REQUEST_NOT_CHECKED_OUT",
-  /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */
+  /** A language adapter cannot be registered (bad id, no display name, duplicate). */
   AdapterInvalid: "ADAPTER_INVALID",
+  /** A language adapter targets an adapter API version this DevFlow cannot run (ADR 0023). */
+  AdapterApiIncompatible: "ADAPTER_API_INCOMPATIBLE",
+  /** An adapter plugin cannot be added or loaded: not found, no valid export, bad manifest. */
+  PluginInvalid: "PLUGIN_INVALID",
+  /** An installed adapter plugin's files changed since it was added; it is not loaded. */
+  PluginChanged: "PLUGIN_CHANGED",
+  /** No installed adapter plugin has this id. */
+  PluginNotFound: "PLUGIN_NOT_FOUND",
+  /** The plugin list (`plugins.json`) exists but is not valid; no plugin is loaded. */
+  PluginStoreInvalid: "PLUGIN_STORE_INVALID",
   /** A language adapter returned data that does not match the core schemas. */
   AdapterOutputInvalid: "ADAPTER_OUTPUT_INVALID",
   /** A language adapter threw while analysing the repository or parsing results. */

@@ -97,6 +97,8 @@ executed tools—not the model's confidence.
   optional `oasdiff` and `buf` tools when installed and approved.
 - **Language independence:** Java, JavaScript/TypeScript, Python, and mixed-language repositories
   use one common workflow.
+- **Extensible adapters:** external language adapters as user-installed plugins (`devflow plugins`),
+  checked against a versioned adapter API and pinned by hash.
 
 ## Quickstart
 

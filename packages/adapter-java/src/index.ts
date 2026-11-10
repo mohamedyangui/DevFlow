@@ -13,6 +13,7 @@ import { discoverJavaTests, inferJavaConventions, javaTestAuthoringGuide } from 
 export const javaAdapter: LanguageAdapter = defineAdapter({
   id: ADAPTER_ID,
   displayName: "Java (Maven, Gradle)",
+  apiVersion: "1.0.0",
   detectModules: detectJavaModules,
   analyzeModule: analyzeJavaModule,
   inferConventions: inferJavaConventions,

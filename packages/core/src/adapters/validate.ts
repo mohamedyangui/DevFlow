@@ -1,7 +1,6 @@
 import type { z } from "zod";
 import { DevflowError, ErrorCode, isDevflowError } from "../errors.js";
 import type { LanguageAdapter, ToolchainProbe } from "../ports/language-adapter.js";
-import { LANGUAGE_ADAPTER_API_VERSION } from "../ports/language-adapter.js";
 import type { RepositoryView } from "../ports/repository-view.js";
 import { CommandSpec, type ExecutionRecord } from "../schemas/command.js";
 import {
@@ -13,6 +12,7 @@ import {
 } from "../schemas/module.js";
 import { ParsedCommandResults } from "../schemas/verification.js";
 import { hardDenyReason } from "../security/command-policy.js";
+import { checkApiVersion } from "./api-version.js";
 import { ADAPTER_ID, isWithin } from "./sdk.js";
 
 /**
@@ -51,7 +51,7 @@ export function validatedAdapter(adapter: LanguageAdapter): LanguageAdapter {
   return {
     id,
     displayName: adapter.displayName,
-    apiVersion: LANGUAGE_ADAPTER_API_VERSION,
+    apiVersion: adapter.apiVersion,
 
     async detectModules(repo: RepositoryView) {
       const raw = await call("detectModules", () => adapter.detectModules(repo));
@@ -184,16 +184,14 @@ export function catalogProblems(moduleRoot: string, commands: readonly CommandSp
   return problems;
 }
 
-/** Throws `ADAPTER_INVALID` unless the adapter's identity is acceptable. */
+/**
+ * Throws `ADAPTER_INVALID` unless the adapter's identity is acceptable, and
+ * `ADAPTER_API_INCOMPATIBLE` unless its API version can run on this DevFlow (ADR 0023).
+ */
 export function checkIdentity(adapter: LanguageAdapter): void {
   const problems: string[] = [];
   if (!ADAPTER_ID.test(adapter.id)) {
     problems.push(`id "${adapter.id}" must match ${String(ADAPTER_ID)}`);
-  }
-  if ((adapter.apiVersion as number) !== LANGUAGE_ADAPTER_API_VERSION) {
-    problems.push(
-      `API version ${String(adapter.apiVersion)} is not supported (this DevFlow supports ${String(LANGUAGE_ADAPTER_API_VERSION)})`,
-    );
   }
   if (adapter.displayName.trim() === "") problems.push("displayName must not be empty");
   if (problems.length > 0) {
@@ -203,6 +201,7 @@ export function checkIdentity(adapter: LanguageAdapter): void {
       { details: { adapter: adapter.id, problems } },
     );
   }
+  checkApiVersion(adapter.id, adapter.apiVersion);
 }
 
 function outputError(
