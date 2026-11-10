@@ -44,7 +44,7 @@ planned, tested and verified change, and reports what was actually verified, wit
 | GitHub issues as tasks (`--issue`)                                                                                        | Implemented      |
 | GitHub pull request review (`review --pr`), opt-in publishing as a comment or check run                                   | Implemented      |
 | GitHub Action: fork-safe `verify` workflow and gated AI review workflow (not yet run on GitHub)                           | Implemented      |
-| Draft pull requests                                                                                                       | Planned, Phase 5 |
+| Draft pull requests from an implement run, with explicit authorization (`pr create --yes`)                                | Implemented      |
 | OpenAPI and Protobuf compatibility, container sandbox                                                                     | Planned, Phase 6 |
 
 See the [roadmap](docs/roadmap.md) for details.
@@ -187,6 +187,18 @@ with a read-only token and no secrets, and an
 runs no repository code, and starts only for labelled same-repository pull requests or by hand.
 See the [GitHub Action specification](docs/specs/github-action.md); the action has not yet
 been run on GitHub.
+
+### Open a draft pull request
+
+```bash
+devflow pr create <run id>         # prints what it will do, changes nothing
+devflow pr create <run id> --yes   # pushes the run's branch and opens a draft
+```
+
+For a finished `devflow implement` run: DevFlow pushes only the run's branch to `origin`
+(never forced, never the base branch) with your own git credentials, and opens a draft pull
+request described from the run's report. `GITHUB_TOKEN` is used only for the API. It never
+merges, approves or requests reviews.
 
 ## Documentation
 

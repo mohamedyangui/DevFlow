@@ -262,6 +262,7 @@ devflow resume  <run> [model options] [--allow <fingerprint> ...]
 devflow cancel  <run> [--reason <text>] [--json]
 devflow status  [run] [--json]
 devflow report  <run> [--json] [--publish [comment|check]]
+devflow pr create <run> [--repo <owner/name>] [--base <branch>] [--title <text>] [--yes] [--json]
 ```
 
 Model options: `--provider <name>`, `--model <id>`, `--cassette <file>`,
@@ -385,6 +386,28 @@ acceptance criterion is reported as passed.
   approves, requests changes or merges. A run that is waiting is not published (a note says
   how to publish it later); a failed publication is reported and exits 1, the run is kept.
   `devflow report <run> --publish` publishes a finished `review --pr` run again.
+- **`pr create <run>`** (Phase 5) turns a finished implement-mode run (`implement` or `run`,
+  completed or failed) into a draft pull request. **Without `--yes` it only prints what it
+  would do** (repository, branch and commit to push, base, title) and exits 2; nothing is
+  pushed or created. With `--yes` it pushes the run's DevFlow branch to `origin` and opens a
+  draft pull request. Refused, before anything is pushed (exit 2): another mode, a run that
+  has not finished or was cancelled, no DevFlow branch or no commit on it, a branch that no
+  longer contains the run's last commit (`PULL_REQUEST_RUN_INVALID`); no `origin`, an
+  `origin` whose push URLs (with `pushurl` and `insteadOf` applied) are not the target
+  repository on github.com, or a branch that is the base or the repository's default branch
+  (`PULL_REQUEST_TARGET_INVALID`); no `GITHUB_TOKEN`/`GH_TOKEN` (`OPTIONS_INVALID`). The
+  repository is `--repo`, or else the `origin` remote. The base is `--base`, or else the
+  branch the run started from, or else the default branch; the title is `--title`, or else
+  `DevFlow <task id>: <task title>` (one line, at most 200 characters). The push is exactly
+  `refs/heads/<branch>:refs/heads/<branch>`: never forced, no tags, no other branch, no hook,
+  no upstream written; it uses your own git credentials, and the token is used only for the
+  API. A rejected push is `GIT_PUSH_FAILED` (exit 1). The description is built from
+  `report.json` like a published review (verdict, commits, files changed, criteria, gates,
+  findings, neutralised and redacted) and says that a person must review the change. A
+  failed API request after the push is `GITHUB_REQUEST_FAILED` (exit 1) and says that the
+  branch was pushed. DevFlow never marks the pull request ready, requests reviewers, approves
+  or merges it. With `--json`: `{ runId, plan, done, message?, pullRequest? }`, where
+  `pullRequest` is `{ number, url, draft }`.
 - **Git isolation** (test and implement mode, [ADR 0012](../adr/0012-git-isolation.md)). A run
   needs a clean working tree: with uncommitted changes outside `.devflow/` it does not start
   (`GIT_TREE_NOT_CLEAN`, nothing is created). Just before the first file is written (after the
@@ -397,7 +420,7 @@ acceptance criterion is reported as passed.
   (for example without a git identity) does not stop the run: the report lists the files to
   commit or review. DevFlow writes, runs gates and commits only while the run's branch is
   checked out (`GIT_BRANCH_CHANGED` otherwise; switch back and retry). It never pushes, merges
-  or switches back for you. Outside a git repository, without git on PATH, or in a repository
+  or switches back for you (only `devflow pr create --yes` pushes the branch). Outside a git repository, without git on PATH, or in a repository
   without a commit, the changes stay uncommitted in the working tree and the report says why.
   `workflow.git.isolation: worktree` is not implemented (`GIT_ISOLATION_UNSUPPORTED`). The
   `workflow.git` settings apply only in a trusted workspace. The outcome and the report name
@@ -459,9 +482,8 @@ $ echo $?
 
 ## 4. Planned commands
 
-| Command             | Phase | Purpose                          |
-| ------------------- | ----- | -------------------------------- |
-| `devflow pr create` | 5     | Draft pull request, with consent |
+No command is planned at the moment: the remaining Phase 5 work, the GitHub Action, is not a
+command.
 
 Module detection by `devflow init` waits for the Phase 3 adapters. `analyze` and `plan`
 accept `--mode assist`; test, implement and review mode have their own commands. The functions exported by `@devflow/workflow` (`startRun`, `approvePlan`,

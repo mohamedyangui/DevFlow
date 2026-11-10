@@ -399,3 +399,97 @@ describe("GitClient remoteUrl", () => {
     });
   });
 });
+
+describe("GitClient push (Phase 5)", () => {
+  /** A repository in `dir/work` whose `origin` is the bare repository `dir/origin.git`. */
+  async function withOrigin(): Promise<{ work: string; origin: string; base: string }> {
+    const work = path.join(dir, "work");
+    const origin = path.join(dir, "origin.git");
+    await mkdir(work);
+    await mkdir(origin);
+    const base = await repository(work);
+    await git(origin, "init", "--quiet", "--bare", "--initial-branch=main");
+    await git(work, "remote", "add", "origin", origin);
+    return { work, origin, base };
+  }
+
+  async function refs(origin: string): Promise<string[]> {
+    const out = await git(origin, "for-each-ref", "--format=%(refname) %(objectname)");
+    return out === "" ? [] : out.split(/\r?\n/);
+  }
+
+  it("pushes exactly the given branch: no tag, no other branch, no hook, no upstream", async () => {
+    const { work, origin } = await withOrigin();
+    await git(work, "branch", "other");
+    await git(work, "checkout", "--quiet", "-b", "devflow/TASK-1");
+    await writeFile(path.join(work, "README.md"), "# changed\n");
+    await git(work, "commit", "--quiet", "-am", "DevFlow TASK-1: change");
+    await git(work, "tag", "-a", "v1", "-m", "release");
+    // The user's configuration would push annotated tags, and a pre-push hook would refuse.
+    await git(work, "config", "push.followTags", "true");
+    await writeFile(path.join(work, ".git", "hooks", "pre-push"), "#!/bin/sh\nexit 1\n");
+    await chmod(path.join(work, ".git", "hooks", "pre-push"), 0o755);
+
+    const client = new GitClient({ root: work });
+    const head = await git(work, "rev-parse", "HEAD");
+    expect(await client.push("devflow/TASK-1")).toBe(head);
+    expect(await refs(origin)).toEqual([`refs/heads/devflow/TASK-1 ${head}`]);
+    await expect(git(work, "config", "--get", "branch.devflow/TASK-1.remote")).rejects.toThrow();
+
+    // Pushing the same commit again changes nothing.
+    expect(await client.push("devflow/TASK-1")).toBe(head);
+    expect(await refs(origin)).toEqual([`refs/heads/devflow/TASK-1 ${head}`]);
+  });
+
+  it("never forces: a remote branch that moved is rejected and left as it is", async () => {
+    const { work, origin } = await withOrigin();
+    await git(work, "checkout", "--quiet", "-b", "devflow/TASK-1");
+    await writeFile(path.join(work, "README.md"), "# first\n");
+    await git(work, "commit", "--quiet", "-am", "first");
+    const client = new GitClient({ root: work });
+    const pushed = await client.push("devflow/TASK-1");
+
+    await writeFile(path.join(work, "README.md"), "# rewritten\n");
+    await git(work, "commit", "--quiet", "--amend", "-am", "rewritten");
+    await expect(client.push("devflow/TASK-1")).rejects.toMatchObject({
+      code: ErrorCode.GitPushFailed,
+      message: expect.stringContaining("git push of devflow/TASK-1 to origin failed") as unknown,
+    });
+    expect(await refs(origin)).toEqual([`refs/heads/devflow/TASK-1 ${pushed}`]);
+  });
+
+  it("refuses branch names that are options or refspecs, and missing branches", async () => {
+    const { work, origin } = await withOrigin();
+    const client = new GitClient({ root: work });
+    for (const name of ["+main", "-f", "main:main", "a b", "refs/*", "x..y", ""]) {
+      await expect(client.push(name)).rejects.toMatchObject({ code: ErrorCode.GitFailed });
+    }
+    await expect(client.push("devflow/none")).rejects.toMatchObject({
+      code: ErrorCode.GitFailed,
+      message: "branch devflow/none does not exist",
+    });
+    await expect(client.push("main", { remote: "--mirror" })).rejects.toMatchObject({
+      code: ErrorCode.GitFailed,
+    });
+    expect(await refs(origin)).toEqual([]);
+  });
+
+  it("reads branch commits, ancestry and the URLs a push goes to", async () => {
+    const { work, origin, base } = await withOrigin();
+    const client = new GitClient({ root: work });
+    expect(await client.branchCommit("main")).toBe(base);
+    expect(await client.branchCommit("devflow/none")).toBeNull();
+    await git(work, "checkout", "--quiet", "-b", "feature");
+    await writeFile(path.join(work, "README.md"), "# feature\n");
+    await git(work, "commit", "--quiet", "-am", "feature");
+    const head = await git(work, "rev-parse", "HEAD");
+    expect(await client.isAncestor(base, head)).toBe(true);
+    expect(await client.isAncestor(head, base)).toBe(false);
+
+    expect(await client.pushUrls()).toEqual([origin]);
+    expect(await client.pushUrls("upstream")).toEqual([]);
+    await git(work, "remote", "add", "upstream", "https://github.com/acme/shop.git");
+    await git(work, "config", "url.https://example.invalid/.pushInsteadOf", "https://github.com/");
+    expect(await client.pushUrls("upstream")).toEqual(["https://example.invalid/acme/shop.git"]);
+  });
+});

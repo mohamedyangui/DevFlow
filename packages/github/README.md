@@ -3,8 +3,7 @@
 GitHub integration for DevFlow AI, over the GitHub REST API with the `fetch` built into Node
 ([ADR 0019](../../docs/adr/0019-github-rest-client.md)).
 
-**Status: Phase 5, issue source, pull requests and publishing.** Preparing draft pull requests
-comes in a later Phase 5 change.
+**Status: Phase 5, issue source, pull requests, publishing and draft pull requests.**
 
 ## Issues as tasks
 
@@ -55,6 +54,33 @@ const published = await publishReview(client, "comment", {
   (Markdown, HTML and table syntax escaped, no `@` mention, no link), at most 50 findings,
   and the body stays under GitHub's size limit. Known secrets are redacted before sending.
 
+## Draft pull requests
+
+```ts
+import { createDraftPullRequest, getRepositoryInfo, renderDraftBody } from "@devflow/github";
+
+const { default_branch } = await getRepositoryInfo(client, repository);
+const created = await createDraftPullRequest(client, {
+  repository,
+  head: "devflow/TASK-7", // already pushed by the caller
+  base: "main",
+  title: "DevFlow TASK-7: Paginate the order list",
+  body: renderDraftBody({ report, repository, branch: "devflow/TASK-7", base: "main", commits }),
+  knownSecrets,
+});
+// created.number, created.url, created.draft
+```
+
+- `createDraftPullRequest` sends one `POST /repos/{owner}/{repo}/pulls` with `draft: true`
+  and checks that the answer is for the same head and base. It needs a token and refuses a
+  branch that is its own base. It never marks the pull request ready, requests reviewers,
+  approves or merges. The title and body are redacted again before sending.
+- `renderDraftBody` builds the description from the run's report: verdict, commits, files
+  changed, criteria, gates and findings (neutralised as in `renderReview`), and a note that a
+  person must review the change before it is marked ready or merged.
+- This package does not push: `devflow pr create` pushes the branch with git and the user's
+  own credentials (`GitClient.push` in `@devflow/core`) before it creates the pull request.
+
 ## Security
 
 - The token comes from `GITHUB_TOKEN` or `GH_TOKEN`. It is sent only to the API origin,
@@ -63,4 +89,5 @@ const published = await publishReview(client, "comment", {
 - Every answer has a timeout and a size limit and is validated against a schema.
 - Path segments are encoded, so an owner, a name or a number cannot change the request path.
 - Publishing only writes a comment or a check run. It never approves, requests changes,
-  merges or pushes.
+  merges or pushes. A draft pull request is created only by `createDraftPullRequest`, which
+  the CLI calls only with `--yes`.

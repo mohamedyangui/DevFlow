@@ -109,6 +109,8 @@ const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 const COMMIT_ID = /^[a-f0-9]{40}([a-f0-9]{24})?$/;
 const BRANCH_ATTEMPTS = 99;
 const REMOTE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+/** Branches DevFlow pushes: no leading dash or `+`, no `:`, spaces or wildcards. */
+const BRANCH = /^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$/;
 
 interface GitResult {
   readonly exitCode: number | null;
@@ -178,11 +180,7 @@ export class GitClient implements GitWorkspace {
   }
 
   async remoteUrl(name = "origin"): Promise<string | null> {
-    if (!REMOTE.test(name)) {
-      throw new DevflowError(ErrorCode.GitFailed, `"${name}" is not a git remote name`, {
-        details: { remote: name },
-      });
-    }
+    this.checkRemoteName(name);
     const result = await this.git(["config", "--get", `remote.${name}.url`]);
     if (result.exitCode === 1) return null;
     if (result.exitCode !== 0) throw this.failure("config", result);
@@ -332,6 +330,118 @@ export class GitClient implements GitWorkspace {
     };
   }
 
+  /** The commit a local branch points to, or null when the branch does not exist. */
+  async branchCommit(branch: string): Promise<string | null> {
+    await this.checkBranchName(branch);
+    const result = await this.git([
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      `refs/heads/${branch}^{commit}`,
+    ]);
+    const id = result.stdout.trim();
+    if (result.exitCode !== 0 || !COMMIT_ID.test(id)) return null;
+    return id;
+  }
+
+  /** Whether `commit` is `descendant` or one of its ancestors (both commit ids). */
+  async isAncestor(commit: string, descendant: string): Promise<boolean> {
+    if (!COMMIT_ID.test(commit) || !COMMIT_ID.test(descendant)) {
+      throw new DevflowError(ErrorCode.GitFailed, "isAncestor compares two commit ids");
+    }
+    const result = await this.git(["merge-base", "--is-ancestor", commit, descendant]);
+    if (result.exitCode === 0) return true;
+    if (result.exitCode === 1) return false;
+    throw this.failure("merge-base --is-ancestor", result);
+  }
+
+  /**
+   * The URLs a push to a remote goes to, with `pushurl`, `pushInsteadOf` and `insteadOf`
+   * applied; an empty list when the remote does not exist.
+   */
+  async pushUrls(name = "origin"): Promise<string[]> {
+    this.checkRemoteName(name);
+    const exists = await this.git(["config", "--get", `remote.${name}.url`]);
+    if (exists.exitCode === 1) return [];
+    if (exists.exitCode !== 0) throw this.failure("config", exists);
+    const result = await this.git(["remote", "get-url", "--push", "--all", name]);
+    if (result.exitCode !== 0) throw this.failure("remote get-url", result);
+    return result.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line !== "");
+  }
+
+  /**
+   * Pushes one local branch to a remote (Phase 5, `devflow pr create`): exactly the refspec
+   * `refs/heads/<branch>:refs/heads/<branch>`, never forced (no `+`, no `--force`: a remote
+   * branch that has moved is rejected by git), never tags, no other branch, no upstream
+   * configured, no pre-push hook, no signed push, no submodules. Git uses the user's own
+   * credentials; DevFlow adds none, and the child environment carries no token.
+   *
+   * @returns the pushed commit.
+   */
+  async push(branch: string, options: { readonly remote?: string } = {}): Promise<string> {
+    const remote = options.remote ?? "origin";
+    this.checkRemoteName(remote);
+    const commit = await this.branchCommit(branch);
+    if (commit === null) {
+      throw new DevflowError(ErrorCode.GitFailed, `branch ${branch} does not exist`, {
+        details: { branch },
+      });
+    }
+    const ref = `refs/heads/${branch}`;
+    const result = await this.git([
+      "-c",
+      "push.followTags=false",
+      "-c",
+      "push.gpgSign=false",
+      "-c",
+      "push.recurseSubmodules=no",
+      "-c",
+      `remote.${remote}.mirror=false`,
+      "push",
+      "--porcelain",
+      "--no-verify",
+      "--no-follow-tags",
+      "--no-signed",
+      "--recurse-submodules=no",
+      remote,
+      `${ref}:${ref}`,
+    ]);
+    if (result.exitCode !== 0) {
+      throw new DevflowError(
+        ErrorCode.GitPushFailed,
+        `git push of ${branch} to ${remote} failed: ${pushProblem(result) || `exit code ${String(result.exitCode)}`}`,
+        { details: { branch, remote, exitCode: result.exitCode } },
+      );
+    }
+    return commit;
+  }
+
+  private checkRemoteName(name: string): void {
+    if (!REMOTE.test(name)) {
+      throw new DevflowError(ErrorCode.GitFailed, `"${name}" is not a git remote name`, {
+        details: { remote: name },
+      });
+    }
+  }
+
+  /** A branch name DevFlow passes to git: no option, no refspec syntax, a valid ref. */
+  private async checkBranchName(branch: string): Promise<void> {
+    const valid =
+      BRANCH.test(branch) &&
+      (await this.git(["check-ref-format", `refs/heads/${branch}`])).exitCode === 0;
+    if (!valid) {
+      const shown = branch.slice(0, 80);
+      throw new DevflowError(
+        ErrorCode.GitFailed,
+        `"${shown}" is not a branch name DevFlow accepts`,
+        { details: { branch: shown } },
+      );
+    }
+  }
+
   private resolve(): Promise<string | undefined> {
     this.executable ??= this.lookUp();
     return this.executable;
@@ -473,6 +583,21 @@ export function cutPatch(
     text = text.slice(0, end);
   }
   return { patch: text, truncated };
+}
+
+/**
+ * Why a push failed: the `error:` or `fatal:` line and the rejected ref, with credentials in
+ * a URL removed.
+ */
+function pushProblem(result: GitResult): string {
+  const lines = `${result.stderr}\n${result.stdout}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+  const rejected = lines.find((line) => /\[(rejected|remote rejected)\]/.test(line));
+  const main = lines.find((line) => /^(fatal|error):/.test(line)) ?? rejected ?? lines[0] ?? "";
+  const text = rejected !== undefined && rejected !== main ? `${main} (${rejected})` : main;
+  return text.replace(/\/\/[^/@\s]*@/g, "//");
 }
 
 function firstLine(text: string): string {

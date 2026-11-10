@@ -1,7 +1,8 @@
 /**
  * @devflow/github: GitHub integration over the REST API (Phase 5, ADR 0019).
  *
- * Issues as task sources, pull requests to review, and opt-in publishing of reviews.
+ * Issues as task sources, pull requests to review, opt-in publishing of reviews, and draft
+ * pull requests created only with explicit authorization.
  * Everything read from GitHub is external, untrusted text.
  */
 export {
@@ -39,4 +40,15 @@ export {
   type PublishTarget,
   type Published,
 } from "./publish.js";
+export {
+  DRAFT_MARKER,
+  GitHubRepositoryInfo,
+  createDraftPullRequest,
+  draftTitle,
+  getRepositoryInfo,
+  renderDraftBody,
+  type DraftBodyInput,
+  type DraftPullRequest,
+  type DraftPullRequestInput,
+} from "./drafts.js";
 export { githubToken } from "./token.js";

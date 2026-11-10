@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline/promises";
-import type { LlmProvider } from "@devflow/core";
+import type { GitClient, GitClientOptions, LlmProvider } from "@devflow/core";
 import { createColors } from "picocolors";
 
 export interface CliOutput {
@@ -31,6 +31,11 @@ export interface CliIo {
   readonly createProvider?: (name: string, options: { cassette?: string }) => Promise<LlmProvider>;
   /** The `fetch` used for the GitHub API. Tests inject one; default: the global `fetch`. */
   readonly fetch?: typeof fetch;
+  /**
+   * Creates the git client of `devflow pr create`. Tests inject one whose push URLs stand in
+   * for a github.com remote while the push goes to a local repository; default: `GitClient`.
+   */
+  readonly gitClient?: (options: GitClientOptions) => GitClient;
 }
 
 export interface Interruption {

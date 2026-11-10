@@ -131,7 +131,8 @@ its gate `not_executed`.
 
 DevFlow's own git operations ([ADR 0012](../adr/0012-git-isolation.md), `GitClient` in
 `@devflow/core`) are fixed internal calls: inspect the repository and its status, create and
-check out the run's branch, commit exactly the approved files. Git is found on the absolute
+check out the run's branch, commit exactly the approved files, and (only for
+`devflow pr create --yes`) push that one branch. Git is found on the absolute
 entries of PATH, never inside the workspace (on Windows only `git.exe`), and runs with the
 child environment of section 5 (so `GIT_DIR` and other `GIT_*` variables of DevFlow's own
 environment never reach it), literal pathspecs and no terminal prompt. Every call disables
@@ -248,6 +249,18 @@ only a comment or a check run: it never approves, requests changes or merges. Th
 body is built from the report, redacted with the known secrets, and every piece of model text
 in it is cut to 300 characters and neutralised (Markdown, HTML and table syntax escaped, `@`
 mentions and links broken), so a review cannot ping people, inject markup or hide links.
+
+**Draft pull requests.** `devflow pr create <run>` prints what it will do and changes nothing
+unless `--yes` is given. It accepts only a finished implement-mode run whose DevFlow branch
+still contains the run's commits. The push is one fixed `GitClient.push` call: exactly
+`refs/heads/<branch>:refs/heads/<branch>`, never forced, `--no-follow-tags`, `--no-verify`, no
+signed push, no submodules, no upstream written. Before it, every push URL of `origin` (with
+`pushurl` and `insteadOf` applied) must be the target repository on github.com, and the branch
+must be neither the base nor the repository's default branch. Git uses the user's own
+credentials; the token is never put in a URL, an argument or the child environment, and is
+used only for the API. The pull request is created as a draft with a description built from
+the report like a published review; DevFlow never marks it ready, requests reviewers,
+approves or merges it.
 
 ## 8. Audit log
 
