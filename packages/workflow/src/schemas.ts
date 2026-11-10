@@ -170,6 +170,19 @@ export const BudgetUsageRecord = z.strictObject({
 });
 
 /** `run.json`: the run's current state. */
+/** The pull request a review mode run reviews. */
+export const ReviewPullRequest = z.strictObject({
+  /** `owner/name`. */
+  repository: z.string().min(1),
+  number: z.int().positive(),
+  url: z.string().min(1),
+  /** The pull request's head commit, which was the checked-out commit. */
+  headCommit: GitCommit,
+  /** The head is in another repository (a fork). */
+  fromFork: z.boolean(),
+});
+export type ReviewPullRequest = z.infer<typeof ReviewPullRequest>;
+
 export const RunRecord = z.strictObject({
   schemaVersion: z.literal(1),
   id: RunId,
@@ -212,6 +225,10 @@ export const RunRecord = z.strictObject({
       base: z.string().min(1),
       /** The merge base of that reference and HEAD. */
       baseCommit: GitCommit,
+      /** The pull request under review (Phase 5), checked to be the checked-out commit. */
+      pullRequest: ReviewPullRequest.optional(),
+      /** Why the gates were not run on the change (for example a pull request from a fork). */
+      gatesSkipped: z.string().min(1).optional(),
     })
     .optional(),
 });
@@ -689,6 +706,8 @@ export const ReviewGates = z.strictObject({
   schemaVersion: z.literal(1),
   ranAt: IsoDateTime,
   gates: z.array(GateResult),
+  /** Why no gate ran, when they were skipped on purpose. */
+  skipped: z.string().min(1).optional(),
 });
 export type ReviewGates = z.infer<typeof ReviewGates>;
 

@@ -57,7 +57,7 @@ flowchart LR
 | `@devflow/adapter-java`       | Maven, Gradle, Spring Boot, JUnit, Mockito, Checkstyle, SpotBugs                        | Implemented, run against real Maven and Gradle builds                          |
 | `@devflow/adapter-javascript` | npm, pnpm, Yarn, Bun, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc        | Implemented, run against real npm, Vitest and tsc runs                         |
 | `@devflow/workflow`           | State machine, steps, run store, reports, SDK entry point                               | Assist, test, implement and review modes implemented                           |
-| `@devflow/github`             | GitHub REST client, issues as task sources (Phase 5)                                    | Issue source implemented, tested with fixtures                                 |
+| `@devflow/github`             | GitHub REST client, issues as task sources, pull requests, publishing (Phase 5)         | Issues, pull requests and publishing implemented, tested with fixtures         |
 | `@devflow/cli`                | The `devflow` binary, composition root                                                  | `init`, `task validate`, `trust`, `verify`, the workflow commands and `review` |
 
 Boundaries are declared once in the root `package.json` and enforced by ESLint, repository

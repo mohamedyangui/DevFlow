@@ -2,29 +2,24 @@ import path from "node:path";
 import {
   DevflowError,
   ErrorCode,
-  GitClient,
   type TaskContract,
   type ValidationIssue,
   formatIssuePath,
   loadTaskFile,
   parseTaskText,
 } from "@devflow/core";
-import {
-  type GitHubRepository,
-  GitHubClient,
-  GitHubIssueSource,
-  githubToken,
-  parseRepository,
-  repositoryFromRemote,
-} from "@devflow/github";
+import { GitHubIssueSource } from "@devflow/github";
+import { githubClient, githubRepository } from "./github.js";
 import type { CliIo } from "./io.js";
 
 /** Where a workflow command's task comes from: a file (`--task`) or a GitHub issue (`--issue`). */
 export interface TaskSourceOptions {
   readonly task?: string | undefined;
   readonly issue?: string | undefined;
-  /** The repository of `--issue` (`owner/name`); default: the origin remote. */
+  /** The repository of `--issue` or `--pr` (`owner/name`); default: the origin remote. */
   readonly repo?: string | undefined;
+  /** A pull request to review (`devflow review --pr`); `--repo` then applies to it too. */
+  readonly pr?: string | undefined;
 }
 
 export interface ResolvedTask {
@@ -52,8 +47,8 @@ export async function resolveTask(
         : "give either --task or --issue, not both",
     );
   }
-  if (options.repo !== undefined && options.issue === undefined) {
-    throw new DevflowError(ErrorCode.TaskSourceInvalid, "--repo only applies to --issue");
+  if (options.repo !== undefined && options.issue === undefined && options.pr === undefined) {
+    throw new DevflowError(ErrorCode.TaskSourceInvalid, "--repo only applies to --issue and --pr");
   }
 
   if (options.task !== undefined) {
@@ -67,13 +62,8 @@ export async function resolveTask(
   }
 
   const reference = options.issue ?? "";
-  const repository =
-    options.repo === undefined ? await originRepository(root, io) : parseRepository(options.repo);
-  const client = new GitHubClient({
-    token: githubToken(io.env),
-    ...(io.fetch === undefined ? {} : { fetch: io.fetch }),
-  });
-  const source = new GitHubIssueSource(client, repository);
+  const repository = await githubRepository(options.repo, root, io);
+  const source = new GitHubIssueSource(githubClient(io), repository);
   const document = await source.fetch(reference, context.signal ?? new AbortController().signal);
   const parsed = parseTaskText(document.text, document.format, document.source, {
     ...(document.defaults === undefined ? {} : { defaults: document.defaults }),
@@ -105,16 +95,6 @@ function validContract(
       hint,
     { details: { source: label } },
   );
-}
-
-/** The github.com repository of the origin remote, or undefined (no git, no remote, elsewhere). */
-async function originRepository(root: string, io: CliIo): Promise<GitHubRepository | undefined> {
-  try {
-    const url = await new GitClient({ root, env: io.env }).remoteUrl();
-    return url === null ? undefined : repositoryFromRemote(url);
-  } catch {
-    return undefined;
-  }
 }
 
 function displayPath(root: string, absolute: string): string {

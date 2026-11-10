@@ -5,6 +5,7 @@ import {
   type ProgressEvent,
   type RunBudgets,
   type RunOutcome,
+  type ReviewPullRequest,
   type RunRecord,
   RunStore,
   STEP,
@@ -26,6 +27,8 @@ import { parse as parseYaml } from "yaml";
 import { ExitCode } from "../exit-codes.js";
 import { type CliIo, type Colors, type Interruption, colorsFor } from "../io.js";
 import { type TaskSourceOptions, resolveTask } from "../task-source.js";
+import { checkCanPublish, githubClient, githubRepository, publishRun } from "../github.js";
+import { type PublishTarget, type Published, getPullRequest } from "@devflow/github";
 import {
   type ServiceOptions,
   type Workspace,
@@ -51,6 +54,10 @@ export interface StartOptions extends ModelOptions, TaskSourceOptions {
   readonly mode: WorkflowMode;
   /** Review mode: the reference the local change is compared with. */
   readonly base?: string;
+  /** Review mode with `--pr`: publish the finished review as a comment or a check run. */
+  readonly publish?: PublishTarget | undefined;
+  /** Review mode with `--pr`: run the gates even on code from a fork. */
+  readonly runForkCode?: boolean;
 }
 
 const STEP_MESSAGES: Readonly<Record<string, string>> = {
@@ -75,13 +82,26 @@ export async function startCommand(
 ): Promise<ExitCode> {
   return guarded(io, options.json, async (interruption) => {
     const workspace = await openWorkspace(io);
+    checkReviewOptions(goal, options);
+    if (options.publish !== undefined) checkCanPublish(io);
     const task = await resolveTask(options, {
       io,
       root: workspace.root,
       signal: interruption?.signal,
     });
+    const review =
+      goal !== "review"
+        ? undefined
+        : options.pr === undefined
+          ? ({ base: options.base ?? "HEAD", warnings: [] } satisfies ReviewSetup)
+          : await pullRequestReview(options, workspace.root, io, interruption?.signal);
     const { settings, warnings } = settingsFor(workspace, options, io);
-    const allWarnings = [...workspace.warnings, ...task.warnings, ...warnings];
+    const allWarnings = [
+      ...workspace.warnings,
+      ...task.warnings,
+      ...(review?.warnings ?? []),
+      ...warnings,
+    ];
     if (!options.json) printWarnings(io, allWarnings);
     const services = workflowServices(workspace, io, serviceOptions(io, options, interruption));
     // A provider that cannot be created (unknown name, no API key, no cassette) is a usage
@@ -95,12 +115,99 @@ export async function startCommand(
         goal,
         settings,
         warnings: allWarnings,
-        ...(goal === "review" ? { review: { base: options.base ?? "HEAD" } } : {}),
+        ...(review === undefined
+          ? {}
+          : {
+              review: {
+                base: review.base,
+                ...(review.pullRequest === undefined ? {} : { pullRequest: review.pullRequest }),
+                ...(review.skipGates === undefined ? {} : { skipGates: review.skipGates }),
+              },
+            }),
       },
       services,
     );
-    return report(io, options.json, outcome);
+    if (options.publish === undefined) return report(io, options.json, outcome);
+    if (outcome.status !== "completed") {
+      return report(io, options.json, outcome, {
+        note:
+          `Not published: the run is ${outcome.state}. When it finishes, publish it with ` +
+          `\`devflow report ${outcome.runId} --publish ${options.publish}\`.`,
+      });
+    }
+    const store = await RunStore.open(workspace.root, outcome.runId);
+    try {
+      const published = await publishRun(store, options.publish, io, interruption?.signal);
+      return report(io, options.json, outcome, { published });
+    } catch (error) {
+      if (!isDevflowError(error)) throw error;
+      // The review is complete and saved; only publishing failed.
+      report(io, options.json, outcome, {
+        note: `Not published: ${error.message} [${error.code}]. Retry with \`devflow report ${outcome.runId} --publish ${options.publish}\`.`,
+      });
+      return ExitCode.Failure;
+    }
   });
+}
+
+function checkReviewOptions(goal: string, options: StartOptions): void {
+  const pullRequestOnly: [boolean, string][] = [
+    [options.publish !== undefined, "--publish"],
+    [options.runForkCode === true, "--run-fork-code"],
+  ];
+  for (const [given, flag] of pullRequestOnly) {
+    if (given && (goal !== "review" || options.pr === undefined)) {
+      throw new DevflowError(
+        ErrorCode.OptionsInvalid,
+        `${flag} only applies to \`devflow review --pr\``,
+      );
+    }
+  }
+  if (options.pr !== undefined && options.base !== undefined) {
+    throw new DevflowError(
+      ErrorCode.OptionsInvalid,
+      "--base does not apply to --pr: the pull request's base is used",
+    );
+  }
+}
+
+interface ReviewSetup {
+  readonly base: string;
+  readonly pullRequest?: ReviewPullRequest;
+  readonly skipGates?: string | undefined;
+  readonly warnings: readonly string[];
+}
+
+/**
+ * Reads the pull request to review (metadata only; DevFlow never fetches code). Its head must
+ * be checked out; the engine checks that. Code from a fork is not run unless asked.
+ */
+async function pullRequestReview(
+  options: StartOptions,
+  root: string,
+  io: CliIo,
+  signal: AbortSignal | undefined,
+): Promise<ReviewSetup> {
+  const repository = await githubRepository(options.repo, root, io);
+  const pull = await getPullRequest(githubClient(io), options.pr ?? "", repository, signal);
+  const label = `${pull.repository.owner}/${pull.repository.name}#${String(pull.number)}`;
+  const skipGates =
+    pull.fromFork && options.runForkCode !== true
+      ? `${label} comes from ${pull.headRepository ?? "a deleted fork"}, so its code was not run ` +
+        "(pass --run-fork-code to run the gates on it)"
+      : undefined;
+  return {
+    base: pull.baseSha,
+    pullRequest: {
+      repository: `${pull.repository.owner}/${pull.repository.name}`,
+      number: pull.number,
+      url: pull.url,
+      headCommit: pull.headSha,
+      fromFork: pull.fromFork,
+    },
+    skipGates,
+    warnings: pull.warnings,
+  };
 }
 
 function settingsFor(workspace: Workspace, options: StartOptions, io: CliIo) {
@@ -362,12 +469,19 @@ export async function statusCommand(
 /** `devflow report <run>`: print the report of a finished run. */
 export async function reportCommand(
   runId: string,
-  options: { json: boolean },
+  options: { json: boolean; publish?: PublishTarget | undefined },
   io: CliIo,
 ): Promise<ExitCode> {
-  return guarded(io, options.json, async () => {
+  return guarded(io, options.json, async (interruption) => {
     const workspace = await openWorkspace(io);
     const store = await RunStore.open(workspace.root, runId);
+    if (options.publish !== undefined) {
+      checkCanPublish(io);
+      const published = await publishRun(store, options.publish, io, interruption?.signal);
+      if (options.json) writeJson(io, { runId, published });
+      else io.stdout.write(`Published the review as a ${published.target}: ${published.url}\n`);
+      return ExitCode.Success;
+    }
     if (!(await store.exists("report.json"))) {
       const record = await store.readRecord();
       const message =
@@ -540,10 +654,20 @@ function parseAnswerFile(text: string): Record<string, string> {
 // ---------------------------------------------------------------------------------------------
 // Output
 
-function report(io: CliIo, json: boolean, outcome: RunOutcome): ExitCode {
+function report(
+  io: CliIo,
+  json: boolean,
+  outcome: RunOutcome,
+  extra: { readonly published?: Published; readonly note?: string } = {},
+): ExitCode {
   const code = exitCodeFor(outcome);
   if (json) {
-    writeJson(io, { ...outcome, exitCode: code });
+    writeJson(io, {
+      ...outcome,
+      exitCode: code,
+      ...(extra.published === undefined ? {} : { published: extra.published }),
+      ...(extra.note === undefined ? {} : { note: extra.note }),
+    });
     return code;
   }
   const c = colorsFor(io.stdout, io.env);
@@ -553,6 +677,10 @@ function report(io: CliIo, json: boolean, outcome: RunOutcome): ExitCode {
   ];
   if (outcome.branch !== undefined) out.push(`${c.bold("Branch:")} ${outcome.branch}`);
   out.push(...nextSteps(outcome, c));
+  if (extra.published !== undefined) {
+    out.push("", `Published the review as a ${extra.published.target}: ${extra.published.url}`);
+  }
+  if (extra.note !== undefined) out.push("", extra.note);
   io.stdout.write(`${out.join("\n")}\n`);
   return code;
 }

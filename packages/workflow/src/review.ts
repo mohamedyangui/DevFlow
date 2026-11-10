@@ -228,9 +228,24 @@ export function reviewFindings(input: {
   readonly diff: ReviewDiff;
   readonly patch: string;
   readonly gates: readonly GateResult[];
+  /** Why the gates were not run, when they were skipped on purpose. */
+  readonly gatesSkipped?: string;
 }): NewFinding[] {
   const { task, diff, gates } = input;
   const findings: NewFinding[] = [];
+
+  if (input.gatesSkipped !== undefined) {
+    findings.push({
+      title: "The gates did not run on this change",
+      severity: "medium",
+      category: "test-gap",
+      source: "deterministic",
+      verification: "confirmed",
+      evidence: [note(input.gatesSkipped)],
+      recommendation:
+        "Run the gates yourself on the change before you merge it; no criterion is verified.",
+    });
+  }
 
   for (const gate of gates) {
     if (gate.status === "failed") {

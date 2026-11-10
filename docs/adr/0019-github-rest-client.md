@@ -1,7 +1,7 @@
 # ADR 0019: A small GitHub REST client on Node's `fetch` instead of `@octokit/rest`
 
 - **Status:** Accepted, 2026-11-10. Implemented in Phase 5 in `@devflow/github`
-  (`src/client.ts`, `repository.ts`, `issues.ts`).
+  (`src/client.ts`, `repository.ts`, `issues.ts`, `pulls.ts`, `publish.ts`).
 - **Deciders:** Mohamed Yangui
 
 ## Context
@@ -34,15 +34,21 @@ so the HTTP layer costs nothing.
    parsed by the core Markdown task parser, the source is `github-issue` with trust
    `external`, and the issue number and title are defaults for the id (`GH-<n>`) and title.
    Pull requests are refused as tasks; comments are not read.
-7. **Only `github.com`** remotes are recognised to infer the repository. GitHub Enterprise
+7. **Pull requests are read, never fetched.** `getPullRequest` reads the head and base
+   commits; the user checks out the code. A pull request from a fork is reviewed without
+   running its code unless the user asks for it.
+8. **Publishing is opt-in** and limited to a comment or a check run, through the same
+   client; the body is redacted and its model text neutralised (no mentions, links or
+   markup).
+9. **Only `github.com`** remotes are recognised to infer the repository. GitHub Enterprise
    Server is not supported yet.
 
 ## Consequences
 
 - No new dependency, and the security properties above are tested in one place.
 - DevFlow implements pagination, retries and rate-limit handling itself when it needs them.
-  The issue source needs none of them; later endpoints (pull request files, check runs) add
-  what they use.
+  The issue source, pull requests and publishing need none of them; later endpoints add what
+  they use.
 - Tests answer from fixtures through an injected `fetch`; no test calls the network.
 
 ## Alternatives considered

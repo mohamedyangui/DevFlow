@@ -208,10 +208,15 @@ Implemented:
   `analyze`, `plan`, `test`, `implement`, `run` and `review`. The body is parsed like a
   Markdown task file and marked `external`. Tested with API fixtures through an injected
   `fetch`; not yet run against the live API by the test suite.
+- Pull request review: `devflow review --pr <ref>` reviews a pull request checked out
+  locally (HEAD must be its head commit, the tree clean) against its base commit. DevFlow
+  never fetches pull request code; the code of a fork is not run unless `--run-fork-code`
+  is given. Opt-in publishing (`--publish comment|check`, and `devflow report <run>
+--publish`) of a redacted, neutralised summary as a comment or a check run. Tested with
+  fixtures and a local repository; never run against the live API.
 
 Planned:
 
-- PR review (`devflow review --pr`) and opt-in publishing of comments and check runs.
 - Draft PR preparation with explicit authorization.
 - GitHub Action with a documented secure workflow split.
 

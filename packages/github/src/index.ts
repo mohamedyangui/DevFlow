@@ -1,7 +1,8 @@
 /**
  * @devflow/github: GitHub integration over the REST API (Phase 5, ADR 0019).
  *
- * Issues as task sources. Everything read from GitHub is external, untrusted text.
+ * Issues as task sources, pull requests to review, and opt-in publishing of reviews.
+ * Everything read from GitHub is external, untrusted text.
  */
 export {
   DEFAULT_GITHUB_API_URL,
@@ -23,4 +24,19 @@ export {
   repositoryLabel,
   type GitHubRepository,
 } from "./repository.js";
+export {
+  GitHubPullRequest,
+  getPullRequest,
+  parsePullRequestReference,
+  type PullRequestInfo,
+} from "./pulls.js";
+export {
+  COMMENT_MARKER,
+  conclusionOf,
+  publishReview,
+  renderReview,
+  type PublishInput,
+  type PublishTarget,
+  type Published,
+} from "./publish.js";
 export { githubToken } from "./token.js";

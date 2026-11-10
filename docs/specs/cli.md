@@ -4,8 +4,8 @@
   `devflow task validate`; Phase 2 adds `devflow trust` and the assist workflow (`init`,
   `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report`);
   Phase 3 adds `devflow verify`; Phase 4 adds `devflow test`, `devflow implement`,
-  `devflow run` and `devflow review`. The commands listed in section 4 are planned and do
-  **not** exist yet.
+  `devflow run` and `devflow review`; Phase 5 adds `--issue`, `review --pr` and
+  `--publish`. The commands listed in section 4 are planned and do **not** exist yet.
 
 The same `devflow` CLI serves Java and JavaScript/TypeScript projects, and mixed monorepos.
 Nothing in the CLI is language-specific: languages are handled by adapters.
@@ -253,14 +253,15 @@ devflow plan    <task source> [model options]
 devflow test    <task source> [model options] [--allow <fingerprint> ...]
 devflow implement <task source> [model options] [--allow <fingerprint> ...]
 devflow run     <task source> [model options] [--allow <fingerprint> ...]
-devflow review  <task source> [--base <ref>] [model options] [--allow <fingerprint> ...]
+devflow review  <task source> [--base <ref> | --pr <ref> [--publish [comment|check]]
+                [--run-fork-code]] [model options] [--allow <fingerprint> ...]
 devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256> | --changes-sha <sha256>] [--allow <fingerprint> ...] [--json]
 devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
 devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
 devflow resume  <run> [model options] [--allow <fingerprint> ...]
 devflow cancel  <run> [--reason <text>] [--json]
 devflow status  [run] [--json]
-devflow report  <run> [--json]
+devflow report  <run> [--json] [--publish [comment|check]]
 ```
 
 Model options: `--provider <name>`, `--model <id>`, `--cassette <file>`,
@@ -360,6 +361,30 @@ acceptance criterion is reported as passed.
   verified when its tests pass on the change; there is no run before the change, so failures
   that were already there are not told apart and no red/green evidence exists. Review mode
   changes no file and commits nothing.
+- **`review --pr <ref>`** (Phase 5) reviews a pull request: `57`, `#57`, `owner/name#57` or
+  the pull request URL (the repository as for `--issue`). DevFlow reads the pull request from
+  the GitHub API but never fetches or checks out its code: check out its head commit first
+  (`git fetch origin pull/57/head` then `git checkout --detach FETCH_HEAD`). HEAD must be that
+  commit and the working tree must be clean (`REVIEW_PULL_REQUEST_NOT_CHECKED_OUT`,
+  `GIT_TREE_NOT_CLEAN`, exit 2, nothing created); the base is the pull request's base commit,
+  which must be in the local repository. A task is still needed (`--task` or `--issue`): the
+  pull request description is not used as a task. A closed, merged or draft pull request gives
+  a warning. The code of a pull request from a fork (or a deleted fork) is **not run**: no
+  gate runs, a confirmed finding and a manual check say so, and the verdict cannot be
+  `verified`; `--run-fork-code` runs the gates on it, only after you have read the change.
+  `--base` cannot be combined with `--pr`, and `--publish` and `--run-fork-code` need `--pr`
+  (`OPTIONS_INVALID`, exit 2).
+- **`--publish [comment|check]`** (default `comment`) sends the finished review to the pull
+  request: a comment, or a completed check run named `DevFlow review` on the head commit
+  (`success` for `verified`, `failure` for `failed_verification`, otherwise `neutral`). It
+  needs `GITHUB_TOKEN` or `GH_TOKEN` (checked before a run is created, `OPTIONS_INVALID`) with
+  `pull-requests: write` or `checks: write`. The body is built from `report.json`: the verdict,
+  criteria, gates and findings (at most 50), AI findings labelled unverified suggestions; text
+  from the model is cut to 300 characters and neutralised (Markdown, HTML and table syntax
+  escaped, no `@` mention, no link), and every known secret is redacted. Publishing never
+  approves, requests changes or merges. A run that is waiting is not published (a note says
+  how to publish it later); a failed publication is reported and exits 1, the run is kept.
+  `devflow report <run> --publish` publishes a finished `review --pr` run again.
 - **Git isolation** (test and implement mode, [ADR 0012](../adr/0012-git-isolation.md)). A run
   needs a clean working tree: with uncommitted changes outside `.devflow/` it does not start
   (`GIT_TREE_NOT_CLEAN`, nothing is created). Just before the first file is written (after the
@@ -404,11 +429,12 @@ acceptance criterion is reported as passed.
   limits, `--model` and `--provider` replace them. A waiting or finished run is shown unchanged.
 - **`status`** lists the runs, oldest first, or shows one run with its state, settings, usage,
   warnings and next step. **`report`** prints `report.md` (or `report.json` with `--json`) of a
-  finished run, and exits 1 for a run that has not finished.
+  finished run, and exits 1 for a run that has not finished; `--publish` sends it to its pull
+  request (see `review --pr`).
 - Progress lines are written to stderr; with `--json`, stdout holds one JSON document:
   the outcome `{ runId, mode, state, status, waitingFor?, questions?, error?, runDir,
 planPath?, testsPath?, testFiles?, changesPath?, changedFiles?, denials?, reportPath?,
-branch?, exitCode }`, or
+branch?, published?, note?, exitCode }`, or
   `{ error: { code, message } }`.
 - Ctrl+C stops the run after saving its state (exit 130); `devflow resume` continues it. A
   second Ctrl+C ends the process at once.
@@ -433,10 +459,9 @@ $ echo $?
 
 ## 4. Planned commands
 
-| Command                               | Phase | Purpose                              |
-| ------------------------------------- | ----- | ------------------------------------ |
-| `devflow review --pr <n> [--publish]` | 5     | Review a pull request, opt-in output |
-| `devflow pr create`                   | 5     | Draft pull request, with consent     |
+| Command             | Phase | Purpose                          |
+| ------------------- | ----- | -------------------------------- |
+| `devflow pr create` | 5     | Draft pull request, with consent |
 
 Module detection by `devflow init` waits for the Phase 3 adapters. `analyze` and `plan`
 accept `--mode assist`; test, implement and review mode have their own commands. The functions exported by `@devflow/workflow` (`startRun`, `approvePlan`,

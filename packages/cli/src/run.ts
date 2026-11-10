@@ -206,13 +206,39 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           .description(
             "review the local change (working tree against a base) for a task: gates, deterministic checks and an AI review (review mode)",
           ),
-      ).option(
-        "--base <ref>",
-        "compare with the merge base of this branch or commit and HEAD (default: HEAD)",
-      ),
+      )
+        .option(
+          "--base <ref>",
+          "compare with the merge base of this branch or commit and HEAD (default: HEAD)",
+        )
+        .option(
+          "--pr <ref>",
+          "review a pull request whose head is checked out: a number, owner/name#number or its URL",
+        )
+        .addOption(
+          new Option(
+            "--publish [target]",
+            "with --pr: publish the finished review as a comment or a check run (needs GITHUB_TOKEN)",
+          )
+            .choices(["comment", "check"])
+            .preset("comment"),
+        )
+        .option(
+          "--run-fork-code",
+          "with --pr: run the gates even when the pull request is from a fork",
+        ),
     ),
   ).action(
-    async (options: RawModelOptions & RawTaskSource & { base?: string; allow: string[] }) => {
+    async (
+      options: RawModelOptions &
+        RawTaskSource & {
+          base?: string;
+          pr?: string;
+          publish?: "comment" | "check";
+          runForkCode?: boolean;
+          allow: string[];
+        },
+    ) => {
       exitCode = await startCommand(
         "review",
         {
@@ -221,6 +247,9 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           mode: "review",
           allow: options.allow,
           ...(options.base === undefined ? {} : { base: options.base }),
+          ...(options.pr === undefined ? {} : { pr: options.pr }),
+          ...(options.publish === undefined ? {} : { publish: options.publish }),
+          ...(options.runForkCode === true ? { runForkCode: true } : {}),
         },
         io,
       );
@@ -348,8 +377,23 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
     .description("print the report of a finished run (Markdown, or JSON with --json)")
     .argument("<run>", "run id")
     .option("--json", "print report.json")
-    .action(async (run: string, options: { json?: boolean }) => {
-      exitCode = await reportCommand(run, { json: options.json === true }, io);
+    .addOption(
+      new Option(
+        "--publish [target]",
+        "publish the review of a `devflow review --pr` run as a comment or a check run (needs GITHUB_TOKEN)",
+      )
+        .choices(["comment", "check"])
+        .preset("comment"),
+    )
+    .action(async (run: string, options: { json?: boolean; publish?: "comment" | "check" }) => {
+      exitCode = await reportCommand(
+        run,
+        {
+          json: options.json === true,
+          ...(options.publish === undefined ? {} : { publish: options.publish }),
+        },
+        io,
+      );
     });
 
   try {
