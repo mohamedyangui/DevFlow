@@ -41,6 +41,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0018](0018-in-house-process-launcher.md)   | An in-house process launcher instead of `cross-spawn`                                 | Accepted                               |
 | [0019](0019-github-rest-client.md)          | A small GitHub REST client on Node's `fetch` instead of `@octokit/rest`               | Accepted                               |
 | [0020](0020-container-execution-backend.md) | A container execution backend on `docker run`                                         | Accepted                               |
+| [0021](0021-contract-compatibility.md)      | Contract compatibility: in-house OpenAPI and Protobuf parsers and built-in rules      | Accepted                               |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The

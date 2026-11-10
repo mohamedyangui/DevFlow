@@ -65,6 +65,8 @@ export {
 export {
   MAX_AI_FINDINGS,
   aiFindings,
+  contractFindings,
+  contractManualChecks,
   isDependencyManifest,
   looksLikeTestPath,
   patchLines,
@@ -109,6 +111,7 @@ export {
   PlanWire,
   RequirementsAnalysis,
   ReviewDiff,
+  ReviewContracts,
   ReviewDiffFile,
   ReviewGates,
   ReviewPullRequest,

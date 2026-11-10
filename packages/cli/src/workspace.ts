@@ -19,7 +19,7 @@ import {
 } from "@devflow/core";
 import type { ProgressEvent, WorkflowServices } from "@devflow/workflow";
 import type { CliIo, Interruption } from "./io.js";
-import { testRunnerFactory } from "./test-runner.js";
+import { contractToolsFactory, testRunnerFactory } from "./test-runner.js";
 import { readCliVersion } from "./version.js";
 
 /** The workspace a workflow command runs in: the current directory (run it from the root). */
@@ -118,6 +118,11 @@ export function workflowServices(
     }
     return created;
   };
+  // Resolved now, so a container backend without an image fails before a run starts.
+  const execution = resolveExecutionSettings({
+    flag: options.backend,
+    config: workspace.config?.execution,
+  });
   return {
     guard: workspace.guard,
     redactor: workspace.redactor,
@@ -127,14 +132,20 @@ export function workflowServices(
     provider,
     testRunner: testRunnerFactory(workspace, io, {
       allow: options.allow ?? [],
-      // Resolved now, so a container backend without an image fails before a run starts.
-      execution: resolveExecutionSettings({
-        flag: options.backend,
-        config: workspace.config?.execution,
-      }),
+      execution,
       interactive: options.interactiveApproval === true,
       onGate: options.onGate,
     }),
+    // `oasdiff` and `buf` run on the host only: with the container backend, nothing runs on
+    // the host and the built-in rules decide (ADR 0021).
+    ...(execution.backend === "local"
+      ? {
+          contractTools: contractToolsFactory(workspace, io, {
+            allow: options.allow ?? [],
+            interactive: options.interactiveApproval === true,
+          }),
+        }
+      : {}),
     // DevFlow's own fixed git calls (ADR 0012); git is looked up outside the workspace.
     git: new GitClient({ root: workspace.guard.root, env: io.env }),
     ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),

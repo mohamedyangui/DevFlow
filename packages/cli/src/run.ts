@@ -1,5 +1,6 @@
 import type { ExecutionBackendKind } from "@devflow/core";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
+import { contractsDiffCommand } from "./commands/contracts.js";
 import { initCommand } from "./commands/init.js";
 import { prCreateCommand } from "./commands/pr.js";
 import { taskValidateCommand } from "./commands/task-validate.js";
@@ -118,6 +119,41 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
             backend: options.backend,
             json: options.json === true,
           },
+          io,
+        );
+      },
+    );
+
+  program
+    .command("contracts")
+    .description("check OpenAPI and Protobuf contracts")
+    .command("diff")
+    .description(
+      "compare two versions of a contract with the built-in rules; exit code 1 when a change is breaking",
+    )
+    .argument(
+      "<files...>",
+      "<base-file> <head-file>, or with --base the working-tree files to compare",
+    )
+    .option(
+      "--base <ref>",
+      "compare the files with their version at the merge base of <ref> and HEAD",
+    )
+    .addOption(
+      new Option("--kind <kind>", "the contract kind, when the file name does not tell").choices([
+        "openapi",
+        "protobuf",
+      ]),
+    )
+    .option("--json", "print a machine-readable result")
+    .action(
+      async (
+        files: string[],
+        options: { base?: string; kind?: "openapi" | "protobuf"; json?: boolean },
+      ) => {
+        exitCode = await contractsDiffCommand(
+          files,
+          { base: options.base, kind: options.kind, json: options.json === true },
           io,
         );
       },

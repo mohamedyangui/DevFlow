@@ -26,27 +26,27 @@ planned, tested and verified change, and reports what was actually verified, wit
 
 ## What exists today
 
-| Capability                                                                                                                | Status           |
-| ------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| Task files in YAML, JSON and Markdown: parsing, normalization, validation with line numbers                               | Implemented      |
-| `devflow task validate [--json] [--strict]`                                                                               | Implemented      |
-| Core schemas for tasks, configuration, modules, commands, verification, findings, plans and reports, with invariants      | Implemented      |
-| JSON Schema for task and configuration files                                                                              | Implemented      |
-| Security layer: path guard, secret redaction, audit log, command policy, trust store, process executor                    | Implemented      |
-| `devflow trust [--yes \| --status \| --revoke] [--json]`                                                                  | Implemented      |
-| Context engine: discovery, classification, OpenAPI and Protobuf discovery, ranking, packing                               | Implemented      |
-| LLM gateway with redaction, budgets, costs, retries and validated JSON answers; Anthropic, OpenAI, Fake and Replay        | Implemented      |
-| Assist workflow: `devflow init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report` | Implemented      |
-| Java and JS/TS adapters, verification engine, `devflow verify`                                                            | Implemented      |
-| Source parser: tree-sitter outlines and imports for Java, TypeScript and JavaScript                                       | Implemented      |
-| Example repositories with real Maven, Gradle and npm builds (`pnpm test:examples`)                                        | Implemented      |
-| Test generation, implementation, review, `devflow run`                                                                    | Implemented      |
-| GitHub issues as tasks (`--issue`)                                                                                        | Implemented      |
-| GitHub pull request review (`review --pr`), opt-in publishing as a comment or check run                                   | Implemented      |
-| GitHub Action: fork-safe `verify` workflow and gated AI review workflow (not yet run on GitHub)                           | Implemented      |
-| Draft pull requests from an implement run, with explicit authorization (`pr create --yes`)                                | Implemented      |
-| Container execution backend (`--backend container`: Docker, no network, resource limits)                                  | Implemented      |
-| OpenAPI and Protobuf compatibility                                                                                        | Planned, Phase 6 |
+| Capability                                                                                                                | Status      |
+| ------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Task files in YAML, JSON and Markdown: parsing, normalization, validation with line numbers                               | Implemented |
+| `devflow task validate [--json] [--strict]`                                                                               | Implemented |
+| Core schemas for tasks, configuration, modules, commands, verification, findings, plans and reports, with invariants      | Implemented |
+| JSON Schema for task and configuration files                                                                              | Implemented |
+| Security layer: path guard, secret redaction, audit log, command policy, trust store, process executor                    | Implemented |
+| `devflow trust [--yes \| --status \| --revoke] [--json]`                                                                  | Implemented |
+| Context engine: discovery, classification, OpenAPI and Protobuf discovery, ranking, packing                               | Implemented |
+| LLM gateway with redaction, budgets, costs, retries and validated JSON answers; Anthropic, OpenAI, Fake and Replay        | Implemented |
+| Assist workflow: `devflow init`, `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report` | Implemented |
+| Java and JS/TS adapters, verification engine, `devflow verify`                                                            | Implemented |
+| Source parser: tree-sitter outlines and imports for Java, TypeScript and JavaScript                                       | Implemented |
+| Example repositories with real Maven, Gradle and npm builds (`pnpm test:examples`)                                        | Implemented |
+| Test generation, implementation, review, `devflow run`                                                                    | Implemented |
+| GitHub issues as tasks (`--issue`)                                                                                        | Implemented |
+| GitHub pull request review (`review --pr`), opt-in publishing as a comment or check run                                   | Implemented |
+| GitHub Action: fork-safe `verify` workflow and gated AI review workflow (not yet run on GitHub)                           | Implemented |
+| Draft pull requests from an implement run, with explicit authorization (`pr create --yes`)                                | Implemented |
+| Container execution backend (`--backend container`: Docker, no network, resource limits)                                  | Implemented |
+| OpenAPI and Protobuf compatibility (built-in rules, oasdiff/buf), in review mode and `devflow contracts diff`             | Implemented |
 
 See the [roadmap](docs/roadmap.md) for details.
 

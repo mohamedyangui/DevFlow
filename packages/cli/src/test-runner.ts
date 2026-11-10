@@ -14,7 +14,7 @@ import {
   type ExecutionSettings,
   type GateDefinition,
 } from "@devflow/core";
-import type { TestRunner } from "@devflow/workflow";
+import type { TestRunner, WorkflowServices } from "@devflow/workflow";
 import { askApproval } from "./commands/verify.js";
 import type { CliIo } from "./io.js";
 import { type Workspace, currentUser } from "./workspace.js";
@@ -99,6 +99,45 @@ export function testRunnerFactory(
           },
         });
       },
+    };
+  };
+}
+
+/**
+ * Review mode's contract tools (ADR 0021): `oasdiff` and `buf`, when they are on PATH, run
+ * through the same command policy as the gates (workspace trust, then an approval).
+ */
+export function contractToolsFactory(
+  workspace: Workspace,
+  io: CliIo,
+  options: Pick<TestRunnerOptions, "allow" | "interactive">,
+): NonNullable<WorkflowServices["contractTools"]> {
+  return async (context) => {
+    const { guard } = workspace;
+    const trust = await TrustStore.open(defaultTrustStorePath(io.env));
+    const policy = new CommandPolicy({
+      guard,
+      trust,
+      configSha256: workspace.configSha256,
+      approvedBy: currentUser(io.env),
+      allowlist: options.allow,
+      audit: context.audit,
+      ...(options.interactive && io.prompt !== undefined
+        ? { approver: (request) => askApproval(request, io) }
+        : {}),
+    });
+    const executor = new Executor({
+      guard,
+      redactor: workspace.redactor,
+      audit: context.audit,
+      env: io.env,
+    });
+    return {
+      toolchain: new PathToolchainProbe({ env: io.env }),
+      policy,
+      executor,
+      logDir: context.logDir,
+      ...(context.signal === undefined ? {} : { signal: context.signal }),
     };
   };
 }

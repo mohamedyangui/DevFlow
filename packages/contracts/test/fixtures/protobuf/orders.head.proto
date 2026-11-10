@@ -1,0 +1,77 @@
+// Orders API, version 1 (changed).
+syntax = "proto3";
+
+package shop.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.example.shop.v1";
+
+message Order {
+  reserved 4, 20 to 29;
+  reserved 5;
+  reserved "total_cents";
+
+  string id = 1;
+  repeated Item items = 2;
+  Status status = 3;
+  .google.protobuf.Timestamp created_at = 7;
+  map<string, int32> labels = 8;
+  oneof payment {
+    string card_token = 9;
+  }
+  string voucher = 10;
+  string coupon = 11;
+  string buyer = 12;
+  string currency = 13;
+  string region_code = 21;
+
+  message Item {
+    string sku = 1;
+    int64 quantity = 2;
+  }
+
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_OPEN = 1;
+    STATUS_SETTLED = 2;
+    STATUS_CANCELLED = 4;
+  }
+}
+
+message OrderView {
+  Order order = 1;
+}
+
+message Address {
+  string line = 1;
+}
+
+enum Channel {
+  reserved 2;
+  reserved "CHANNEL_STORE";
+  CHANNEL_UNSPECIFIED = 0;
+  CHANNEL_WEB = 1;
+}
+
+enum Region {
+  REGION_UNSPECIFIED = 0;
+}
+
+service OrderService {
+  rpc GetOrder(GetOrderRequest) returns (OrderView);
+  rpc ListOrders(ListOrdersRequest) returns (Order);
+  rpc Ping(GetOrderRequest) returns (GetOrderRequest);
+}
+
+service AdminService {
+  rpc Purge(GetOrderRequest) returns (GetOrderRequest);
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message ListOrdersRequest {
+  int32 page_size = 1;
+}

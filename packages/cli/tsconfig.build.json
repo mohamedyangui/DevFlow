@@ -14,6 +14,7 @@
     { "path": "../adapter-javascript/tsconfig.build.json" },
     { "path": "../ai/tsconfig.build.json" },
     { "path": "../context/tsconfig.build.json" },
+    { "path": "../contracts/tsconfig.build.json" },
     { "path": "../github/tsconfig.build.json" },
     { "path": "../workflow/tsconfig.build.json" }
   ]

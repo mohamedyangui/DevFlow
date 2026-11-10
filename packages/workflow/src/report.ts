@@ -20,6 +20,7 @@ import type {
   PlanCheck,
   RequirementsAnalysis,
   ReviewDiff,
+  ReviewContracts,
   ReviewGates,
   ReviewRecord,
   RunRecord,
@@ -27,7 +28,7 @@ import type {
   TestEvidenceRecord,
   TestFiles,
 } from "./schemas.js";
-import { reviewAcceptanceMatrix } from "./review.js";
+import { contractManualChecks, reviewAcceptanceMatrix } from "./review.js";
 
 export interface ReportInput {
   readonly record: RunRecord;
@@ -54,6 +55,8 @@ export interface ReportInput {
   readonly reviewDiff?: ReviewDiff | undefined;
   readonly reviewGates?: ReviewGates | undefined;
   readonly reviewRecord?: ReviewRecord | undefined;
+  /** Review mode: the changed contract files, compared at the base and the head (ADR 0021). */
+  readonly reviewContracts?: ReviewContracts | undefined;
 }
 
 /**
@@ -151,6 +154,7 @@ export function buildReport(input: ReportInput): EngineeringReport {
             : [
                 `The gates did not run: ${input.reviewGates.skipped}. Run them yourself on the change before you merge it.`,
               ]),
+          ...contractManualChecks(input.reviewContracts),
           ...(input.reviewDiff.withheld.length === 0
             ? []
             : [

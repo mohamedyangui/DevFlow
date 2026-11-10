@@ -20,6 +20,7 @@ import {
   WorkflowMode,
   WorkflowState,
 } from "@devflow/core";
+import { ContractDiff } from "@devflow/contracts";
 import { z } from "zod";
 
 /**
@@ -710,6 +711,19 @@ export const ReviewGates = z.strictObject({
   skipped: z.string().min(1).optional(),
 });
 export type ReviewGates = z.infer<typeof ReviewGates>;
+
+/**
+ * `artifacts/review-contracts.json`: the contract files the change touches, each compared at
+ * the base commit and in the working tree (ADR 0021). Decided by rules or tools, never a model.
+ */
+export const ReviewContracts = z.strictObject({
+  schemaVersion: z.literal(1),
+  checkedAt: IsoDateTime,
+  contracts: z.array(ContractDiff),
+  /** Changed contract files that could not be compared, and why. */
+  skipped: z.array(z.strictObject({ path: z.string().min(1), reason: z.string().min(1) })),
+});
+export type ReviewContracts = z.infer<typeof ReviewContracts>;
 
 /** `artifacts/review.json`: the model's review, after its findings were mapped. */
 export const ReviewRecord = z.strictObject({

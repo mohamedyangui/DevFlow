@@ -493,3 +493,27 @@ describe("GitClient push (Phase 5)", () => {
     expect(await client.pushUrls("upstream")).toEqual(["https://example.invalid/acme/shop.git"]);
   });
 });
+
+describe("GitClient show", () => {
+  it("reads a file at a commit, and null when it does not exist there", async () => {
+    const base = await repository();
+    await writeFile(path.join(dir, "src", "a.ts"), "export const a = 2;\n");
+    await git(dir, "commit", "--quiet", "-am", "change");
+    const client = new GitClient({ root: dir });
+    expect(await client.show(base, "src/a.ts")).toBe("export const a = 1;\n");
+    expect(await client.show(base, "src/missing.ts")).toBeNull();
+    expect(await client.show(base, "src")).toBeNull();
+    await expect(client.show(base, "../outside")).rejects.toMatchObject({
+      code: ErrorCode.GitFailed,
+    });
+    await expect(client.show("HEAD", "src/a.ts")).rejects.toMatchObject({
+      code: ErrorCode.GitFailed,
+    });
+  });
+
+  it("reads paths relative to a workspace in a subdirectory of the repository", async () => {
+    const base = await repository();
+    const client = new GitClient({ root: path.join(dir, "src") });
+    expect(await client.show(base, "a.ts")).toBe("export const a = 1;\n");
+  });
+});

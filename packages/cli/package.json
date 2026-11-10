@@ -27,6 +27,7 @@
     "@devflow/adapter-javascript": "workspace:*",
     "@devflow/ai": "workspace:*",
     "@devflow/context": "workspace:*",
+    "@devflow/contracts": "workspace:*",
     "@devflow/core": "workspace:*",
     "@devflow/github": "workspace:*",
     "@devflow/workflow": "workspace:*",

@@ -8,7 +8,7 @@ import {
   type TestCaseResult,
   statusForOutcome,
 } from "@devflow/core";
-import type { ReviewDiff, ReviewWire } from "./schemas.js";
+import type { ReviewContracts, ReviewDiff, ReviewWire } from "./schemas.js";
 
 /**
  * The review engine (architecture proposal, section 12): deterministic checks of a local diff
@@ -230,6 +230,8 @@ export function reviewFindings(input: {
   readonly gates: readonly GateResult[];
   /** Why the gates were not run, when they were skipped on purpose. */
   readonly gatesSkipped?: string;
+  /** The contract files the change touches, compared at the base and the head. */
+  readonly contracts?: ReviewContracts | undefined;
 }): NewFinding[] {
   const { task, diff, gates } = input;
   const findings: NewFinding[] = [];
@@ -429,6 +431,8 @@ export function reviewFindings(input: {
     });
   }
 
+  findings.push(...contractFindings(input.contracts));
+
   if (diff.patchTruncated) {
     findings.push({
       title: "The diff was too large to review whole",
@@ -441,6 +445,77 @@ export function reviewFindings(input: {
     });
   }
   return findings;
+}
+
+/** Breaking changes listed per finding; the rest is in `artifacts/review-contracts.json`. */
+const MAX_CONTRACT_EVIDENCE = 20;
+
+/**
+ * Deterministic findings for contract files the change touches (ADR 0021): one `confirmed`
+ * finding per file with breaking changes, each change as deterministic evidence that names
+ * the rule and who decided it (the built-in rules, oasdiff or buf). Changes the rules could
+ * not decide are not findings: they are manual checks of the report
+ * ({@link contractManualChecks}). A model never decides compatibility.
+ */
+export function contractFindings(contracts: ReviewContracts | undefined): NewFinding[] {
+  const findings: NewFinding[] = [];
+  for (const diff of contracts?.contracts ?? []) {
+    const breaking = diff.changes.filter((change) => change.compatibility === "breaking");
+    if (breaking.length === 0) continue;
+    const decidedBy = [...new Set(breaking.map((change) => change.decidedBy))].join(", ");
+    findings.push({
+      title: `Breaking ${diff.kind === "openapi" ? "OpenAPI" : "Protobuf"} contract change in ${diff.file}: ${String(breaking.length)} breaking change(s)`,
+      severity: "high",
+      category: "compatibility",
+      source: "deterministic",
+      verification: "confirmed",
+      evidence: [
+        ...breaking.slice(0, MAX_CONTRACT_EVIDENCE).map((change) => ({
+          kind: "tool-report" as const,
+          description: `[${change.rule}, decided by ${change.decidedBy}] ${change.message}`,
+          deterministic: true,
+          ...location(diff.file, change.location.line).location,
+        })),
+        ...(breaking.length > MAX_CONTRACT_EVIDENCE
+          ? [
+              note(
+                `${String(breaking.length - MAX_CONTRACT_EVIDENCE)} more breaking change(s) in artifacts/review-contracts.json`,
+              ),
+            ]
+          : []),
+        ...diff.notes.slice(0, 3).map((text) => note(text)),
+      ],
+      ...location(diff.file, breaking[0]?.location.line),
+      recommendation:
+        `Keep the contract compatible (decided by ${decidedBy}), or, if the break is intended, ` +
+        "version the API and update every consumer before merging.",
+    });
+  }
+  return findings;
+}
+
+/** What a person must check about the contracts: undecided changes and files not compared. */
+export function contractManualChecks(contracts: ReviewContracts | undefined): string[] {
+  if (contracts === undefined) return [];
+  const checks: string[] = [];
+  for (const diff of contracts.contracts) {
+    const unknown = diff.changes.filter((change) => change.compatibility === "unknown");
+    if (unknown.length === 0) continue;
+    const shown = unknown
+      .slice(0, 5)
+      .map((change) => change.message)
+      .join("; ");
+    const more = unknown.length > 5 ? ` and ${String(unknown.length - 5)} more` : "";
+    checks.push(
+      `Check the contract changes in ${diff.file} that the rules could not decide (compatibility unknown): ${shown}${more}.`,
+    );
+  }
+  for (const entry of contracts.skipped) {
+    checks.push(
+      `Check the contract ${entry.path} yourself: it was not compared (${entry.reason}).`,
+    );
+  }
+  return checks;
 }
 
 /**
