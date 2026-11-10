@@ -505,7 +505,7 @@ export async function reportCommand(
  * Runs a command body with Ctrl+C handling and maps DevFlow errors to messages and exit codes.
  * Other errors are bugs: they propagate to the binary, which prints them (exit 70).
  */
-async function guarded(
+export async function guarded(
   io: CliIo,
   json: boolean,
   body: (interruption: Interruption | undefined) => Promise<ExitCode>,
@@ -536,6 +536,7 @@ function exitCodeForError(code: string): ExitCode {
     case ErrorCode.Cancelled:
       return ExitCode.Interrupted;
     case ErrorCode.GitHubRequestFailed:
+    case ErrorCode.GitPushFailed:
       return ExitCode.Failure;
     default:
       return ExitCode.UsageError;
@@ -871,6 +872,6 @@ function printWarnings(io: CliIo, warnings: readonly string[]): void {
   for (const warning of warnings) io.stderr.write(`devflow: warning: ${warning}\n`);
 }
 
-function writeJson(io: CliIo, value: unknown): void {
+export function writeJson(io: CliIo, value: unknown): void {
   io.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }

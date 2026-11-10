@@ -79,6 +79,8 @@ export const ErrorCode = {
   ImplementationFilesChanged: "IMPLEMENTATION_FILES_CHANGED",
   /** A git operation of DevFlow's own failed (ADR 0012). */
   GitFailed: "GIT_FAILED",
+  /** `git push` of a run's branch failed (rejected, no access, no network). */
+  GitPushFailed: "GIT_PUSH_FAILED",
   /** The working tree has uncommitted changes, so DevFlow does not start changing files. */
   GitTreeNotClean: "GIT_TREE_NOT_CLEAN",
   /** The run's branch is no longer checked out, so DevFlow does not write or commit. */
@@ -99,6 +101,16 @@ export const ErrorCode = {
   GitHubIssueInvalid: "GITHUB_ISSUE_INVALID",
   /** A pull request reference cannot be used (not a number, owner/name#number or URL). */
   GitHubPullRequestInvalid: "GITHUB_PULL_REQUEST_INVALID",
+  /**
+   * A run cannot become a pull request: not a finished implement-mode run, or no DevFlow
+   * branch with commits, or the branch no longer contains the run's commits.
+   */
+  PullRequestRunInvalid: "PULL_REQUEST_RUN_INVALID",
+  /**
+   * The pull request target is refused: the branch is the base or the default branch, or the
+   * `origin` remote is not the target repository.
+   */
+  PullRequestTargetInvalid: "PULL_REQUEST_TARGET_INVALID",
   /** The checked-out commit is not the head of the pull request to review. */
   ReviewPullRequestNotCheckedOut: "REVIEW_PULL_REQUEST_NOT_CHECKED_OUT",
   /** A language adapter cannot be registered (bad id, unsupported API version, duplicate). */

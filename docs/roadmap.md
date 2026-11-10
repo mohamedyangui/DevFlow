@@ -211,19 +211,22 @@ Implemented:
 - Pull request review: `devflow review --pr <ref>` reviews a pull request checked out
   locally (HEAD must be its head commit, the tree clean) against its base commit. DevFlow
   never fetches pull request code; the code of a fork is not run unless `--run-fork-code`
-  is given. Opt-in publishing (`--publish comment|check`, and `devflow report <run>
---publish`) of a redacted, neutralised summary as a comment or a check run. Tested with
-  fixtures and a local repository; never run against the live API.
+  is given. Opt-in publishing (`--publish comment|check`, and
+  `devflow report <run> --publish`) of a redacted, neutralised summary as a comment or a
+  check run. Tested with fixtures and a local repository; never run against the live API.
+- Draft PR preparation with explicit authorization: `devflow pr create <run>` prints what it
+  will do and acts only with `--yes`. It pushes only the run's DevFlow branch to `origin`
+  (exact refspec, never forced, no tags, never the base or default branch, `origin` checked
+  to be the target repository; the user's own git credentials) and opens a draft pull
+  request whose description comes from the run's report. It never merges, approves or
+  requests reviews. Tested with API fixtures, a local bare repository as `origin` and a real
+  implement run; never run against the live API or a GitHub remote.
 - GitHub Action with a documented secure workflow split: a composite `action.yml` that builds
   DevFlow from its pinned source and runs `verify` or `review --pr`, a fork-safe verify
   workflow and a gated AI review workflow as examples
   ([spec](specs/github-action.md)). The test suite checks their security properties
   statically (pinned SHAs, no `pull_request_target`, no expressions in scripts, minimal
   permissions, gating) and runs the input check; the action has not been run on GitHub.
-
-Planned:
-
-- Draft PR preparation with explicit authorization.
 
 ## Phase 6: Advanced features
 

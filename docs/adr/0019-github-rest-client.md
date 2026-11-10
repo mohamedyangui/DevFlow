@@ -1,7 +1,7 @@
 # ADR 0019: A small GitHub REST client on Node's `fetch` instead of `@octokit/rest`
 
 - **Status:** Accepted, 2026-11-10. Implemented in Phase 5 in `@devflow/github`
-  (`src/client.ts`, `repository.ts`, `issues.ts`, `pulls.ts`, `publish.ts`).
+  (`src/client.ts`, `repository.ts`, `issues.ts`, `pulls.ts`, `publish.ts`, `drafts.ts`).
 - **Deciders:** Mohamed Yangui
 
 ## Context
@@ -42,6 +42,12 @@ so the HTTP layer costs nothing.
    markup).
 9. **Only `github.com`** remotes are recognised to infer the repository. GitHub Enterprise
    Server is not supported yet.
+10. **Draft pull requests need explicit authorization.** `devflow pr create` prints its plan
+    and acts only with `--yes`. Git pushes the run's DevFlow branch alone (exact refspec,
+    never forced, no tags) to an `origin` checked to be the target repository, with the
+    user's own git credentials: the API token never reaches git. The client then sends one
+    `POST /pulls` with `draft: true` (`createDraftPullRequest`, in `drafts.ts`); DevFlow
+    never marks it ready, requests reviewers, approves or merges.
 
 ## Consequences
 

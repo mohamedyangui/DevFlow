@@ -110,7 +110,27 @@ export function renderReview(report: EngineeringReport): string {
       (base === undefined ? "" : ` · **Base:** \`${base.slice(0, 12)}\``),
     "",
   );
+  lines.push(...renderEvidence(report));
+  lines.push(
+    "---",
+    `_DevFlow AI ${text(report.run.devflowVersion)}, run \`${text(report.run.id)}\`. ` +
+      "AI findings are a model's suggestions and stay unverified until a test or a person " +
+      "confirms them._",
+  );
+  return limitBody(lines.join("\n"), "The review was cut here; the full report is in the run.");
+}
 
+/** Keeps a body within GitHub's limit. */
+export function limitBody(body: string, note: string): string {
+  return body.length > MAX_BODY_CHARS ? `${body.slice(0, MAX_BODY_CHARS)}\n\n_${note}_` : body;
+}
+
+/**
+ * The evidence sections of a published report, each followed by an empty line: acceptance
+ * criteria, gates, findings (at most 50, AI findings labelled unverified) and manual checks.
+ */
+export function renderEvidence(report: EngineeringReport): string[] {
+  const lines: string[] = [];
   if (report.acceptanceMatrix.length > 0) {
     lines.push(
       "### Acceptance criteria",
@@ -167,18 +187,7 @@ export function renderReview(report: EngineeringReport): string {
     for (const check of report.manualChecks) lines.push(`- ${text(check)}`);
     lines.push("");
   }
-  lines.push(
-    "---",
-    `_DevFlow AI ${text(report.run.devflowVersion)}, run \`${text(report.run.id)}\`. ` +
-      "AI findings are a model's suggestions and stay unverified until a test or a person " +
-      "confirms them._",
-  );
-
-  let body = lines.join("\n");
-  if (body.length > MAX_BODY_CHARS) {
-    body = `${body.slice(0, MAX_BODY_CHARS)}\n\n_The review was cut here; the full report is in the run._`;
-  }
-  return body;
+  return lines;
 }
 
 function renderFinding(finding: Finding): string[] {
@@ -201,6 +210,10 @@ function renderFinding(finding: Finding): string[] {
  * Neutralises text that came from a model or a repository: no mentions or team pings, no HTML,
  * no images or links, no code spans that could break the layout, one line, a length limit.
  */
+export function neutralise(value: string): string {
+  return text(value);
+}
+
 function text(value: string): string {
   const flat = value.replace(/\s+/g, " ").trim();
   const short = flat.length > MAX_TEXT_CHARS ? `${flat.slice(0, MAX_TEXT_CHARS - 1)}…` : flat;

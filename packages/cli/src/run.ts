@@ -1,5 +1,6 @@
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { initCommand } from "./commands/init.js";
+import { prCreateCommand } from "./commands/pr.js";
 import { taskValidateCommand } from "./commands/task-validate.js";
 import { trustCommand } from "./commands/trust.js";
 import { verifyCommand } from "./commands/verify.js";
@@ -395,6 +396,40 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         io,
       );
     });
+
+  const pr = program.command("pr").description("work with GitHub pull requests");
+  pr.command("create")
+    .description(
+      "push the branch of a finished implement run to origin and open a draft pull request " +
+        "(prints the plan; needs --yes to act, and GITHUB_TOKEN)",
+    )
+    .argument("<run>", "run id")
+    .option("--repo <owner/name>", "GitHub repository (default: the origin remote)")
+    .option("--base <branch>", "base branch (default: the run's base branch, else the default)")
+    .option("--title <text>", 'title (default: "DevFlow <task id>: <task title>")')
+    .option(
+      "-y, --yes",
+      "push the branch and create the draft pull request, after reviewing the plan",
+    )
+    .option("--json", "print a machine-readable result")
+    .action(
+      async (
+        run: string,
+        options: { repo?: string; base?: string; title?: string; yes?: boolean; json?: boolean },
+      ) => {
+        exitCode = await prCreateCommand(
+          run,
+          {
+            repo: options.repo,
+            base: options.base,
+            title: options.title,
+            yes: options.yes === true,
+            json: options.json === true,
+          },
+          io,
+        );
+      },
+    );
 
   try {
     await program.parseAsync([...args], { from: "user" });
