@@ -108,7 +108,10 @@ export function hasMarker(
   const n = acId.slice(3);
   const title = new RegExp(`["'\`]AC-${n}(?![0-9])`);
   if (style === "title-prefix") return title.test(text);
-  return new RegExp(`(^|[^A-Za-z0-9_])ac${n}_`).test(text) || title.test(text);
+  // `ac1_…` (JUnit), `ac1_ac2_…` (several criteria) and `test_ac1_…` (pytest, unittest).
+  return (
+    new RegExp(`(^|[^A-Za-z0-9_])(test_?)?(ac[0-9]+_)*ac${n}_`, "i").test(text) || title.test(text)
+  );
 }
 
 function occurrences(text: string, search: string): number {

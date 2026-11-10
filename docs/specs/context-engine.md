@@ -14,7 +14,8 @@ sensitive content to a model, and explain every selection.
 
 1. **Discover.** `git ls-files -co --exclude-standard -z`, or a directory walk honouring ignore
    files when the directory is not a git repository. Always excluded: `.git`, `node_modules`,
-   `target`, `build`, `dist`, `.devflow/runs`, binary files (NUL-byte sniffing), files larger
+   `target`, `build`, `dist`, `.devflow/runs`, Python virtual environments and caches
+   (`.venv`, `.tox`, `.nox`, `__pycache__`), binary files (NUL-byte sniffing), files larger
    than `context.maxFileBytes`.
 2. **Classify.** Language, role (source, test, configuration, documentation, generated,
    **contract**) and owning module.

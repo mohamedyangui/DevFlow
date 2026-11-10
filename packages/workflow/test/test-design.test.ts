@@ -125,6 +125,11 @@ describe("test paths and markers", () => {
     expect(hasMarker("// covers AC-1", "AC-1", "title-prefix")).toBe(false);
     expect(hasMarker("void ac1_returnsPage() {}", "AC-1", "method-name-prefix")).toBe(true);
     expect(hasMarker("void bac1_x() {}", "AC-1", "method-name-prefix")).toBe(false);
+    expect(hasMarker("void ac1_ac2_x() {}", "AC-2", "method-name-prefix")).toBe(true);
+    expect(hasMarker("def test_ac1_page():", "AC-1", "method-name-prefix")).toBe(true);
+    expect(hasMarker("def test_ac1_ac3_page():", "AC-3", "method-name-prefix")).toBe(true);
+    expect(hasMarker("def test_ac12_page():", "AC-1", "method-name-prefix")).toBe(false);
+    expect(hasMarker("def test_bac1_page():", "AC-1", "method-name-prefix")).toBe(false);
     expect(hasMarker('@DisplayName("AC-1: page")', "AC-1", "method-name-prefix")).toBe(true);
   });
 });

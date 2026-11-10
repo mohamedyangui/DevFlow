@@ -25,6 +25,7 @@
   "dependencies": {
     "@devflow/adapter-java": "workspace:*",
     "@devflow/adapter-javascript": "workspace:*",
+    "@devflow/adapter-python": "workspace:*",
     "@devflow/ai": "workspace:*",
     "@devflow/context": "workspace:*",
     "@devflow/contracts": "workspace:*",

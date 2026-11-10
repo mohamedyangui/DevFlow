@@ -34,6 +34,9 @@
       "adapter-javascript": [
         "core"
       ],
+      "adapter-python": [
+        "core"
+      ],
       "github": [
         "core"
       ],
@@ -66,6 +69,7 @@
   "devDependencies": {
     "@devflow/adapter-java": "workspace:*",
     "@devflow/adapter-javascript": "workspace:*",
+    "@devflow/adapter-python": "workspace:*",
     "@devflow/cli": "workspace:*",
     "@devflow/context": "workspace:*",
     "@devflow/core": "workspace:*",

@@ -6,15 +6,15 @@
   `CommandSpec`, `ParsedCommandResults`) exist in `@devflow/core` (Phase 1). The adapter SDK,
   output validation, registry, toolchain probe and conformance kit exist (Phase 3, section 8).
   The Java adapter (section 9) and the JavaScript/TypeScript adapter (section 10) exist
-  (Phase 3). The interface may still change before Phase 3 completes.
+  (Phase 3); the Python adapter (section 11) exists (Phase 6). The interface may still change before Phase 3 completes.
 
 ## 1. Role
 
 An adapter teaches DevFlow about one language ecosystem: how to recognize a project, which
 build and test tools it uses, where tests live and how to write a new one, which commands
 build and test it, and how to read the results. The workflow is language-agnostic; it only
-talks to adapters through this interface. The same CLI and SDK serve Java and
-JavaScript/TypeScript projects, and a mixed monorepo simply has modules from several adapters.
+talks to adapters through this interface. The same CLI and SDK serve Java,
+JavaScript/TypeScript and Python projects, and a mixed monorepo simply has modules from several adapters.
 
 ## 2. Rules every adapter follows
 
@@ -64,7 +64,8 @@ available and its version, without letting the adapter run anything.
 ## 5. Commands
 
 `CommandSpec` fields: `id`, `purpose` (`build`, `compile`, `test`, `lint`, `typecheck`,
-`static-analysis`, `format-check`), `executable` (a bare tool name or `./wrapper`), `args`,
+`static-analysis`, `format-check`), `executable` (a bare tool name, `./wrapper`, or a project virtual environment's interpreter
+`./.venv/bin/python` or `./.venv/Scripts/python.exe`), `args`,
 `cwd`, `env`, `timeoutMs`, `network` (`none` or `required`), `parameters`, `results`
 (`parser`, `reportGlobs`), `origin`.
 
@@ -84,16 +85,19 @@ available and its version, without letting the adapter run anything.
 acceptance-criterion marker style that survives into machine-readable reports:
 
 - `method-name-prefix`, e.g. JUnit `void ac1_returnsSecondPage()` with `@DisplayName("AC-1: …")`;
-- `title-prefix`, e.g. Vitest/Jest `it("AC-1: returns the second page", …)`.
+- `title-prefix`, e.g. Vitest/Jest `it("AC-1: returns the second page", …)`;
+- for Python, `method-name-prefix` with `test_ac1_`: `def test_ac1_returns_the_second_page()`.
 
 ## 7. Built-in adapters (Phase 3)
 
-Both built-in adapters exist: Java (section 9) and JavaScript/TypeScript (section 10).
+Both built-in adapters exist: Java (section 9) and JavaScript/TypeScript (section 10). A
+third, Python (section 11), was added in Phase 6.
 
 | Adapter      | Detects                                                                                                                                                                  | Commands                                                               | Result parsing                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | `java`       | Maven and Gradle (Groovy and Kotlin DSL, single and multi-module), wrappers, Spring Boot, JUnit 5, Mockito, Checkstyle, SpotBugs, Protobuf and OpenAPI generator plugins | compile, test (with filter), build, checkstyle, spotbugs, format-check | Surefire/Failsafe and Gradle JUnit XML, Checkstyle and SpotBugs XML |
 | `javascript` | npm, pnpm, Yarn and Bun, workspaces, TypeScript, Express, NestJS, React, Next.js, Vite, Vitest, Jest, ESLint, Prettier, `ts-proto`/`protoc-gen-es`/`openapi-typescript`  | test (with filter), lint, typecheck, format-check                      | JSON reports of Jest and Vitest, ESLint JSON, `tsc` diagnostics     |
+| `python`     | uv, Poetry, Pipenv, pip and plain projects, `.venv`, Django, Flask, FastAPI, pytest, unittest, Ruff, flake8, mypy, Pyright                                               | test (with filter), lint, typecheck                                    | pytest JUnit XML, unittest output, Ruff JSON, flake8 and mypy text  |
 
 Example Java projects for integration tests get Maven and Gradle wrappers generated with the
 official Docker images, pinned to exact versions, with `distributionSha256Sum` set so the
@@ -226,3 +230,45 @@ implements this interface for npm, pnpm, Yarn and Bun projects.
   `eslint-json`, `tsc` (compiler output; a failure that names no error is `unparseable`) and
   `exit-code`. Only reports written by the execution are read; a missing, truncated or invalid
   report makes the result `unparseable`.
+
+## 11. The Python adapter
+
+`@devflow/adapter-python` ([README](../../packages/adapter-python/README.md)) implements this
+interface for Python projects (Phase 6).
+
+- **Modules.** One module per `pyproject.toml` (with `[project]`, `[tool.poetry]` or
+  `[build-system]`), `setup.cfg` with metadata, `setup.py`, `Pipfile`, `uv.lock` or
+  `poetry.lock`; requirements files alone make a module only when nothing else does. A
+  repository with Python files and none of these is one plain module (confidence 0.6). Nested
+  projects own their files. Virtual environments and caches are never walked.
+- **Reading projects.** TOML and INI files are parsed, `setup.py` and requirements files are
+  read as text; nothing is imported, executed or installed. Versions are those of the
+  packages installed in the project's virtual environment (`*.dist-info`), never a declared
+  range.
+- **Profile.** Build tool from the lockfile or manifest: uv, Poetry (version from the lock
+  header), Pipenv or pip. Python version from `.python-version`, `requires-python` or the
+  virtual environment. Django, Flask, FastAPI; pytest and unittest (`TestCase` subclasses);
+  Ruff, flake8, mypy, Pyright. A tool counts when it is declared (0.95), configured (0.9) or
+  only imported (0.8). Source roots follow the `src` or flat layout.
+- **Tests.** `test_*.py` and `*_test.py` that define a test, under `tests/` or next to the code.
+  Conventions (file naming, location, function or class style) follow the 60% rule.
+- **Markers.** `method-name-prefix`: `def test_ac1_returns_the_second_page() -> None: ...`
+  (also inside a `TestCase`), recognised case-insensitively.
+- **Interpreter.** The project's `.venv` or `venv` interpreter when it has a `pyvenv.cfg`
+  (`./.venv/bin/python`, `./.venv/Scripts/python.exe`); the command policy binds that
+  `pyvenv.cfg` into the approval fingerprint. Otherwise the first of `python`, `py -3`,
+  `python3` on PATH (Windows) or `python3`, `python` (elsewhere). Commands run with
+  `PYTHONDONTWRITEBYTECODE=1`, `PYTHONIOENCODING=utf-8`, `NO_COLOR=1` and no network.
+- **Commands.** Always `python -m <tool>`, never a console script or a package manager:
+  `test` and `test-filter` with pytest (`-q --junitxml=.pytest_cache/devflow-<module>-junit.xml`,
+  filter `-k {testExpression}`) or unittest (`discover -v`, filter `-k {testPattern}`); `lint`
+  with Ruff (`check --no-fix --output-format json`) or flake8; `typecheck` with mypy. Each only
+  for a tool the module declares or configures. The command policy allows `python -m` only for
+  pytest, unittest, mypy, ruff and flake8, and denies `-c`, `-` and package managers
+  ([security model](security-model.md)).
+- **Results.** `pytest-junit-xml` (only a report written by the execution; exit codes 3 and 4
+  or a missing report are `unparseable`), `unittest-text` (the per-test lines must match the
+  `Ran N tests` count), `ruff-json`, `flake8-text` and `mypy-text`. A tool exit code above 1
+  without parseable output is `unparseable`. The unittest and mypy parsers are tested with
+  real output of Python 3.10 and mypy 0.931; the pytest JUnit fixture is written by hand,
+  because pytest was not available where the adapter was built.

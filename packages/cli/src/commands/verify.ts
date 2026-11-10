@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { javaAdapter } from "@devflow/adapter-java";
 import { javascriptAdapter } from "@devflow/adapter-javascript";
+import { pythonAdapter } from "@devflow/adapter-python";
 import { WorkspaceRepository } from "@devflow/context";
 import {
   AdapterRegistry,
@@ -87,7 +88,7 @@ async function verify(options: VerifyOptions, io: CliIo): Promise<ExitCode> {
     maxFileBytes: config?.context.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES,
     exclude: config?.context.exclude ?? [],
   });
-  const registry = new AdapterRegistry([javaAdapter, javascriptAdapter]);
+  const registry = new AdapterRegistry([javaAdapter, javascriptAdapter, pythonAdapter]);
   const declared = config?.modules;
   const discovery = await registry.discover(repo, declared === undefined ? {} : { declared });
   const toolchain =

@@ -141,7 +141,8 @@ export async function resolveInvocation(
 
   if (command.executable.kind === "wrapper") {
     const wrapper = command.executable.absolute;
-    if (platform !== "win32") {
+    if (platform !== "win32" || /\.(exe|com)$/i.test(wrapper)) {
+      // A program (such as a virtual environment's python.exe) starts without cmd.exe.
       return { strategy: "direct", file: wrapper, args, windowsVerbatimArguments: false };
     }
     const name = toolName(command.spec.executable);

@@ -1,0 +1,51 @@
+tests.test_broken (unittest.loader._FailedTest) ... ERROR
+test_ac1_adds (tests.test_calc.TestCalc) ... ok
+test_doc (tests.test_calc.TestCalc)
+Has a docstring line. ... ok
+test_errors (tests.test_calc.TestCalc) ... ERROR
+test_fails (tests.test_calc.TestCalc) ... FAIL
+test_skipped (tests.test_calc.TestCalc) ... skipped 'not now'
+test_sub (tests.test_calc.TestCalc) ... test_xfail (tests.test_calc.TestCalc) ... expected failure
+
+======================================================================
+ERROR: tests.test_broken (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: tests.test_broken
+Traceback (most recent call last):
+  File "C:\PySchool\3.10-32-bit\lib\unittest\loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\PySchool\3.10-32-bit\lib\unittest\loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "C:\work\shop\tests\test_broken.py", line 1, in <module>
+    import nope  # noqa: F401
+ModuleNotFoundError: No module named 'nope'
+
+
+======================================================================
+ERROR: test_errors (tests.test_calc.TestCalc)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\work\shop\tests\test_calc.py", line 14, in test_errors
+    raise RuntimeError("boom")
+RuntimeError: boom
+
+======================================================================
+FAIL: test_fails (tests.test_calc.TestCalc)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\work\shop\tests\test_calc.py", line 11, in test_fails
+    self.assertEqual(add(1, 2), 4)
+AssertionError: 3 != 4
+
+======================================================================
+FAIL: test_sub (tests.test_calc.TestCalc) (i=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\work\shop\tests\test_calc.py", line 31, in test_sub
+    self.assertNotEqual(i, 1)
+AssertionError: 1 == 1
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.001s
+
+FAILED (failures=2, errors=2, skipped=1, expected failures=1)

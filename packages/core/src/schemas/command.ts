@@ -36,15 +36,17 @@ export const CommandArgument = z
   .regex(/^[^\u0000-\u001f\u007f]*$/, "arguments must not contain control characters");
 
 /**
- * The executable is either a bare tool name resolved by the executor (`mvn`, `node`, `pnpm`)
- * or a wrapper script relative to the command's working directory (`./mvnw`, `./gradlew`).
- * Shell interpreters are rejected by the command policy at runtime, not here.
+ * The executable is either a bare tool name resolved by the executor (`mvn`, `node`, `pnpm`),
+ * a wrapper script relative to the command's working directory (`./mvnw`, `./gradlew`), or the
+ * Python interpreter of a virtual environment in the working directory (`./.venv/bin/python`,
+ * `./.venv/Scripts/python.exe`, also in `venv`). Shell interpreters are rejected by the
+ * command policy at runtime, not here.
  */
 export const CommandExecutable = z
   .string()
   .regex(
-    /^(?:[A-Za-z0-9][A-Za-z0-9._+-]*|\.\/[A-Za-z0-9][A-Za-z0-9._+-]*)$/,
-    'expected a bare tool name (e.g. "mvn") or a wrapper in the working directory (e.g. "./mvnw")',
+    /^(?:[A-Za-z0-9][A-Za-z0-9._+-]*|\.\/[A-Za-z0-9][A-Za-z0-9._+-]*|\.\/\.?venv\/(?:bin\/python3?|Scripts\/python\.exe))$/,
+    'expected a bare tool name (e.g. "mvn"), a wrapper in the working directory (e.g. "./mvnw") or a virtual environment interpreter (e.g. "./.venv/bin/python")',
   );
 
 /**

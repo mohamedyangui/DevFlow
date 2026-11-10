@@ -106,8 +106,8 @@ one input the executor accepts. The checks run in this order; the first failure 
    variables that change how programs load code: `PATH`, `PATHEXT`, `ComSpec`, `SystemRoot`,
    `WINDIR`, `NODE_OPTIONS`, `NODE_PATH`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`,
    `JDK_JAVA_OPTIONS`, `BASH_ENV`, `ENV`, `SHELL`, `PERL5OPT`, `PERL5LIB`, `PYTHONSTARTUP`,
-   `PYTHONPATH`, `RUBYOPT`, and anything starting with `LD_`, `DYLD_`, `GIT_`, `NPM_CONFIG_`,
-   `YARN_`, `PNPM_` or `DOCKER_`.
+   `PYTHONPATH`, `PYTHONHOME`, `PYTHONUSERBASE`, `RUBYOPT`, and anything starting with `LD_`,
+   `DYLD_`, `GIT_`, `NPM_CONFIG_`, `YARN_`, `PNPM_` or `DOCKER_`.
 2. **Parameters:** every placeholder needs a declared parameter and a value. Values must match
    the anchored pattern, respect the maximum length, contain no control characters, and must
    not start with `-`, so that a value cannot become an option.
@@ -118,7 +118,11 @@ one input the executor accepts. The checks run in this order; the first failure 
    - network tools (`curl`, `wget`, `nc`, `ssh`, `scp`, `rsync`, `certutil`, `bitsadmin`, ...);
    - privilege escalation (`sudo`, `su`, `doas`, `runas`, `pkexec`);
    - destructive file tools (`rm`, `del`, `rmdir`, `dd`, `chmod`, `chown`, `icacls`, `mv`, ...);
-   - `npx`, `pnpx` and `bunx`, which download and run packages;
+   - `npx`, `pnpx` and `bunx`, `pipx`, `uvx` and `easy_install`, which download and run
+     packages;
+   - Python package managers as executables (`pip`, `uv`, `poetry`, `pipenv`, `pdm`, `hatch`,
+     `conda`, `mamba`, `micromamba`), and `python -m` with any module other than `pytest`,
+     `unittest`, `mypy`, `ruff` and `flake8` (so `python -m pip` is denied too);
    - `git`: DevFlow runs git only through its own fixed internal operations;
    - files run by other interpreters (`.ps1`, `.vbs`, `.wsf`, `.hta`, `.js`, `.msi`, ...);
    - package-manager subcommands that publish, install, change configuration or run downloaded
@@ -128,10 +132,13 @@ one input the executor accepts. The checks run in this order; the first failure 
      `publish*` and `upload*` tasks;
    - Node.js options that run inline code, preload modules or open a debugger (`-e`, `-p`,
      `-r`, `--import`, `--loader`, `--inspect*`) before the script, and inline code for
-     Python (`-c`, `-m`), Perl and Ruby (`-e`).
+     Python (`-c`, including clustered as in `-Bc`, and `-` for standard input), Perl and
+     Ruby (`-e`).
 4. **Working directory and executable:** the working directory must be an existing directory
    inside the workspace (path guard, section 6). The executable is a bare tool name or a
-   wrapper in the working directory (`./gradlew`, `./mvnw`, `./run.cmd`). A wrapper is bound
+   wrapper in the working directory (`./gradlew`, `./mvnw`, `./run.cmd`), or the interpreter of a
+   project virtual environment (`./.venv/bin/python`, `./.venv/Scripts/python.exe`), which is
+   bound into the fingerprint together with the environment's `pyvenv.cfg`. A wrapper is bound
    into the fingerprint by the hash of every file that can run: its POSIX and Windows
    variants, and for Gradle and Maven the wrapper JAR and properties. For `node`, the script
    (the first argument that is not an option) must be a relative path with forward slashes

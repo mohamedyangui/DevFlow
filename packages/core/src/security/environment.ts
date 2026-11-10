@@ -67,6 +67,8 @@ export function isReservedEnvName(name: string): boolean {
       "PERL5LIB",
       "PYTHONSTARTUP",
       "PYTHONPATH",
+      "PYTHONHOME",
+      "PYTHONUSERBASE",
       "RUBYOPT",
     ].includes(upper) ||
     upper.startsWith("LD_") ||

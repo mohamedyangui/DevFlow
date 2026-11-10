@@ -32,16 +32,32 @@ describe("CommandSpec", () => {
     expect(messages(valid)).toEqual([]);
   });
 
-  it.each(["mvn", "pnpm", "node", "./gradlew"])("accepts executable %j", (executable) => {
+  it.each([
+    "mvn",
+    "pnpm",
+    "node",
+    "./gradlew",
+    "./.venv/bin/python",
+    "./.venv/Scripts/python.exe",
+    "./venv/bin/python3",
+  ])("accepts executable %j", (executable) => {
     expect(messages({ ...valid, executable })).toEqual([]);
   });
 
-  it.each(["/bin/sh", "../tools/run", "sh -c", "mvn;rm", "C:\\tools\\x.exe", "sub/dir/tool"])(
-    "rejects executable %j",
-    (executable) => {
-      expect(messages({ ...valid, executable })).toHaveLength(1);
-    },
-  );
+  it.each([
+    "/bin/sh",
+    "../tools/run",
+    "sh -c",
+    "mvn;rm",
+    "C:\\tools\\x.exe",
+    "sub/dir/tool",
+    "./.venv/bin/sh",
+    "./.venv/../tool",
+    "./node_modules/.bin/vitest",
+    "./.venv/Scripts/python.cmd",
+  ])("rejects executable %j", (executable) => {
+    expect(messages({ ...valid, executable })).toHaveLength(1);
+  });
 
   it("requires placeholders to be whole arguments", () => {
     expect(messages({ ...valid, args: ["-Dtest={testFilter}"] })).toEqual([

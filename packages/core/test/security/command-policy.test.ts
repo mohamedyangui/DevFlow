@@ -102,9 +102,58 @@ describe("hard deny list", () => {
     ["node", ["--require", "./hook.js", "app.js"]],
     ["node", ["--inspect-brk", "app.js"]],
     ["python", ["-c", "print(1)"]],
+    ["python", ["-Bc", "print(1)"]],
+    ["python", ["-W", "ignore", "-c", "print(1)"]],
+    ["python", ["-X", "dev", "-m", "http.server"]],
+    ["python", ["-Wignore", "-mpip", "install", "x"]],
+    ["python", ["-"]],
+    ["python", ["-m", "pip", "install", "requests"]],
+    ["python", ["-m", "venv", ".venv"]],
+    ["python", ["-m", "ensurepip"]],
+    ["python", ["-m"]],
+    ["python3", ["-m", "pip", "download", "x"]],
+    ["python3.12", ["-c", "print(1)"]],
+    ["py", ["-3", "-m", "pip", "install", "x"]],
+    ["py", ["-3.12", "-c", "print(1)"]],
+    ["./.venv/bin/python", ["-m", "pip", "install", "x"]],
+    ["./.venv/Scripts/python.exe", ["-c", "print(1)"]],
+    ["pip", ["install", "requests"]],
+    ["pip3", ["download", "requests"]],
+    ["pip3.12", ["install", "-r", "requirements.txt"]],
+    ["uv", ["add", "requests"]],
+    ["uv", ["pip", "install", "requests"]],
+    ["uv", ["run", "pytest"]],
+    ["uv", ["sync"]],
+    ["uvx", ["ruff", "check"]],
+    ["pipx", ["run", "black"]],
+    ["poetry", ["add", "requests"]],
+    ["poetry", ["install"]],
+    ["poetry", ["run", "pytest"]],
+    ["pipenv", ["install"]],
+    ["pdm", ["sync"]],
+    ["hatch", ["run", "test"]],
+    ["conda", ["install", "numpy"]],
     ["./deploy.ps1", []],
   ])("denies %s %j", (executable, args) => {
     expect(hardDenyReason(executable, args)).toBeDefined();
+  });
+
+  it.each([
+    ["python", ["-m", "pytest", "-q"]],
+    ["python", ["-m", "pytest", "-m", "slow", "-k", "pip"]],
+    ["python", ["-B", "-m", "unittest", "discover", "-v"]],
+    ["python", ["-W", "error", "-m", "mypy", "src"]],
+    ["python3", ["-m", "ruff", "check", "."]],
+    ["py", ["-3", "-m", "flake8"]],
+    ["py", ["-V:3.12", "-m", "pytest"]],
+    ["./.venv/bin/python", ["-m", "pytest"]],
+    ["./venv/Scripts/python.exe", ["-m", "unittest"]],
+    ["python", ["manage.py", "test", "-c", "x"]],
+    ["pip", ["list"]],
+    ["uv", ["pip", "list"]],
+    ["poetry", ["check"]],
+  ])("allows Python %s %j", (executable, args) => {
+    expect(hardDenyReason(executable, args)).toBeUndefined();
   });
 
   it.each([
@@ -175,6 +224,38 @@ describe("structural validation", () => {
       spec: spec({ executable: "./mvnw", args: ["test"], parameters: [] }),
     });
     expect(decision).toMatchObject({ allowed: false, reason: "executable-rejected" });
+  });
+
+  it("binds a virtual environment interpreter and its pyvenv.cfg into the fingerprint", async () => {
+    await mkdir(path.join(root, ".venv", "Scripts"), { recursive: true });
+    await writeFile(path.join(root, ".venv", "Scripts", "python.exe"), "interpreter");
+    await writeFile(path.join(root, ".venv", "pyvenv.cfg"), "home = C:\\Python312\n");
+    await trust.trustWorkspace(guard.root, CONFIG, "dev");
+    const approver = () => Promise.resolve<CommandApprovalAnswer>("approve-once");
+    const venvSpec = spec({
+      executable: "./.venv/Scripts/python.exe",
+      args: ["-m", "pytest", "-q"],
+      parameters: [],
+    });
+    const decision = await policy({ approver }).evaluate({ spec: venvSpec });
+    expect(decision.allowed && decision.command.executable).toMatchObject({
+      kind: "wrapper",
+      relative: ".venv/Scripts/python.exe",
+    });
+    expect(decision.allowed && decision.command.bindings.map((b) => b.path).sort()).toEqual([
+      ".venv/Scripts/python.exe",
+      ".venv/pyvenv.cfg",
+    ]);
+
+    await writeFile(path.join(root, ".venv", "pyvenv.cfg"), "home = C:\\Elsewhere\n");
+    const changed = await policy({ approver }).evaluate({ spec: venvSpec });
+    const fingerprint = (d: typeof decision) => (d.allowed ? d.command.fingerprint : "");
+    expect(fingerprint(changed)).toMatch(/^[0-9a-f]{64}$/);
+    expect(fingerprint(changed)).not.toBe(fingerprint(decision));
+    const missing = await policy().evaluate({
+      spec: { ...venvSpec, executable: "./venv/bin/python" },
+    });
+    expect(missing).toMatchObject({ allowed: false, reason: "executable-rejected" });
   });
 
   it("rejects a node script that is missing, outside the workspace or not a relative path", async () => {
