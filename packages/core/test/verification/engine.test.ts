@@ -417,6 +417,88 @@ describe("runGate", () => {
   });
 });
 
+describe("runGate with a test selection", () => {
+  const filtered = testCommand({
+    id: "toy:test-filter",
+    args: ["test", "{name}"],
+    parameters: [
+      { name: "name", description: "a test name", pattern: "^[A-Za-z0-9_=#.*]+$", maxLength: 64 },
+    ],
+  });
+  const catalogWith = (adapter: LanguageAdapter): LanguageAdapter => ({
+    ...adapter,
+    commandCatalog: () => Promise.resolve([testCommand(), filtered]),
+  });
+  function recordingPolicy() {
+    const params: unknown[] = [];
+    const policy: VerificationOptions["policy"] = {
+      evaluate: (request) => {
+        params.push(request.params);
+        return allow.evaluate(request);
+      },
+    };
+    return { policy, params };
+  }
+
+  it("passes the test name as the parameter when the adapter has no testSelection", async () => {
+    const { policy, params } = recordingPolicy();
+    const module = await moduleFor(catalogWith(toyAdapter()));
+    const outcome = await runGate(gate, await options({ modules: [module], policy }), {
+      filter: "returnsPage",
+      testFile: "toy/PageTest.toy",
+    });
+    expect(outcome.result.commandId).toBe("toy:test-filter");
+    expect(params).toEqual([{ name: "returnsPage" }]);
+  });
+
+  it("uses the adapter's testSelection with the test file and name", async () => {
+    const { policy, params } = recordingPolicy();
+    const testSelection = vi.fn(
+      (_profile: unknown, test: { file: string; name: string }) => `sel=${test.name}#file`,
+    );
+    const module = await moduleFor(catalogWith(toyAdapter({ testSelection })));
+    await runGate(gate, await options({ modules: [module], policy }), {
+      filter: "returnsPage",
+      testFile: "toy/PageTest.toy",
+    });
+    expect(testSelection).toHaveBeenCalledWith(expect.objectContaining({ moduleId: "toy" }), {
+      file: "toy/PageTest.toy",
+      name: "returnsPage",
+    });
+    expect(params).toEqual([{ name: "sel=returnsPage#file" }]);
+  });
+
+  it("falls back to the name when testSelection returns undefined", async () => {
+    const { policy, params } = recordingPolicy();
+    const module = await moduleFor(catalogWith(toyAdapter({ testSelection: () => undefined })));
+    await runGate(gate, await options({ modules: [module], policy }), {
+      filter: "returnsPage",
+      testFile: "toy/PageTest.toy",
+    });
+    expect(params).toEqual([{ name: "returnsPage" }]);
+  });
+
+  it("does not execute the gate when testSelection throws", async () => {
+    const { executor, run } = fakeExecutor();
+    const module = await moduleFor(
+      catalogWith(
+        toyAdapter({
+          testSelection: () => {
+            throw new Error("boom");
+          },
+        }),
+      ),
+    );
+    const outcome = await runGate(gate, await options({ modules: [module], executor }), {
+      filter: "returnsPage",
+      testFile: "toy/PageTest.toy",
+    });
+    expect(outcome.result.status).toBe("not_executed");
+    expect(outcome.result.reason).toMatch(/could not select the test/);
+    expect(run).not.toHaveBeenCalled();
+  });
+});
+
 describe("withExecutionLogs", () => {
   it("serves the command's logs from the executor's output", async () => {
     const executed = {

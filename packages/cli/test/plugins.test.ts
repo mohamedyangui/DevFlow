@@ -140,9 +140,9 @@ describe("devflow plugins and verify with an external adapter", () => {
     expect(added.stdout).toContain("A plugin is trusted code");
 
     const list = await json("list", ["plugins", "list"]);
-    expect(list.value.hostApiVersion).toBe("1.0.0");
+    expect(list.value.hostApiVersion).toBe("1.1.0");
     expect(list.value.builtIn.map((adapter) => [adapter.id, adapter.apiVersion])).toEqual([
-      ["java", "1.0.0"],
+      ["java", "1.1.0"],
       ["javascript", "1.0.0"],
       ["python", "1.0.0"],
     ]);
@@ -201,7 +201,7 @@ describe("devflow plugins and verify with an external adapter", () => {
   });
 
   it("refuses a plugin whose API version this DevFlow cannot run", async () => {
-    for (const version of ["2.0.0", "1.1.0", "one"]) {
+    for (const version of ["2.0.0", "1.2.0", "one"]) {
       const target = path.join(base, `toy-${version}`);
       await plugin(target, (source) =>
         source.replace('apiVersion: "1.0.0"', `apiVersion: "${version}"`),

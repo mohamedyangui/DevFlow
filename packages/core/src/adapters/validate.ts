@@ -148,6 +148,30 @@ export function validatedAdapter(adapter: LanguageAdapter): LanguageAdapter {
       const raw = await call("parseResults", () => adapter.parseResults(command, execution, repo));
       return check("parseResults", ParsedCommandResults, raw);
     },
+
+    ...(adapter.testSelection === undefined
+      ? {}
+      : {
+          testSelection(profile, test) {
+            let value: unknown;
+            try {
+              value = adapter.testSelection?.(profile, test);
+            } catch (error) {
+              throw new DevflowError(
+                ErrorCode.AdapterFailed,
+                `the ${id} adapter failed in testSelection: ${error instanceof Error ? error.message : String(error)}`,
+                { details: { adapter: id, operation: "testSelection" }, cause: error },
+              );
+            }
+            if (value === undefined) return undefined;
+            if (typeof value !== "string" || value.length === 0 || value.length > 512) {
+              throw outputError(id, "testSelection", [
+                "must return a non-empty string or undefined",
+              ]);
+            }
+            return value;
+          },
+        }),
   };
 }
 

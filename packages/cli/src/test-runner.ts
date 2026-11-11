@@ -109,7 +109,10 @@ export function testRunnerFactory(
             logDir: context.logDir,
             ...(context.signal === undefined ? {} : { signal: context.signal }),
           },
-          { filter: request.filter },
+          {
+            filter: request.filter,
+            ...(request.testFile === undefined ? {} : { testFile: request.testFile }),
+          },
         );
       },
     };

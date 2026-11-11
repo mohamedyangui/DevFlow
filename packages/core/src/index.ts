@@ -305,6 +305,7 @@ export type {
 export {
   ADAPTER_API_VERSION,
   type LanguageAdapter,
+  type TestToSelect,
   type ToolAvailability,
   type ToolchainProbe,
 } from "./ports/language-adapter.js";

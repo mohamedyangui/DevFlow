@@ -5,7 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { DevflowError, ErrorCode, isDevflowError } from "../errors.js";
-import type { LanguageAdapter, ToolchainProbe } from "../ports/language-adapter.js";
+import type { LanguageAdapter, TestToSelect, ToolchainProbe } from "../ports/language-adapter.js";
 import type { RepositoryView } from "../ports/repository-view.js";
 import type { CommandSpec, ExecutionRecord } from "../schemas/command.js";
 import type {
@@ -389,6 +389,7 @@ const PluginExport = z.object({
   testAuthoringGuide: method,
   commandCatalog: method,
   parseResults: method,
+  testSelection: method.optional(),
 });
 
 /**
@@ -443,7 +444,7 @@ export async function importPlugin(entry: string, entrySha256: string): Promise<
   const target: object = exported;
   const call = <T>(fn: Method, args: unknown[]): Promise<T> =>
     Promise.resolve().then(() => fn.apply(target, args) as T);
-  const { inferConventions } = shape;
+  const { inferConventions, testSelection } = shape;
   const adapter: LanguageAdapter = {
     id: shape.id,
     displayName: shape.displayName,
@@ -464,6 +465,14 @@ export async function importPlugin(entry: string, entrySha256: string): Promise<
       call<readonly CommandSpec[]>(shape.commandCatalog, [profile, toolchain, repo]),
     parseResults: (command: CommandSpec, execution: ExecutionRecord, repo: RepositoryView) =>
       call<ParsedCommandResults>(shape.parseResults, [command, execution, repo]),
+    ...(testSelection === undefined
+      ? {}
+      : {
+          testSelection: (profile: ModuleProfile, test: TestToSelect) => {
+            const value = testSelection.apply(target, [profile, test]);
+            return typeof value === "string" ? value : undefined;
+          },
+        }),
   };
   return {
     manifest: {

@@ -292,8 +292,10 @@ Implemented:
   Tested end to end with the fake provider on a small JavaScript repository with real git
   and real execution (a stand-in Vitest that imports and runs the test files): confirmed, not
   reproduced, inconclusive (syntax error), refused paths, the working tree untouched and the
-  worktree removed. Never run with a real model; only the Vitest/Jest name filter is tested,
-  and the Maven filter's `test=` selector does not accept a bare test name.
+  worktree removed. Never run with a real model; only the Vitest/Jest name filter is tested
+  end to end. Java probes are selected through the adapter's `testSelection` (adapter API
+  1.1.0): `test=Class#method` for Maven, `package.Class.method` for Gradle; unit-tested, never
+  run with a real Maven or Gradle build.
 
 - DevFlow as MCP tools: `@devflow/mcp` ([ADR 0026](adr/0026-mcp-server.md)), an in-house MCP
   server over stdio (protocol versions 2025-06-18 and 2025-03-26), and `devflow mcp`. The tools
