@@ -2,6 +2,7 @@ import { defineAdapter, type LanguageAdapter } from "@devflow/core";
 import { analyzeJavaModule } from "./analyze.js";
 import { ADAPTER_ID, detectJavaModules } from "./build.js";
 import { javaCommandCatalog } from "./commands.js";
+import { javaTestSelection } from "./selection.js";
 import { parseJavaResults } from "./results.js";
 import { discoverJavaTests, inferJavaConventions, javaTestAuthoringGuide } from "./tests.js";
 
@@ -13,7 +14,7 @@ import { discoverJavaTests, inferJavaConventions, javaTestAuthoringGuide } from 
 export const javaAdapter: LanguageAdapter = defineAdapter({
   id: ADAPTER_ID,
   displayName: "Java (Maven, Gradle)",
-  apiVersion: "1.0.0",
+  apiVersion: "1.1.0",
   detectModules: detectJavaModules,
   analyzeModule: analyzeJavaModule,
   inferConventions: inferJavaConventions,
@@ -21,6 +22,7 @@ export const javaAdapter: LanguageAdapter = defineAdapter({
   testAuthoringGuide: javaTestAuthoringGuide,
   commandCatalog: (profile) => Promise.resolve(javaCommandCatalog(profile)),
   parseResults: parseJavaResults,
+  testSelection: javaTestSelection,
 });
 
 export { applyRule, FRAMEWORK_RULES, QUALITY_RULES, TEST_FRAMEWORK_RULES } from "./analyze.js";
@@ -33,6 +35,7 @@ export {
   supportsNoTransferProgress,
 } from "./commands.js";
 export { gradleIncludes } from "./gradle.js";
+export { javaTestSelection } from "./selection.js";
 export { aggregatedPoms, loadReactor } from "./maven.js";
 export type { BuildModel, BuildToolId, Declaration } from "./model.js";
 export {

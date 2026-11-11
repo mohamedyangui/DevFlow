@@ -45,8 +45,15 @@ interface LanguageAdapter {
   testAuthoringGuide(profile): TestAuthoringGuide;
   commandCatalog(profile, toolchain: ToolchainProbe, repo): Promise<CommandSpec[]>;
   parseResults(command, execution: ExecutionRecord, repo): Promise<ParsedCommandResults>;
+  // Optional, since 1.1.0: the filtered test command's parameter value for one test.
+  testSelection?(profile, test: { file: string; name: string }): string | undefined;
 }
 ```
+
+`testSelection` is used by evidence-seeking review ([ADR 0025](../adr/0025-evidence-seeking-review.md))
+to run one probe test: `file` is the test file (repository-relative) and `name` the test's
+name. Without it, or when it returns `undefined`, the name itself is the value. The command
+policy still checks the value against the parameter's pattern.
 
 `RepositoryView` offers `exists`, `readText` (with a byte limit), `list` and `glob`, all
 relative to the repository root. `ToolchainProbe.probe(tool)` reports whether a tool is
@@ -284,12 +291,18 @@ Adapters for other ecosystems can be written and released outside DevFlow, as pl
 ### 12.1 Versioning policy
 
 `@devflow/core` exports `ADAPTER_API_VERSION`, the semver version of this interface
-(currently `1.0.0`). Every adapter declares the version it targets in `apiVersion`; the
-built-in adapters declare `1.0.0`. DevFlow runs an adapter when:
+(currently `1.1.0`). Every adapter declares the version it targets in `apiVersion`; the
+Java adapter declares `1.1.0`, the JavaScript and Python adapters `1.0.0`. DevFlow runs an
+adapter when:
 
 - the major versions are equal, and
 - the adapter's minor version is not above the host's (an adapter for `1.2.x` needs a DevFlow
   implementing at least `1.2.0`).
+
+| Version | Change                                       |
+| ------- | -------------------------------------------- |
+| 1.0.0   | The interface of section 3                   |
+| 1.1.0   | Optional `testSelection` (one test's filter) |
 
 The patch version is ignored. Otherwise registration fails with `ADAPTER_API_INCOMPATIBLE`,
 naming both versions. A minor version only adds optional capabilities that an adapter for an
@@ -301,13 +314,13 @@ a required field, the meaning of a value) is a new major version.
 A plugin is an ES module. Its `devflowAdapter` named export (or, when there is none, its
 default export) is an adapter object with a manifest:
 
-| Field                    | Content                                                    |
-| ------------------------ | ---------------------------------------------------------- |
-| `id`                     | `^[a-z][a-z0-9-]{0,31}$`; not the id of a built-in adapter |
-| `displayName`            | shown by `devflow plugins list`                            |
-| `apiVersion`             | the adapter API version it targets, e.g. `"1.0.0"`         |
-| `languages`              | one or more language names, e.g. `["go"]`                  |
-| the methods of section 3 | functions; `inferConventions` is optional (no conventions) |
+| Field                    | Content                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| `id`                     | `^[a-z][a-z0-9-]{0,31}$`; not the id of a built-in adapter                              |
+| `displayName`            | shown by `devflow plugins list`                                                         |
+| `apiVersion`             | the adapter API version it targets, e.g. `"1.0.0"`                                      |
+| `languages`              | one or more language names, e.g. `["go"]`                                               |
+| the methods of section 3 | functions; `inferConventions` (no conventions) and `testSelection` (1.1.0) are optional |
 
 ```js
 // index.js of the package devflow-adapter-toy ("type": "module")

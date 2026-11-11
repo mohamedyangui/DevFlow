@@ -15,7 +15,7 @@ import type { RepositoryView } from "./repository-view.js";
  * above this one (docs/specs/language-adapter.md, section 12). A minor version adds optional
  * capabilities; a major version changes or removes something adapters rely on.
  */
-export const ADAPTER_API_VERSION = "1.0.0";
+export const ADAPTER_API_VERSION = "1.1.0";
 
 export interface ToolAvailability {
   readonly available: boolean;
@@ -80,4 +80,19 @@ export interface LanguageAdapter {
     execution: ExecutionRecord,
     repo: RepositoryView,
   ): Promise<ParsedCommandResults>;
+
+  /**
+   * Optional, since API version 1.1.0. The value of the parameter of the module's filtered
+   * test command (the test command with one parameter) that selects one test: `file` is the
+   * test file, repository-relative, and `name` the test's name. Returns `undefined` when this
+   * test cannot be selected. Without this method the name itself is the value. The value is
+   * still checked against the parameter's pattern by the command policy.
+   */
+  testSelection?(profile: ModuleProfile, test: TestToSelect): string | undefined;
+}
+
+/** One test to select by the filtered test command (`LanguageAdapter.testSelection`). */
+export interface TestToSelect {
+  readonly file: string;
+  readonly name: string;
 }

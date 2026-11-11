@@ -20,7 +20,7 @@ import { toyAdapter } from "./toy-adapter.js";
 describe("defineAdapter", () => {
   it("sets the API version and defaults inferConventions to no conventions", async () => {
     const adapter = toyAdapter();
-    expect(adapter.apiVersion).toBe("1.0.0");
+    expect(adapter.apiVersion).toBe("1.1.0");
     const repo = new MemoryRepository({ "toy.json": "{}" });
     const [candidate] = await adapter.detectModules(repo);
     if (candidate === undefined) throw new Error("expected a module");

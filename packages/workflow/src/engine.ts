@@ -285,7 +285,13 @@ export interface TestRunner {
    * mode cannot run probes.
    */
   runProbe?(
-    request: { readonly root: string; readonly module: string; readonly filter: string },
+    request: {
+      readonly root: string;
+      readonly module: string;
+      readonly filter: string;
+      /** The probe file, workspace-relative, for the adapter's `testSelection`. */
+      readonly testFile?: string;
+    },
     context: {
       readonly audit: AuditLog;
       readonly logDir: string;
@@ -3134,7 +3140,12 @@ class Session {
       planChangeId: null,
     });
     const outcome = await runner.runProbe(
-      { root: PROBE_WORKTREE, module: module.profile.moduleId, filter: probe.testName },
+      {
+        root: PROBE_WORKTREE,
+        module: module.profile.moduleId,
+        filter: probe.testName,
+        testFile: probe.path,
+      },
       {
         audit,
         logDir: this.store.workspacePath(`logs/probes/${probe.path.replace(/[^\w.-]+/g, "_")}`),

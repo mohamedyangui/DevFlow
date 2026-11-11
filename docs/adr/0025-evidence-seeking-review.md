@@ -50,7 +50,10 @@ must still be those of the review's snapshot.
 
 **Commands come from the adapter catalog.** The probe runs the module's test command that
 takes one parameter (the adapter's filter, such as Vitest and Jest `--testNamePattern` or
-pytest `-k`) with the test name as its value, in the worktree copy of
+pytest `-k`) with the test name as its value, or the value the adapter's optional
+`testSelection` derives from the probe file and the test name (adapter API 1.1.0; the Java
+adapter gives Surefire's `test=Class#method` and Gradle's `package.Class.method`), in the
+worktree copy of
 the module, through the same command policy (anchored parameter pattern, fingerprints,
 approvals, `--allow`), executor and execution backend as the gates. A command that is not
 approved makes the probe inconclusive and the report gives its fingerprint.
@@ -85,10 +88,11 @@ tests that confirmed a finding: the assertion is the model's idea of the correct
   tests need generated or ignored files in the module itself may make the probe
   inconclusive.
 - One review probes at a time per workspace.
-- Only the JavaScript path (Vitest and Jest name filters) is tested end to end. The Maven
-  filter takes a `test=Class#method` selector, so a bare test name fails its parameter
-  pattern and the probe is inconclusive; the pytest and Gradle filters have not been run with
-  a probe.
+- Only the JavaScript path (Vitest and Jest name filters) is tested end to end. The Java
+  selection (Maven and Gradle) is unit-tested against the parameter patterns but has never
+  run with a real build; the class is taken from the file name and the method must be a Java
+  identifier, so a test named with spaces (a Kotlin backtick name) cannot be probed. The
+  pytest filter has not been run with a probe.
 
 ## Alternatives rejected
 

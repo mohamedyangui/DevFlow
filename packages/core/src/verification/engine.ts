@@ -127,7 +127,10 @@ export interface GateOutcome {
  * probe test this way.
  */
 export interface GateSelection {
+  /** The test name; the parameter's value unless the adapter derives another one. */
   readonly filter: string;
+  /** The test's file, repository-relative, for the adapter's `testSelection`. */
+  readonly testFile?: string;
 }
 
 /** Resolves, authorizes, runs and reads one gate. */
@@ -202,12 +205,24 @@ export async function runGate(
   }
 
   const parameter = command.parameters[0];
+  let selected = selection?.filter;
+  if (selection?.testFile !== undefined && module.adapter.testSelection !== undefined) {
+    try {
+      selected =
+        module.adapter.testSelection(module.profile, {
+          file: selection.testFile,
+          name: selection.filter,
+        }) ?? selection.filter;
+    } catch {
+      return notExecuted(command.id, `the ${module.adapter.id} adapter could not select the test`);
+    }
+  }
   const decision = await options.policy.evaluate({
     spec: command,
     module: gate.module,
     ...(selection === undefined || parameter === undefined
       ? {}
-      : { params: { [parameter.name]: selection.filter } }),
+      : { params: { [parameter.name]: selected ?? selection.filter } }),
   });
   if (!decision.allowed) {
     return notExecuted(command.id, `denied by the command policy: ${decision.message}`, {

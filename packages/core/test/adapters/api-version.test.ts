@@ -8,9 +8,9 @@ import {
 } from "../../src/index.js";
 
 describe("adapter API versioning", () => {
-  it("starts at 1.0.0", () => {
-    expect(ADAPTER_API_VERSION).toBe("1.0.0");
-    expect(parseApiVersion(ADAPTER_API_VERSION)).toEqual({ major: 1, minor: 0, patch: 0 });
+  it("is 1.1.0: 1.0.0 plus the optional testSelection", () => {
+    expect(ADAPTER_API_VERSION).toBe("1.1.0");
+    expect(parseApiVersion(ADAPTER_API_VERSION)).toEqual({ major: 1, minor: 1, patch: 0 });
   });
 
   it("parses only major.minor.patch", () => {
