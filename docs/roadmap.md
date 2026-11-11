@@ -264,9 +264,18 @@ Implemented:
   changed plugin is refused; a repository cannot add one. Tested end to end with a fixture
   plugin for an invented language; no third-party plugin has been tried.
 
+- Observability export ([ADR 0024](adr/0024-observability-export.md)): an opt-in trace per run
+  (`--trace file|otlp` or `DEVFLOW_TRACE_EXPORT`, never the repository configuration) with a
+  root span, a span per step, per model call (`gen_ai.*` provider, model, tokens, cost,
+  attempts, outcome) and per command or gate (executable name, exit code, duration, status,
+  backend), metadata only, built from the run store after the run; written as OTLP/JSON
+  (`trace.otlp.json`) or POSTed to an OTLP/HTTP endpoint with `fetch` (https unless
+  localhost, timeout, size cap, failures only warn); `devflow trace <run>`. Tested against a
+  local `node:http` receiver only: it has not been sent to a real OpenTelemetry collector.
+
 Planned:
 
-- Cross-language change impact (consumers of a changed contract), observability export, evidence-seeking
+- Cross-language change impact (consumers of a changed contract), evidence-seeking
   review.
 
 ## Before the first publication

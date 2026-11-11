@@ -270,14 +270,16 @@ devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256> | --changes-sh
 devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
 devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
 devflow resume  <run> [model options] [--allow <fingerprint> ...] [--backend local|container]
-devflow cancel  <run> [--reason <text>] [--json]
+devflow cancel  <run> [--reason <text>] [--trace <targets>] [--json]
 devflow status  [run] [--json]
 devflow report  <run> [--json] [--publish [comment|check]]
 devflow pr create <run> [--repo <owner/name>] [--base <branch>] [--title <text>] [--yes] [--json]
 ```
 
 Model options: `--provider <name>`, `--model <id>`, `--cassette <file>`,
-`--max-input-tokens <n>`, `--max-output-tokens <n>`, `--max-calls-per-step <n>`, `--json`.
+`--max-input-tokens <n>`, `--max-output-tokens <n>`, `--max-calls-per-step <n>`,
+`--trace <targets>`, `--json`. `approve` and `cancel` accept `--trace` too (see
+`devflow trace` below).
 
 Task source: exactly one of `--task <file>` and `--issue <ref>` (otherwise
 `TASK_SOURCE_INVALID`, exit 2).
@@ -553,6 +555,41 @@ to it.
   not supported (`ADAPTER_API_INCOMPATIBLE`) stops the command with exit code 2.
 - Exit codes: 0 on success; 1 for `remove` of an unknown id (`PLUGIN_NOT_FOUND`); 2 for
   `PLUGIN_INVALID`, `ADAPTER_API_INCOMPATIBLE` and `PLUGIN_STORE_INVALID`.
+
+### `devflow trace <run> [--output <file>] [--otlp] [--json]`
+
+Exports the trace of a run as OpenTelemetry OTLP/JSON (an `ExportTraceServiceRequest`;
+[ADR 0024](../adr/0024-observability-export.md)): a root span for the run, a span per workflow
+step, and a span per model call and per command or gate under the step that was running.
+
+- Without options, writes `trace.otlp.json` in the run directory. `--output <file>` writes it
+  there instead (relative to the current directory).
+- `--otlp` POSTs it to the OTLP/HTTP traces endpoint: `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` as
+  given, else `OTEL_EXPORTER_OTLP_ENDPOINT` followed by `/v1/traces`. Headers come from
+  `OTEL_EXPORTER_OTLP_HEADERS` and `OTEL_EXPORTER_OTLP_TRACES_HEADERS` (`key=value,...`,
+  URL-encoded values), the timeout from `OTEL_EXPORTER_OTLP_TRACES_TIMEOUT` or
+  `OTEL_EXPORTER_OTLP_TIMEOUT` in milliseconds (default 10000, at most 120000). The endpoint
+  must use `https`, except `http` for `localhost`, `127.0.0.1` and `[::1]`; credentials in the
+  URL are refused; redirects are not followed; a body over 4 MiB is not sent. With `--otlp`
+  alone, no file is written; add `--output` for both.
+- The trace holds metadata only: ids, names of steps, providers, models, prompt templates and
+  executables, token counts, cost, attempts, durations, exit codes, statuses, backends and
+  error codes. Never a prompt, an answer, a task text, a file path or content, a command
+  argument beyond the executable's file name, a command output or an error message. Every
+  value goes through the redactor.
+- A run that has not finished is exported as far as it has run, with a note.
+- `--json` prints `{ runId, state, finished, file?, sent?, spans, warnings }`.
+- Exit code 0 when everything was written and sent, 1 when the write or the send failed
+  (`TRACE_EXPORT_FAILED`: I/O error, timeout, HTTP status, size cap), 2 for an unknown run or a
+  refused endpoint (`TRACE_EXPORT_REFUSED`).
+
+**After a run.** `--trace <targets>` on a workflow command (or `DEVFLOW_TRACE_EXPORT` when
+the flag is absent) exports the trace when the run finishes: `file`, `otlp`, `file,otlp`, or
+`off`. Only the user turns it on; the repository's configuration cannot. The target and the
+endpoint are checked before the run starts (`TRACE_EXPORT_REFUSED`, exit 2). A run waiting for
+a person is exported by the command that finishes it (with `--trace` or the variable again).
+An export failure is a warning in the output (`trace.warnings` with `--json`) and never
+changes the run or its exit code.
 
 ## 4. Planned commands
 

@@ -5,6 +5,7 @@ import { initCommand } from "./commands/init.js";
 import { pluginsAddCommand, pluginsListCommand, pluginsRemoveCommand } from "./commands/plugins.js";
 import { prCreateCommand } from "./commands/pr.js";
 import { taskValidateCommand } from "./commands/task-validate.js";
+import { traceCommand } from "./commands/trace.js";
 import { trustCommand } from "./commands/trust.js";
 import { verifyCommand } from "./commands/verify.js";
 import {
@@ -354,6 +355,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
       .option("--plan-sha <sha256>", "approve only if the plan still has this hash")
       .option("--tests-sha <sha256>", "approve only if the written tests still have this hash")
       .option("--changes-sha <sha256>", "approve only if the code change still has this hash")
+      .addOption(traceOption())
       .option("--json", "print a machine-readable result"),
   ).action(
     async (
@@ -364,6 +366,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         changesSha?: string;
         allow: string[];
         backend?: ExecutionBackendKind;
+        trace?: string;
         json?: boolean;
       },
     ) => {
@@ -375,6 +378,7 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           changesSha: options.changesSha,
           allow: options.allow,
           backend: options.backend,
+          trace: options.trace,
           json: options.json === true,
         },
         io,
@@ -450,11 +454,12 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
     .description("cancel a run that has not finished")
     .argument("<run>", "run id")
     .option("--reason <text>", "why the run is cancelled")
+    .addOption(traceOption())
     .option("--json", "print a machine-readable result")
-    .action(async (run: string, options: { reason?: string; json?: boolean }) => {
+    .action(async (run: string, options: { reason?: string; trace?: string; json?: boolean }) => {
       exitCode = await cancelCommand(
         run,
-        { reason: options.reason, json: options.json === true },
+        { reason: options.reason, trace: options.trace, json: options.json === true },
         io,
       );
     });
@@ -488,6 +493,29 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           json: options.json === true,
           ...(options.publish === undefined ? {} : { publish: options.publish }),
         },
+        io,
+      );
+    });
+
+  program
+    .command("trace")
+    .description(
+      "export the trace of a run (OpenTelemetry OTLP/JSON, metadata only): to a file, or to an OTLP endpoint with --otlp",
+    )
+    .argument("<run>", "run id")
+    .option(
+      "--output <file>",
+      "write the trace to this file (default: trace.otlp.json in the run directory)",
+    )
+    .option(
+      "--otlp",
+      "send the trace to OTEL_EXPORTER_OTLP_TRACES_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT (OTLP/HTTP JSON)",
+    )
+    .option("--json", "print a machine-readable result")
+    .action(async (run: string, options: { output?: string; otlp?: boolean; json?: boolean }) => {
+      exitCode = await traceCommand(
+        run,
+        { output: options.output, otlp: options.otlp === true, json: options.json === true },
         io,
       );
     });
@@ -546,7 +574,19 @@ interface RawModelOptions {
   maxInputTokens?: number;
   maxOutputTokens?: number;
   maxCallsPerStep?: number;
+  trace?: string;
   json?: boolean;
+}
+
+/**
+ * `--trace <targets>`: export the run's trace when it finishes (ADR 0024). Only the user turns
+ * it on (this flag or DEVFLOW_TRACE_EXPORT), never the repository's configuration.
+ */
+function traceOption(): Option {
+  return new Option(
+    "--trace <targets>",
+    "when the run finishes, export its trace: file (trace.otlp.json in the run directory), otlp (OTEL_EXPORTER_OTLP_* endpoint), or file,otlp; default: DEVFLOW_TRACE_EXPORT, else off",
+  );
 }
 
 function withModelOptions(command: Command): Command {
@@ -557,6 +597,7 @@ function withModelOptions(command: Command): Command {
     .option("--max-input-tokens <n>", "input token budget of the run", positiveInteger)
     .option("--max-output-tokens <n>", "output token budget of the run", positiveInteger)
     .option("--max-calls-per-step <n>", "model call budget of each step", positiveInteger)
+    .addOption(traceOption())
     .option("--json", "print a machine-readable result");
 }
 
@@ -618,6 +659,7 @@ function modelOptions(options: RawModelOptions): ModelOptions {
     maxInputTokens: options.maxInputTokens,
     maxOutputTokens: options.maxOutputTokens,
     maxCallsPerStep: options.maxCallsPerStep,
+    trace: options.trace,
     json: options.json === true,
   };
 }

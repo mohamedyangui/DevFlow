@@ -43,6 +43,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0020](0020-container-execution-backend.md) | A container execution backend on `docker run`                                         | Accepted                               |
 | [0021](0021-contract-compatibility.md)      | Contract compatibility: in-house OpenAPI and Protobuf parsers and built-in rules      | Accepted                               |
 | [0023](0023-external-adapter-plugins.md)    | External language adapters as user-installed plugins, with adapter API versioning     | Accepted                               |
+| [0024](0024-observability-export.md)        | Optional trace export compatible with OpenTelemetry, without an OpenTelemetry SDK     | Accepted                               |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The

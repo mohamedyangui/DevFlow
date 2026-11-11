@@ -196,6 +196,7 @@ export class Executor {
       exitCode: record.exitCode,
       durationMs: record.durationMs,
       timedOut: record.timedOut,
+      backend: command.target.backend,
       ...(launched.aborted ? { reason: "cancelled" } : {}),
     });
     return { record, stdout, stderr, invocation };

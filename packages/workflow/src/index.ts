@@ -88,6 +88,39 @@ export {
 } from "./report.js";
 export { RUNS_DIRECTORY, RunStore, type RunEventInput } from "./run-store.js";
 export {
+  DEFAULT_OTLP_MAX_BYTES,
+  DEFAULT_OTLP_TIMEOUT_MS,
+  OtlpSpan,
+  OtlpTraceRequest,
+  describeEndpoint,
+  resolveOtlpEndpoint,
+  sendOtlpTrace,
+  toOtlpRequest,
+  type OtlpEndpoint,
+  type OtlpSendResult,
+  type SendOtlpOptions,
+} from "./otlp.js";
+export {
+  TRACE_SCOPE,
+  buildRunTrace,
+  executableName,
+  readRunTrace,
+  type RunTrace,
+  type RunTraceInput,
+  type TraceAttributeValue,
+  type TraceSpan,
+} from "./trace.js";
+export {
+  TRACE_FILE,
+  exportRunTrace,
+  parseTraceTargets,
+  resolveTraceExport,
+  traceRedactor,
+  type TraceExportPlan,
+  type TraceExportResult,
+  type TraceTarget,
+} from "./trace-export.js";
+export {
   AfterRun,
   AnalysisWire,
   BaselineRun,

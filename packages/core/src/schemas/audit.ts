@@ -29,6 +29,12 @@ export const LlmCallAuditEntry = z.strictObject({
   outputTokens: z.int().nonnegative(),
   costUsd: z.number().nonnegative().nullable(),
   outcome: z.enum(["ok", "error", "refused"]),
+  /** The workflow step of the call. Absent in entries written before Phase 6. */
+  step: z.string().min(1).optional(),
+  /** Time from the first attempt to the answer or the final failure, retries included. */
+  durationMs: z.int().nonnegative().optional(),
+  /** Provider attempts for this call, the first included (transport retries). */
+  attempts: z.int().positive().optional(),
 });
 
 /** A command policy decision and, when it ran, the execution result. */
@@ -46,6 +52,8 @@ export const CommandAuditEntry = z.strictObject({
   exitCode: z.int().nullable().optional(),
   durationMs: z.int().nonnegative().optional(),
   timedOut: z.boolean().optional(),
+  /** Where the command ran (ADR 0020). Absent in entries written before Phase 6. */
+  backend: z.enum(["local", "container"]).optional(),
 });
 
 /** A file written or deleted by a workflow. */

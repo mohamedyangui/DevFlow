@@ -246,17 +246,29 @@ export class LlmGateway {
     });
 
     const signal = call.signal ?? new AbortController().signal;
+    const started = performance.now();
+    const timing = (attempts: number) => ({
+      attempts,
+      durationMs: Math.max(0, Math.round(performance.now() - started)),
+    });
     for (let attempt = 1; ; attempt += 1) {
       throwIfCancelled(signal);
       try {
         const response = await this.attempt(request, signal);
         this.options.budget.record(call.step, response.usage, this.costOf(request, response));
         await this.observe({ call, purpose, attempt, fingerprint, request, response });
-        await this.auditCall(call, request, fingerprint, response, auditOutcome(response));
+        await this.auditCall(
+          call,
+          request,
+          fingerprint,
+          response,
+          auditOutcome(response),
+          timing(attempt),
+        );
         return { value: response, fingerprint };
       } catch (error) {
         if (signal.aborted) {
-          await this.auditCall(call, request, fingerprint, undefined, "error");
+          await this.auditCall(call, request, fingerprint, undefined, "error", timing(attempt));
           throw cancelled(error);
         }
         const failure = error instanceof LlmProviderError ? error : undefined;
@@ -273,7 +285,7 @@ export class LlmGateway {
         });
         const delay = failure === undefined ? undefined : this.retryDelay(failure, attempt);
         if (delay === undefined) {
-          await this.auditCall(call, request, fingerprint, undefined, "error");
+          await this.auditCall(call, request, fingerprint, undefined, "error", timing(attempt));
           throw this.finalError(call, error, attempt);
         }
         await (this.options.sleep ?? abortableSleep)(delay, signal).catch((sleepError: unknown) => {
@@ -367,6 +379,7 @@ export class LlmGateway {
     fingerprint: string,
     response: LlmResponse | undefined,
     outcome: "ok" | "error" | "refused",
+    timing: { readonly attempts: number; readonly durationMs: number },
   ): Promise<void> {
     await this.options.audit?.append({
       type: "llm-call",
@@ -380,6 +393,9 @@ export class LlmGateway {
       outputTokens: response?.usage.outputTokens ?? 0,
       costUsd: response === undefined ? null : (this.costOf(request, response) ?? null),
       outcome,
+      step: call.step,
+      durationMs: timing.durationMs,
+      attempts: timing.attempts,
     });
   }
 

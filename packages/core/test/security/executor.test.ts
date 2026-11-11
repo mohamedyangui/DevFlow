@@ -204,6 +204,7 @@ describe("Executor", () => {
         decision: "allowed",
         invocation: "direct",
         exitCode: 0,
+        backend: "local",
       }),
     ]);
   });
