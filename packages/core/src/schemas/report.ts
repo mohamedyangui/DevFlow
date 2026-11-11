@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Finding } from "./findings.js";
+import { ContractImpact } from "./impact.js";
 import { Contradiction, Dependency, EdgeCase, ImplementationPlan, Risk } from "./plan.js";
 import {
   AcceptanceCriterionId,
@@ -143,6 +144,11 @@ export const EngineeringReport = z
     risks: z.array(Risk),
     assumptions: z.array(z.string()),
     manualChecks: z.array(z.string()),
+    /**
+     * Review mode: the consumers of each breaking contract change (ADR 0022), found by
+     * deterministic heuristics; leads for a person to check.
+     */
+    impact: z.array(ContractImpact).optional(),
     usage: UsageSummary.optional(),
   })
   .superRefine((report, ctx) => {

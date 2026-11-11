@@ -1,6 +1,6 @@
 import type { ExecutionBackendKind } from "@devflow/core";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
-import { contractsDiffCommand } from "./commands/contracts.js";
+import { contractsDiffCommand, contractsImpactCommand } from "./commands/contracts.js";
 import { initCommand } from "./commands/init.js";
 import { pluginsAddCommand, pluginsListCommand, pluginsRemoveCommand } from "./commands/plugins.js";
 import { prCreateCommand } from "./commands/pr.js";
@@ -160,9 +160,10 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
       },
     );
 
-  program
+  const contracts = program
     .command("contracts")
-    .description("check OpenAPI and Protobuf contracts")
+    .description("check OpenAPI and Protobuf contracts");
+  contracts
     .command("diff")
     .description(
       "compare two versions of a contract with the built-in rules; exit code 1 when a change is breaking",
@@ -188,6 +189,35 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         options: { base?: string; kind?: "openapi" | "protobuf"; json?: boolean },
       ) => {
         exitCode = await contractsDiffCommand(
+          files,
+          { base: options.base, kind: options.kind, json: options.json === true },
+          io,
+        );
+      },
+    );
+  contracts
+    .command("impact")
+    .description(
+      "compare contracts with a base and list the consumers of each breaking change (Spring, TypeScript, Java, Python); exit code 1 when a change is breaking",
+    )
+    .argument("<files...>", "the working-tree contract files")
+    .option(
+      "--base <ref>",
+      "compare the files with their version at the merge base of <ref> and HEAD (default: HEAD)",
+    )
+    .addOption(
+      new Option("--kind <kind>", "the contract kind, when the file name does not tell").choices([
+        "openapi",
+        "protobuf",
+      ]),
+    )
+    .option("--json", "print a machine-readable result")
+    .action(
+      async (
+        files: string[],
+        options: { base?: string; kind?: "openapi" | "protobuf"; json?: boolean },
+      ) => {
+        exitCode = await contractsImpactCommand(
           files,
           { base: options.base, kind: options.kind, json: options.json === true },
           io,

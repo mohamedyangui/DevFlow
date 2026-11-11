@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { OPENAPI_BASE, PROTO_BASE, REPOSITORY } from "../../contracts/test/impact-fixture.js";
 import { type CliIo, ExitCode, runCli } from "../src/index.js";
 
 /** `devflow contracts diff` (Phase 6, ADR 0021) on the contracts package's fixtures. */
@@ -141,4 +142,68 @@ describe("devflow contracts diff", () => {
     expect(outside.code).toBe(ExitCode.UsageError);
     expect(outside.stderr).toContain("[PATH_REJECTED]");
   });
+});
+
+describe("devflow contracts impact", () => {
+  // Each test creates a git repository and runs several commands: slow on a loaded machine.
+  async function repository(): Promise<string> {
+    const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "devflow-impact-")));
+    const write = async (relative: string, text: string) => {
+      const absolute = path.join(root, ...relative.split("/"));
+      await mkdir(path.dirname(absolute), { recursive: true });
+      await writeFile(absolute, text);
+    };
+    for (const [relative, text] of Object.entries(REPOSITORY)) await write(relative, text);
+    await write("api/openapi.yaml", OPENAPI_BASE);
+    await write("proto/shop/v1/orders.proto", PROTO_BASE);
+    git(root, "init", "--quiet", "--initial-branch=main");
+    git(root, "add", ".");
+    git(root, "commit", "--quiet", "-m", "base");
+    // The working tree removes DELETE /orders/{id} and Order.total.
+    await write("api/openapi.yaml", REPOSITORY["api/openapi.yaml"] ?? "");
+    await write("proto/shop/v1/orders.proto", REPOSITORY["proto/shop/v1/orders.proto"] ?? "");
+    return root;
+  }
+
+  it("lists the consumers of each breaking change across languages", async () => {
+    const root = await repository();
+    const result = await run(
+      ["contracts", "impact", "api/openapi.yaml", "proto/shop/v1/orders.proto"],
+      root,
+    );
+    expect(result.stderr).toBe("");
+    expect(result.code).toBe(ExitCode.Failure);
+    expect(result.stdout).toContain("Impact:");
+    expect(result.stdout).toContain("consumers of DELETE /orders/{id}: 6");
+    expect(result.stdout).toMatch(
+      /exact +services\/orders\/src\/main\/java\/com\/shop\/orders\/OrderController\.java:15 +spring-mapping +@DeleteMapping DELETE \/api\/orders\/\{\}/,
+    );
+    expect(result.stdout).toMatch(/pattern +tools\/sync\/orders_client\.py:9 +python-client-call/);
+    expect(result.stdout).toContain("consumers of shop.v1.Order (proto/shop/v1/orders.proto): 4");
+  }, 30_000);
+
+  it("prints JSON with --json, and no impact when nothing is breaking", async () => {
+    const root = await repository();
+    const result = await run(
+      ["contracts", "impact", "--base", "main", "api/openapi.yaml", "--json"],
+      root,
+    );
+    expect(result.code).toBe(ExitCode.Failure);
+    const parsed = JSON.parse(result.stdout) as {
+      breaking: boolean;
+      impact: { rule: string; consumers: { path: string; kind: string }[] }[];
+    };
+    expect(parsed.breaking).toBe(true);
+    expect(parsed.impact.map((entry) => entry.rule)).toEqual(["operation-removed"]);
+    expect(parsed.impact[0]?.consumers.map((ref) => ref.kind)).toContain("spring-mapping");
+
+    const compatible = await run(["contracts", "impact", "web/src/api/orders.ts"], root);
+    expect(compatible.code).toBe(ExitCode.UsageError);
+
+    git(root, "add", ".");
+    git(root, "commit", "--quiet", "-m", "head");
+    const none = await run(["contracts", "impact", "api/openapi.yaml"], root);
+    expect(none.code).toBe(ExitCode.Success);
+    expect(none.stdout).toContain("no breaking change, so no consumer was searched for");
+  }, 30_000);
 });

@@ -191,6 +191,7 @@ export {
   type PlannedTestFile,
   type TestModule,
 } from "./test-design.js";
+export { consumerRepository, consumerSources, type ConsumerSourcesResult } from "./impact.js";
 export {
   IMPLEMENTED_MODES,
   MODE_TRANSITIONS,

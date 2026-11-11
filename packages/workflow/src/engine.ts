@@ -14,6 +14,7 @@ import {
   type ContractDiff,
   type ContractToolset,
   compareContract,
+  contractImpact,
   contractKindOf,
 } from "@devflow/contracts";
 import {
@@ -43,6 +44,7 @@ import {
 } from "@devflow/core";
 import { z } from "zod";
 import { checkAnalysis, checkPlan } from "./checks.js";
+import { consumerRepository, consumerSources } from "./impact.js";
 import {
   type PlannedChangeFile,
   afterEvidence,
@@ -2537,6 +2539,7 @@ class Session {
   ): Promise<void> {
     const git = this.services.git;
     const contracts: ContractDiff[] = [];
+    const versions: { file: string; base: string | null; head: string | null }[] = [];
     const skipped: { path: string; reason: string }[] = [];
     let toolset: ContractToolset | undefined;
     for (const file of files) {
@@ -2586,11 +2589,27 @@ class Session {
         tools = { toolset, basePath: this.store.workspacePath(copy), headPath: file.path };
       }
       contracts.push(await compareContract({ file: file.path, kind, base, head }, tools));
+      versions.push({ file: file.path, base, head });
     }
     if (contracts.length === 0 && skipped.length === 0) return;
+    // The consumers of each breaking change, in the working tree (ADR 0022).
+    let impact: Partial<ReviewContracts> = {};
+    if (contracts.some((diff) => diff.summary.breaking > 0)) {
+      const sources = await consumerSources(this.services.guard, this.services.config);
+      impact = {
+        impact: contractImpact(contracts, consumerRepository(sources.files, versions)),
+        impactNotes: sources.notes,
+      };
+    }
     await this.store.writeJson(
       ARTIFACT.reviewContracts,
-      ReviewContracts.parse({ schemaVersion: 1, checkedAt: this.now(), contracts, skipped }),
+      ReviewContracts.parse({
+        schemaVersion: 1,
+        checkedAt: this.now(),
+        contracts,
+        skipped,
+        ...impact,
+      }),
     );
   }
 

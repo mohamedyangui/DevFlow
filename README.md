@@ -94,7 +94,8 @@ executed tools—not the model's confidence.
 - **GitHub workflows:** issues as tasks, pull request reviews, opt-in comments/check runs, draft PR
   creation, and a GitHub Action with fork-safe workflow patterns.
 - **Contract compatibility:** built-in OpenAPI and Protocol Buffers compatibility checks, with
-  optional `oasdiff` and `buf` tools when installed and approved.
+  optional `oasdiff` and `buf` tools when installed and approved, and cross-language change
+  impact: the Spring, TypeScript, Java and Python consumers of each breaking change.
 - **Observability export (opt-in):** an OpenTelemetry-compatible trace per run (steps, model
   calls, gates), metadata only, written as OTLP/JSON or sent to your OTLP/HTTP collector.
 - **Language independence:** Java, JavaScript/TypeScript, Python, and mixed-language repositories
@@ -265,6 +266,7 @@ See [language adapter specification](docs/specs/language-adapter.md) and
 | **Verify**        | `devflow verify`                              | Execute the configured quality gates                                     |
 | **Review**        | `devflow review --task task.yaml --base main` | Assess changes, evidence, risks, and rule violations                     |
 | **Contract diff** | `devflow contracts diff`                      | Examine OpenAPI/Protobuf compatibility; see CLI help for required inputs |
+| **Change impact** | `devflow contracts impact api/openapi.yaml`   | List the consumers of each breaking contract change                      |
 | **Trace**         | `devflow trace <run> [--otlp]`                | Export a run's trace (OTLP/JSON, metadata only) to a file or a collector |
 
 See the [CLI reference](docs/specs/cli.md) for flags, permissions, run states, budgets, and exit

@@ -256,6 +256,16 @@ Implemented:
   `oasdiff` and `buf` run through the command policy when they are on PATH; their output
   mapping is tested with recorded output and a fake executor only: neither tool has been run
   by the test suite.
+- Cross-language change impact ([ADR 0022](adr/0022-cross-language-change-impact.md)):
+  `findConsumers` finds the consumers of a breaking contract change by deterministic heuristics
+  (Spring mappings with class prefixes, TypeScript/JavaScript, Java and Python HTTP calls,
+  operation-id calls, imports of generated Protobuf code in Java, TypeScript and Python), each
+  `exact` or `pattern`; review mode lists them as finding evidence and in an "Impact" section
+  of `report.md` and `report.json`; `devflow contracts impact`. Validated by per-heuristic unit
+  tests, a fixture mini repository (Spring controller, Java gRPC service, TypeScript client,
+  Python module and their tests consuming one OpenAPI document and one `.proto`), a review-mode
+  test and CLI tests; it has not been run on a real project, so its false-positive and miss
+  rates are unmeasured.
 
 - External adapter plugins ([ADR 0023](adr/0023-external-adapter-plugins.md)): adapter API
   versioning (`ADAPTER_API_VERSION` 1.0.0; same major, minor not above the host);
@@ -275,8 +285,7 @@ Implemented:
 
 Planned:
 
-- Cross-language change impact (consumers of a changed contract), evidence-seeking
-  review.
+- Evidence-seeking review.
 
 ## Before the first publication
 
