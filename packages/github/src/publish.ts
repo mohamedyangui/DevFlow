@@ -161,10 +161,14 @@ export function renderEvidence(report: EngineeringReport): string[] {
 
   const deterministic = report.findings.filter((finding) => finding.source === "deterministic");
   const ai = report.findings.filter((finding) => finding.source === "ai");
+  // Evidence-seeking review (ADR 0025): an AI finding a probe test confirmed is not a suggestion.
+  const probed = ai.filter((finding) => finding.verification === "confirmed");
+  const suggested = ai.filter((finding) => finding.verification !== "confirmed");
   let budget = MAX_FINDINGS;
   for (const [title, findings] of [
     ["Deterministic findings", deterministic],
-    ["AI findings (unverified suggestions)", ai],
+    ["AI findings confirmed by a probe test", probed],
+    ["AI findings (unverified suggestions)", suggested],
   ] as const) {
     if (findings.length === 0) continue;
     lines.push(`### ${title} (${String(findings.length)})`, "");

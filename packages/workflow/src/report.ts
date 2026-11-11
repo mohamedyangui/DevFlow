@@ -18,6 +18,7 @@ import type {
   EvidenceEntry,
   ImplementationRecord,
   PlanCheck,
+  ProbesRecord,
   RequirementsAnalysis,
   ReviewDiff,
   ReviewContracts,
@@ -57,6 +58,8 @@ export interface ReportInput {
   readonly reviewRecord?: ReviewRecord | undefined;
   /** Review mode: the changed contract files, compared at the base and the head (ADR 0021). */
   readonly reviewContracts?: ReviewContracts | undefined;
+  /** Review mode with `--seek-evidence`: the probe tests and their outcomes (ADR 0025). */
+  readonly probes?: ProbesRecord | undefined;
 }
 
 /**
@@ -155,6 +158,7 @@ export function buildReport(input: ReportInput): EngineeringReport {
                 `The gates did not run: ${input.reviewGates.skipped}. Run them yourself on the change before you merge it.`,
               ]),
           ...contractManualChecks(input.reviewContracts),
+          ...probeManualChecks(input.probes),
           ...(input.reviewDiff.withheld.length === 0
             ? []
             : [
@@ -321,6 +325,7 @@ export function buildReport(input: ReportInput): EngineeringReport {
     ...(record.mode === "review" && input.reviewContracts?.impact !== undefined
       ? { impact: input.reviewContracts.impact }
       : {}),
+    ...(input.probes === undefined ? {} : { evidenceProbes: evidenceProbes(input.probes) }),
     usage: {
       calls: record.budgetUsage.calls,
       inputTokens: record.budgetUsage.inputTokens,
@@ -371,6 +376,46 @@ function verdictOf(input: {
     return "failed_verification";
   }
   return automated.some((row) => row.status === "verified") ? "partially_verified" : "not_verified";
+}
+
+/** The report's view of the probes: what a reader needs, without the run's details. */
+function evidenceProbes(record: ProbesRecord): NonNullable<EngineeringReport["evidenceProbes"]> {
+  return {
+    ...(record.skipped === undefined ? {} : { skipped: record.skipped }),
+    probes: record.probes.map((probe) => ({
+      findingId: probe.findingId,
+      outcome: probe.outcome,
+      reason: probe.reason,
+      ...(probe.testFile === undefined ? {} : { testFile: probe.testFile }),
+      ...(probe.testName === undefined ? {} : { testName: probe.testName }),
+      ...(probe.sha256 === undefined ? {} : { sha256: probe.sha256 }),
+      ...(probe.artifact === undefined ? {} : { artifact: probe.artifact }),
+      ...(probe.commandId === undefined ? {} : { commandId: probe.commandId }),
+    })),
+  };
+}
+
+/** What a person must do about the probes: read the confirming tests, approve a command. */
+function probeManualChecks(record: ProbesRecord | undefined): string[] {
+  if (record === undefined) return [];
+  const checks: string[] = [];
+  const confirmed = record.probes.filter((probe) => probe.outcome === "confirmed");
+  if (confirmed.length > 0) {
+    checks.push(
+      `Read the probe tests that confirmed ${confirmed.map((probe) => probe.findingId).join(", ")} ` +
+        "before you rely on them: a model wrote each test, and its assertion is the model's " +
+        "idea of the correct behaviour (copies are in the run directory, never committed).",
+    );
+  }
+  const fingerprints = [...new Set(record.probes.flatMap((probe) => probe.fingerprint ?? []))];
+  if (fingerprints.length > 0) {
+    checks.push(
+      `The probe command was not approved; after reading it, review again with ${fingerprints
+        .map((fingerprint) => `--allow ${fingerprint}`)
+        .join(" ")}.`,
+    );
+  }
+  return checks;
 }
 
 /** Renders the Markdown report from the JSON report; it adds nothing (ADR 0013). */
@@ -538,6 +583,24 @@ export function renderReportMarkdown(
     lines.push("");
   }
 
+  if (report.evidenceProbes !== undefined) {
+    lines.push("## Evidence probes", "");
+    if (report.evidenceProbes.skipped !== undefined) {
+      lines.push(`No probe ran: ${escapeInline(report.evidenceProbes.skipped)}.`);
+    }
+    for (const probe of report.evidenceProbes.probes) {
+      const test =
+        probe.testFile === undefined
+          ? ""
+          : ` \`${probe.testFile}\`${probe.testName === undefined ? "" : ` (${escapeInline(probe.testName)})`}`;
+      lines.push(
+        `- **${probe.findingId}** ${probe.outcome.replace("_", " ")}${test}: ${escapeInline(probe.reason)}` +
+          (probe.artifact === undefined ? "" : `. Kept in \`${probe.artifact}\``),
+      );
+    }
+    lines.push("");
+  }
+
   if (report.filesChanged.length > 0) {
     lines.push("## Files changed", "");
     for (const file of report.filesChanged) lines.push(`- ${file.change} \`${file.path}\``);
@@ -622,7 +685,11 @@ function notDone(report: EngineeringReport): string {
         ? "The gates ran once, on the changed code; there was no run before the change, so " +
           "failures that were already there are not told apart and no red/green evidence exists. "
         : "No gate ran. ") +
-      "The AI findings are unverified suggestions."
+      (report.findings.some(
+        (finding) => finding.source === "ai" && finding.verification === "confirmed",
+      )
+        ? "The AI findings are unverified suggestions, except those a probe test confirmed."
+        : "The AI findings are unverified suggestions.")
     );
   }
   if (report.run.mode === "implement") {

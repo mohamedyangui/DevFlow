@@ -23,6 +23,8 @@ import {
   approveChanges,
   approveTests,
   cancelRun,
+  DEFAULT_MAX_PROBES,
+  MAX_PROBES,
   exportRunTrace,
   getRun,
   listRuns,
@@ -74,6 +76,10 @@ export interface StartOptions extends ModelOptions, TaskSourceOptions {
   readonly publish?: PublishTarget | undefined;
   /** Review mode with `--pr`: run the gates even on code from a fork. */
   readonly runForkCode?: boolean;
+  /** Review mode: probe the AI findings with tests (ADR 0025). */
+  readonly seekEvidence?: boolean;
+  /** Review mode with `--seek-evidence`: at most this many probes. */
+  readonly maxProbes?: number;
 }
 
 const STEP_MESSAGES: Readonly<Record<string, string>> = {
@@ -84,6 +90,7 @@ const STEP_MESSAGES: Readonly<Record<string, string>> = {
   [STEP.implementation]: "Writing the code change...",
   [STEP.verification]: "Running the gates...",
   [STEP.review]: "Reviewing...",
+  [STEP.probes]: "Running the evidence probes...",
 };
 
 /**
@@ -139,6 +146,9 @@ export async function startCommand(
                 base: review.base,
                 ...(review.pullRequest === undefined ? {} : { pullRequest: review.pullRequest }),
                 ...(review.skipGates === undefined ? {} : { skipGates: review.skipGates }),
+                ...(options.seekEvidence === true
+                  ? { seekEvidence: { maxProbes: options.maxProbes ?? DEFAULT_MAX_PROBES } }
+                  : {}),
               },
             }),
       },
@@ -182,6 +192,15 @@ function checkReviewOptions(goal: string, options: StartOptions): void {
         `${flag} only applies to \`devflow review --pr\``,
       );
     }
+  }
+  if (options.maxProbes !== undefined && options.seekEvidence !== true) {
+    throw new DevflowError(ErrorCode.OptionsInvalid, "--max-probes needs --seek-evidence");
+  }
+  if (options.maxProbes !== undefined && options.maxProbes > MAX_PROBES) {
+    throw new DevflowError(
+      ErrorCode.OptionsInvalid,
+      `--max-probes is at most ${String(MAX_PROBES)}: each probe is a model call and a test run`,
+    );
   }
   if (options.pr !== undefined && options.base !== undefined) {
     throw new DevflowError(

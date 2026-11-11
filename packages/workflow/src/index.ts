@@ -86,6 +86,19 @@ export {
   renderTestDesignMarkdown,
   type ReportInput,
 } from "./report.js";
+export {
+  DEFAULT_MAX_PROBES,
+  MAX_PROBES,
+  MAX_PROBE_FILE_BYTES,
+  PROBE_WORKTREE,
+  checkProbe,
+  classifyProbe,
+  moduleOfFile,
+  probeCandidates,
+  probedFinding,
+  type ProbeCheck,
+  type ProbeClassification,
+} from "./probes.js";
 export { RUNS_DIRECTORY, RunStore, type RunEventInput } from "./run-store.js";
 export {
   DEFAULT_OTLP_MAX_BYTES,
@@ -142,6 +155,9 @@ export {
   PlanChecks,
   PlanFeedback,
   PlanWire,
+  ProbeRecord,
+  ProbeWire,
+  ProbesRecord,
   RequirementsAnalysis,
   ReviewDiff,
   ReviewContracts,

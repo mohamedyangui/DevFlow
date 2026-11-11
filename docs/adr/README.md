@@ -45,6 +45,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0022](0022-cross-language-change-impact.md) | Cross-language change impact: deterministic consumer heuristics                       | Accepted                               |
 | [0023](0023-external-adapter-plugins.md)     | External language adapters as user-installed plugins, with adapter API versioning     | Accepted                               |
 | [0024](0024-observability-export.md)         | Optional trace export compatible with OpenTelemetry, without an OpenTelemetry SDK     | Accepted                               |
+| [0025](0025-evidence-seeking-review.md)      | Evidence-seeking review: model-written probe tests run in a git worktree              | Accepted                               |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The

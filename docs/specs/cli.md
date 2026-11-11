@@ -265,7 +265,8 @@ devflow test    <task source> [model options] [--allow <fingerprint> ...] [--bac
 devflow implement <task source> [model options] [--allow <fingerprint> ...] [--backend local|container]
 devflow run     <task source> [model options] [--allow <fingerprint> ...] [--backend local|container]
 devflow review  <task source> [--base <ref> | --pr <ref> [--publish [comment|check]]
-                [--run-fork-code]] [model options] [--allow <fingerprint> ...] [--backend local|container]
+                [--run-fork-code]] [--seek-evidence [--max-probes <n>]]
+                [model options] [--allow <fingerprint> ...] [--backend local|container]
 devflow approve <run> [--plan-sha <sha256> | --tests-sha <sha256> | --changes-sha <sha256>] [--allow <fingerprint> ...] [--backend local|container] [--json]
 devflow reject  <run> (--feedback <text> | --feedback-file <file>) [model options]
 devflow answer  <run> (--answer <id>=<text> ... | --file <answers.yaml>) [model options]
@@ -370,7 +371,7 @@ acceptance criterion is reported as passed.
   protected file or CI workflow, source changed without any test change, a removed or changed
   public declaration (JavaScript, TypeScript, Java), a changed dependency manifest. Then one
   model call reviews the diff against the task: its findings carry the model's confidence and
-  always stay `unverified` (at most 20). Sensitive files (`.env`, keys, ...) are never shown
+  stay `unverified` (at most 20) unless a probe confirms them (`--seek-evidence`, below). Sensitive files (`.env`, keys, ...) are never shown
   to the model, and the patch is redacted before it is stored or sent. A criterion is
   verified when its tests pass on the change; there is no run before the change, so failures
   that were already there are not told apart and no red/green evidence exists. Review mode
@@ -383,6 +384,23 @@ acceptance criterion is reported as passed.
   built-in rules decide otherwise. Each file with breaking changes is a `confirmed`, `high`
   `compatibility` finding whose evidence names each rule and who decided it; changes the
   rules cannot decide (`unknown`) and files that could not be compared are manual checks.
+- **`--seek-evidence [--max-probes <n>]`** (Phase 6,
+  [ADR 0025](../adr/0025-evidence-seeking-review.md)) probes the AI findings after the model
+  review: for each unverified AI finding of severity `medium` or higher with a location (at
+  most `n`, default 3, at most 10, most severe first), one model call proposes a single new
+  test file that should fail if the defect is real. DevFlow checks it (a new test file of the
+  finding's module, path-guarded, at most 64 KiB, a filter-safe test name), writes it only
+  into a temporary git worktree of the reviewed state at `.devflow/probes/worktree`, runs only
+  that test with the module's filtered test command through the command policy (approved
+  like a gate; `--allow` works) and removes the worktree. The targeted test failing on an
+  assertion makes the finding `confirmed` with deterministic evidence (probe hash, command,
+  failing test); a pass leaves it `unverified` ("probe passed: not reproduced"); a compile
+  error, a runtime error, a timeout or no such test is inconclusive and leaves it
+  `unverified`. Probes are kept in the run directory (`artifacts/probes/F-n/...`,
+  `artifacts/probes.json`), never in the working tree and never committed; the report lists
+  them under "Evidence probes". No probe runs when the gates are skipped (a fork pull request)
+  or the workspace is not trusted. `--max-probes` without `--seek-evidence`, or above 10, is
+  `OPTIONS_INVALID` (exit 2).
 - **`review --pr <ref>`** (Phase 5) reviews a pull request: `57`, `#57`, `owner/name#57` or
   the pull request URL (the repository as for `--issue`). DevFlow reads the pull request from
   the GitHub API but never fetches or checks out its code: check out its head commit first
@@ -401,7 +419,8 @@ acceptance criterion is reported as passed.
   (`success` for `verified`, `failure` for `failed_verification`, otherwise `neutral`). It
   needs `GITHUB_TOKEN` or `GH_TOKEN` (checked before a run is created, `OPTIONS_INVALID`) with
   `pull-requests: write` or `checks: write`. The body is built from `report.json`: the verdict,
-  criteria, gates and findings (at most 50), AI findings labelled unverified suggestions; text
+  criteria, gates and findings (at most 50), AI findings labelled unverified suggestions
+  (those a probe test confirmed are listed apart); text
   from the model is cut to 300 characters and neutralised (Markdown, HTML and table syntax
   escaped, no `@` mention, no link), and every known secret is redacted. Publishing never
   approves, requests changes or merges. A run that is waiting is not published (a note says

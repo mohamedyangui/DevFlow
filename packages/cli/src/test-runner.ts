@@ -7,9 +7,14 @@ import {
   TrustStore,
   defaultGates,
   defaultTrustStorePath,
+  joinRepoPath,
+  runGate,
   runGates,
+  type AuditLog,
   type ExecutionSettings,
   type GateDefinition,
+  type ModuleProfile,
+  type WorkspaceModule,
 } from "@devflow/core";
 import type { TestRunner, WorkflowServices } from "@devflow/workflow";
 import { workspaceAdapters } from "./adapters.js";
@@ -64,25 +69,7 @@ export function testRunnerFactory(
           : defaultGates(discovery.modules, repo, toolchain);
       },
       run: async (gates, context) => {
-        const trust = await TrustStore.open(defaultTrustStorePath(io.env));
-        const policy = new CommandPolicy({
-          guard,
-          trust,
-          configSha256: workspace.configSha256,
-          approvedBy: currentUser(io.env),
-          allowlist: options.allow,
-          audit: context.audit,
-          execution: options.execution,
-          ...(options.interactive && io.prompt !== undefined
-            ? { approver: (request) => askApproval(request, io) }
-            : {}),
-        });
-        const executor = new Executor({
-          guard,
-          redactor: workspace.redactor,
-          audit: context.audit,
-          env: io.env,
-        });
+        const { policy, executor } = await policyAndExecutor(context.audit);
         return runGates(gates, {
           repo,
           modules: discovery.modules,
@@ -97,8 +84,79 @@ export function testRunnerFactory(
           },
         });
       },
+      // Evidence-seeking review (ADR 0025): the module's filtered test command, with the
+      // module's paths moved under the worktree, so it runs there; same policy and executor.
+      runProbe: async (request, context) => {
+        const module = discovery.modules.find(
+          (candidate) => candidate.profile.moduleId === request.module,
+        );
+        const { policy, executor } = await policyAndExecutor(context.audit);
+        const moved = module === undefined ? [] : [movedModule(module, request.root)];
+        return runGate(
+          {
+            id: `${request.module}-probe`.slice(0, 64),
+            module: request.module,
+            use: "test",
+            required: true,
+          },
+          {
+            repo,
+            modules: moved,
+            policy,
+            executor,
+            toolchain,
+            redactor: workspace.redactor,
+            logDir: context.logDir,
+            ...(context.signal === undefined ? {} : { signal: context.signal }),
+          },
+          { filter: request.filter },
+        );
+      },
     };
+
+    async function policyAndExecutor(audit: AuditLog) {
+      const trust = await TrustStore.open(defaultTrustStorePath(io.env));
+      const policy = new CommandPolicy({
+        guard,
+        trust,
+        configSha256: workspace.configSha256,
+        approvedBy: currentUser(io.env),
+        allowlist: options.allow,
+        audit,
+        execution: options.execution,
+        ...(options.interactive && io.prompt !== undefined
+          ? { approver: (request) => askApproval(request, io) }
+          : {}),
+      });
+      const executor = new Executor({
+        guard,
+        redactor: workspace.redactor,
+        audit,
+        env: io.env,
+      });
+      return { policy, executor };
+    }
   };
+}
+
+/** A module whose paths are moved under `root` (a workspace-relative copy of the workspace). */
+function movedModule(module: WorkspaceModule, root: string): WorkspaceModule {
+  const move = (relative: string) => (relative === "." ? root : joinRepoPath(root, relative));
+  const profile: ModuleProfile = {
+    ...module.profile,
+    root: move(module.profile.root),
+    sourceRoots: module.profile.sourceRoots.map(move),
+    testRoots: module.profile.testRoots.map(move),
+    ...(module.profile.buildTool?.wrapper === undefined
+      ? {}
+      : {
+          buildTool: {
+            ...module.profile.buildTool,
+            wrapper: move(module.profile.buildTool.wrapper),
+          },
+        }),
+  };
+  return { ...module, profile };
 }
 
 /**
