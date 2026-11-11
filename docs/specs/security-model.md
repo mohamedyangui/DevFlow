@@ -329,6 +329,25 @@ and a timestamp. Entries are redacted, then validated, then appended; an entry t
 match the schema is refused and nothing is written. Appends are serialized, and reading a log
 validates every line and reports a corrupt one with its line number.
 
+### 8.1 Trace export: data leaving the machine
+
+The optional trace export ([ADR 0024](../adr/0024-observability-export.md)) is the only
+feature besides model calls and GitHub publishing that sends run data off the machine. It is
+off by default and is turned on only by the user (`--trace`, `DEVFLOW_TRACE_EXPORT`,
+`devflow trace --otlp`), never by a repository's configuration, so a repository cannot make
+DevFlow send data to an endpoint of its choosing. The endpoint comes from the user's
+`OTEL_EXPORTER_OTLP_*` variables, must use HTTPS (plain HTTP only for localhost), may not carry
+credentials in its URL, and redirects are not followed. Header values (often an API key) are
+never shown in messages, and they are added to the redactor's known secrets.
+
+What is exported is metadata built attribute by attribute from an allowlist: run, step and
+command ids, provider and model names, prompt template ids, executable file names, token
+counts, cost, durations, exit codes, statuses and error codes. Prompts, model answers, task
+text, file paths and contents, command arguments (beyond the executable's name), command output
+and error messages are never exported, and every value is redacted. What remains still
+describes the activity in a repository (which models, how many tokens, which gates failed):
+send it only to a collector you would trust with that.
+
 ## 9. Residual risks
 
 - **A trusted build runs arbitrary code with the user's privileges**, including reading files

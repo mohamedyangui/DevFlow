@@ -158,7 +158,10 @@ describe("LlmGateway: answers", () => {
       outputTokens: 20,
       costUsd: null,
       outcome: "ok",
+      step: "analysis",
+      attempts: 1,
     });
+    expect(entry?.type === "llm-call" ? entry.durationMs : undefined).toBeGreaterThanOrEqual(0);
   });
 
   it("accepts JSON wrapped in a code fence or in a sentence", async () => {
@@ -278,7 +281,7 @@ describe("LlmGateway: retries", () => {
       requestId: "req_9",
     });
     expect(await entries()).toEqual([
-      expect.objectContaining({ type: "llm-call", outcome: "error", inputTokens: 0 }),
+      expect.objectContaining({ type: "llm-call", outcome: "error", inputTokens: 0, attempts: 3 }),
     ]);
   });
 

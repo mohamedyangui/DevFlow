@@ -6,6 +6,7 @@ import {
   type ExecutionBackendKind,
   type WorkflowMode,
   isDevflowError,
+  isTerminalState,
 } from "@devflow/core";
 import {
   type ProgressEvent,
@@ -15,19 +16,24 @@ import {
   type RunRecord,
   RunStore,
   STEP,
+  type TraceExportPlan,
+  type TraceExportResult,
   answerQuestions,
   approvePlan,
   approveChanges,
   approveTests,
   cancelRun,
+  exportRunTrace,
   getRun,
   listRuns,
   rejectPlan,
   rejectChanges,
   rejectTests,
   resolveRunSettings,
+  resolveTraceExport,
   resumeRun,
   startRun,
+  traceRedactor,
 } from "@devflow/workflow";
 import { parse as parseYaml } from "yaml";
 import { ExitCode } from "../exit-codes.js";
@@ -55,6 +61,8 @@ export interface ModelOptions {
   readonly allow?: readonly string[] | undefined;
   /** Where gate commands run (`--backend`); the project configuration's choice otherwise. */
   readonly backend?: ExecutionBackendKind | undefined;
+  /** `--trace`: export the run's trace when it finishes (ADR 0024); else `DEVFLOW_TRACE_EXPORT`. */
+  readonly trace?: string | undefined;
   readonly json: boolean;
 }
 
@@ -91,6 +99,7 @@ export async function startCommand(
   return guarded(io, options.json, async (interruption) => {
     const workspace = await openWorkspace(io);
     checkReviewOptions(goal, options);
+    const tracePlan = resolveTraceExport(options.trace, io.env);
     if (options.publish !== undefined) checkCanPublish(io);
     const task = await resolveTask(options, {
       io,
@@ -135,9 +144,11 @@ export async function startCommand(
       },
       services,
     );
-    if (options.publish === undefined) return report(io, options.json, outcome);
+    const trace = await traceRun(io, workspace, outcome, tracePlan, interruption?.signal);
+    if (options.publish === undefined) return report(io, options.json, outcome, { trace });
     if (outcome.status !== "completed") {
       return report(io, options.json, outcome, {
+        trace,
         note:
           `Not published: the run is ${outcome.state}. When it finishes, publish it with ` +
           `\`devflow report ${outcome.runId} --publish ${options.publish}\`.`,
@@ -146,11 +157,12 @@ export async function startCommand(
     const store = await RunStore.open(workspace.root, outcome.runId);
     try {
       const published = await publishRun(store, options.publish, io, interruption?.signal);
-      return report(io, options.json, outcome, { published });
+      return report(io, options.json, outcome, { published, trace });
     } catch (error) {
       if (!isDevflowError(error)) throw error;
       // The review is complete and saved; only publishing failed.
       report(io, options.json, outcome, {
+        trace,
         note: `Not published: ${error.message} [${error.code}]. Retry with \`devflow report ${outcome.runId} --publish ${options.publish}\`.`,
       });
       return ExitCode.Failure;
@@ -259,14 +271,20 @@ export async function approveCommand(
     changesSha?: string | undefined;
     allow?: readonly string[] | undefined;
     backend?: ExecutionBackendKind | undefined;
+    trace?: string | undefined;
     json: boolean;
   },
   io: CliIo,
 ): Promise<ExitCode> {
   return guarded(io, options.json, async (interruption) => {
     const workspace = await openWorkspace(io);
+    const tracePlan = resolveTraceExport(options.trace, io.env);
     const { record } = await getRun(workspace.root, runId);
     const by = currentUser(io.env);
+    const finish = async (outcome: RunOutcome): Promise<ExitCode> =>
+      report(io, options.json, outcome, {
+        trace: await traceRun(io, workspace, outcome, tracePlan, interruption?.signal),
+      });
     const services = workflowServices(
       workspace,
       io,
@@ -301,7 +319,7 @@ export async function approveCommand(
         },
         services,
       );
-      return report(io, options.json, outcome);
+      return finish(outcome);
     }
     if (kind === "test-approval") {
       const outcome = await approveTests(
@@ -314,7 +332,7 @@ export async function approveCommand(
         },
         services,
       );
-      return report(io, options.json, outcome);
+      return finish(outcome);
     }
     const outcome = await approvePlan(
       runId,
@@ -324,7 +342,7 @@ export async function approveCommand(
       },
       services,
     );
-    return report(io, options.json, outcome);
+    return finish(outcome);
   });
 }
 
@@ -344,6 +362,7 @@ export async function rejectCommand(
     const feedback =
       options.feedback ?? (await readInputFile(io, options.feedbackFile ?? "", "feedback"));
     const workspace = await openWorkspace(io);
+    const tracePlan = resolveTraceExport(options.trace, io.env);
     const { record } = await getRun(workspace.root, runId);
     const kind = record.pending?.kind;
     const reject =
@@ -357,7 +376,8 @@ export async function rejectCommand(
       { by: currentUser(io.env), feedback },
       workflowServices(workspace, io, serviceOptions(io, options, interruption)),
     );
-    return report(io, options.json, outcome);
+    const trace = await traceRun(io, workspace, outcome, tracePlan, interruption?.signal);
+    return report(io, options.json, outcome, { trace });
   });
 }
 
@@ -384,12 +404,14 @@ export async function answerCommand(
       answers[id] = entry.slice(separator + 1);
     }
     const workspace = await openWorkspace(io);
+    const tracePlan = resolveTraceExport(options.trace, io.env);
     const outcome = await answerQuestions(
       runId,
       { by: currentUser(io.env), answers },
       workflowServices(workspace, io, serviceOptions(io, options, interruption)),
     );
-    return report(io, options.json, outcome);
+    const trace = await traceRun(io, workspace, outcome, tracePlan, interruption?.signal);
+    return report(io, options.json, outcome, { trace });
   });
 }
 
@@ -401,6 +423,7 @@ export async function resumeCommand(
 ): Promise<ExitCode> {
   return guarded(io, options.json, async (interruption) => {
     const workspace = await openWorkspace(io);
+    const tracePlan = resolveTraceExport(options.trace, io.env);
     const services = workflowServices(workspace, io, serviceOptions(io, options, interruption));
     if (options.provider !== undefined) await services.provider(options.provider);
     const outcome = await resumeRun(runId, services, {
@@ -408,18 +431,20 @@ export async function resumeCommand(
       ...(options.model === undefined ? {} : { model: options.model }),
       ...(options.provider === undefined ? {} : { provider: options.provider }),
     });
-    return report(io, options.json, outcome);
+    const trace = await traceRun(io, workspace, outcome, tracePlan, interruption?.signal);
+    return report(io, options.json, outcome, { trace });
   });
 }
 
 /** `devflow cancel <run>` */
 export async function cancelCommand(
   runId: string,
-  options: { reason?: string | undefined; json: boolean },
+  options: { reason?: string | undefined; trace?: string | undefined; json: boolean },
   io: CliIo,
 ): Promise<ExitCode> {
   return guarded(io, options.json, async () => {
     const workspace = await openWorkspace(io);
+    const tracePlan = resolveTraceExport(options.trace, io.env);
     const outcome = await cancelRun(
       runId,
       {
@@ -428,7 +453,9 @@ export async function cancelCommand(
       },
       workflowServices(workspace, io),
     );
-    report(io, options.json, outcome);
+    report(io, options.json, outcome, {
+      trace: await traceRun(io, workspace, outcome, tracePlan, undefined),
+    });
     return ExitCode.Success;
   });
 }
@@ -673,7 +700,11 @@ function report(
   io: CliIo,
   json: boolean,
   outcome: RunOutcome,
-  extra: { readonly published?: Published; readonly note?: string } = {},
+  extra: {
+    readonly published?: Published;
+    readonly note?: string;
+    readonly trace?: RunTraceOutput | undefined;
+  } = {},
 ): ExitCode {
   const code = exitCodeFor(outcome);
   if (json) {
@@ -681,6 +712,7 @@ function report(
       ...outcome,
       exitCode: code,
       ...(extra.published === undefined ? {} : { published: extra.published }),
+      ...(extra.trace === undefined ? {} : { trace: extra.trace }),
       ...(extra.note === undefined ? {} : { note: extra.note }),
     });
     return code;
@@ -696,8 +728,50 @@ function report(
     out.push("", `Published the review as a ${extra.published.target}: ${extra.published.url}`);
   }
   if (extra.note !== undefined) out.push("", extra.note);
+  if (extra.trace !== undefined) out.push("", ...traceLines(extra.trace));
   io.stdout.write(`${out.join("\n")}\n`);
   return code;
+}
+
+/** What the trace export did, for the output of a workflow command. */
+type RunTraceOutput = TraceExportResult | { readonly pending: string };
+
+/**
+ * Exports the trace of a run that has finished (completed, failed or cancelled), when the user
+ * asked for it. A run waiting for input or interrupted is exported when it finishes. Export
+ * problems are warnings: they never change the run or the exit code.
+ */
+async function traceRun(
+  io: CliIo,
+  workspace: Workspace,
+  outcome: RunOutcome,
+  plan: TraceExportPlan | undefined,
+  signal: AbortSignal | undefined,
+): Promise<RunTraceOutput | undefined> {
+  if (plan === undefined) return undefined;
+  if (!isTerminalState(outcome.state)) {
+    return {
+      pending:
+        `the run is ${outcome.state}; its trace is exported when it finishes ` +
+        `(or with \`devflow trace ${outcome.runId}\`)`,
+    };
+  }
+  const store = await RunStore.open(workspace.root, outcome.runId);
+  return exportRunTrace(store, plan, {
+    redactor: traceRedactor(io.env, plan),
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+function traceLines(trace: RunTraceOutput): string[] {
+  if ("pending" in trace) return [`Trace:  not exported yet: ${trace.pending}`];
+  const lines: string[] = [];
+  if (trace.file !== undefined) lines.push(`Trace:  ${trace.file}`);
+  if (trace.sent !== undefined) {
+    lines.push(`Trace:  ${String(trace.spans)} span(s) sent to ${trace.sent.endpoint}`);
+  }
+  for (const warning of trace.warnings) lines.push(`Trace warning: ${warning}`);
+  return lines;
 }
 
 function nextSteps(outcome: RunOutcome, c: Colors): string[] {

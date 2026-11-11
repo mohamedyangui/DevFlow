@@ -93,6 +93,14 @@ export const ErrorCode = {
   ReviewNoChanges: "REVIEW_NO_CHANGES",
   /** The configured git isolation is not implemented (`workflow.git.isolation: worktree`). */
   GitIsolationUnsupported: "GIT_ISOLATION_UNSUPPORTED",
+  /**
+   * A trace export cannot be used: an unknown `--trace` or `DEVFLOW_TRACE_EXPORT` value, or an
+   * OTLP endpoint or header that DevFlow refuses (not https outside localhost, credentials in
+   * the URL). Nothing was sent.
+   */
+  TraceExportRefused: "TRACE_EXPORT_REFUSED",
+  /** A trace could not be written or sent (I/O error, timeout, HTTP status, size cap). */
+  TraceExportFailed: "TRACE_EXPORT_FAILED",
   /** Command line options that cannot be used together, or not without another one. */
   OptionsInvalid: "OPTIONS_INVALID",
   /** Neither or both of a task file and an issue were given. */
