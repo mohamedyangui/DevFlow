@@ -46,6 +46,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0023](0023-external-adapter-plugins.md)     | External language adapters as user-installed plugins, with adapter API versioning     | Accepted                               |
 | [0024](0024-observability-export.md)         | Optional trace export compatible with OpenTelemetry, without an OpenTelemetry SDK     | Accepted                               |
 | [0025](0025-evidence-seeking-review.md)      | Evidence-seeking review: model-written probe tests run in a git worktree              | Accepted                               |
+| [0026](0026-mcp-server.md)                   | An in-house MCP server; approvals stay with the developer                             | Accepted                               |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The

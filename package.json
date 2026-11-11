@@ -43,6 +43,7 @@
       "contracts": [
         "core"
       ],
+      "mcp": [],
       "workflow": [
         "core",
         "context",

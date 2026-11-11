@@ -2,6 +2,7 @@ import type { ExecutionBackendKind } from "@devflow/core";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { contractsDiffCommand, contractsImpactCommand } from "./commands/contracts.js";
 import { initCommand } from "./commands/init.js";
+import { mcpCommand } from "./commands/mcp.js";
 import { pluginsAddCommand, pluginsListCommand, pluginsRemoveCommand } from "./commands/plugins.js";
 import { prCreateCommand } from "./commands/pr.js";
 import { taskValidateCommand } from "./commands/task-validate.js";
@@ -561,6 +562,15 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         { output: options.output, otlp: options.otlp === true, json: options.json === true },
         io,
       );
+    });
+
+  program
+    .command("mcp")
+    .description(
+      "serve the DevFlow tools to an MCP client (a coding agent) over stdio; approvals stay in the terminal",
+    )
+    .action(async () => {
+      exitCode = await mcpCommand(io, runCli);
     });
 
   const pr = program.command("pr").description("work with GitHub pull requests");

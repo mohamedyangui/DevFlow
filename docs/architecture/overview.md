@@ -51,6 +51,7 @@ flowchart LR
   js --> core
   py --> core
   cli --> core
+  cli --> mcp["@devflow/mcp"]
 ```
 
 | Package                       | Responsibility                                                                          | State                                                                          |
@@ -64,6 +65,7 @@ flowchart LR
 | `@devflow/workflow`           | State machine, steps, run store, reports, SDK entry point                               | Assist, test, implement and review modes implemented                           |
 | `@devflow/github`             | GitHub REST client, issues as task sources, pull requests, publishing (Phase 5)         | Issues, pull requests and publishing implemented, tested with fixtures         |
 | `@devflow/contracts`          | OpenAPI and Protobuf parsers, breaking-change rules, oasdiff and buf (Phase 6)          | Built-in rules implemented; tool output tested with recorded fixtures only     |
+| `@devflow/mcp`                | In-house MCP server over stdio and the DevFlow tool definitions (Phase 6)               | Implemented; tested over real stdio, not yet with a real MCP client            |
 | `@devflow/cli`                | The `devflow` binary, composition root                                                  | `init`, `task validate`, `trust`, `verify`, the workflow commands and `review` |
 
 Boundaries are declared once in the root `package.json` and enforced by ESLint, repository
@@ -71,6 +73,8 @@ tests and TypeScript project references ([ADR 0003](../adr/0003-package-boundari
 `@devflow/github` depends on `@devflow/core` only ([ADR 0019](../adr/0019-github-rest-client.md)).
 `@devflow/contracts` depends on `@devflow/core` only, and `@devflow/workflow` uses it in review
 mode ([ADR 0021](../adr/0021-contract-compatibility.md)).
+`@devflow/mcp` has no workspace dependency; `devflow mcp` gives it a runner that calls the CLI
+in-process ([ADR 0026](../adr/0026-mcp-server.md)).
 
 ## 4. Public interfaces in `@devflow/core`
 
