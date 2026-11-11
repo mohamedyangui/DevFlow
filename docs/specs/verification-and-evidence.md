@@ -132,6 +132,27 @@ in the test name) → test result → evidence (command, exit code, report file 
   and not attributed to the change. A failing test is rerun once; inconsistent results mark it
   flaky and the finding stays unverified.
 
+### 6.1 Evidence probes
+
+Review mode with `--seek-evidence` ([ADR 0025](../adr/0025-evidence-seeking-review.md))
+can turn an AI finding into a confirmed one, with deterministic evidence only. The model
+proposes one new test file per finding (data, checked before it is written); DevFlow runs only
+that test, with the adapter's filtered test command through the command policy, in a git
+worktree of the reviewed state that is removed afterwards. The outcome is decided from the
+parsed test report:
+
+| The probe's targeted test                                                  | Probe                 | Finding                                            |
+| -------------------------------------------------------------------------- | --------------------- | -------------------------------------------------- |
+| fails with an assertion failure                                            | `confirmed`           | `confirmed`: probe hash, command, failing test     |
+| passes                                                                     | `not_reproduced`      | stays `unverified`: "probe passed: not reproduced" |
+| runtime error, timeout, compile or collection error, no such test, not run | `inconclusive`        | stays `unverified`, with a note                    |
+| refused by DevFlow's checks, or declined by the model                      | `refused`, `declined` | stays `unverified`                                 |
+
+A probe that passes does not refute the finding. The report schema rejects a confirmed probe
+whose finding is not confirmed, and a confirmed finding whose probe did not confirm it. The
+probe files are kept in the run directory and never committed; a person should read a
+confirming test, since its assertion is the model's idea of the correct behaviour.
+
 ## 7. Report verdict
 
 `EngineeringReport` exists only for terminal workflow states. Its verdict is one of

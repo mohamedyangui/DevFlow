@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   BudgetTracker,
@@ -23,11 +23,12 @@ import {
   ErrorCode,
   Finding,
   type GateDefinition,
+  type GateOutcome,
   type GitWorkspace,
   ImplementationPlan,
   IsoDateTime,
   type LlmProvider,
-  type PathGuard,
+  PathGuard,
   type ProjectConfig,
   type SecretRedactor,
   Sha256,
@@ -59,11 +60,13 @@ import {
   type ExistingTestFile,
   IMPLEMENTATION_TEMPLATE,
   PLAN_TEMPLATE,
+  PROBE_TEMPLATE,
   REVIEW_TEMPLATE,
   TEST_DESIGN_TEMPLATE,
   analysisPrompt,
   implementationPrompt,
   planPrompt,
+  probePrompt,
   reviewPrompt,
   testDesignPrompt,
 } from "./prompts.js";
@@ -84,6 +87,15 @@ import {
 } from "./report.js";
 import { RunStore } from "./run-store.js";
 import {
+  PROBE_WORKTREE,
+  checkProbe,
+  classifyProbe,
+  moduleOfFile,
+  probeCandidates,
+  probeSha256,
+  probedFinding,
+} from "./probes.js";
+import {
   AfterRun,
   AnalysisWire,
   BaselineRun,
@@ -100,6 +112,9 @@ import {
   type PlanChecks,
   PlanFeedback,
   PlanWire,
+  type ProbeRecord,
+  ProbeWire,
+  ProbesRecord,
   RequirementsAnalysis,
   ReviewContracts,
   ReviewDiff,
@@ -147,6 +162,7 @@ export const STEP = {
   implementation: "implementation",
   verification: "verification",
   review: "review",
+  probes: "evidence-probes",
 } as const;
 
 const ARTIFACT = {
@@ -183,6 +199,7 @@ const ARTIFACT = {
   reviewGates: "artifacts/review-gates.json",
   reviewContracts: "artifacts/review-contracts.json",
   review: "artifacts/review.json",
+  probes: "artifacts/probes.json",
 } as const;
 
 const PlanApproval = z.strictObject({
@@ -226,6 +243,8 @@ const TERMINAL_ERRORS: ReadonlySet<string> = new Set([
 /** Review mode: the patch kept for the review, and the part of it that goes into the prompt. */
 const MAX_REVIEW_PATCH_BYTES = 1024 * 1024;
 const MAX_REVIEW_PROMPT_PATCH_BYTES = 192 * 1024;
+/** Evidence-seeking review: the part of the patch that goes into each probe prompt. */
+const MAX_PROBE_PROMPT_PATCH_BYTES = 64 * 1024;
 /** Untracked files larger than this are listed but not shown. */
 const MAX_UNTRACKED_FILE_BYTES = 256 * 1024;
 /** Review mode: contract files larger than this are not compared. */
@@ -259,6 +278,20 @@ export interface TestRunner {
       readonly signal?: AbortSignal;
     },
   ): Promise<VerificationRun>;
+  /**
+   * Evidence-seeking review (ADR 0025): runs only the tests a filter selects (the adapter's
+   * test command that takes a filter), for a module whose files are under `root`, a
+   * workspace-relative copy of the workspace, through the command policy. Without it, review
+   * mode cannot run probes.
+   */
+  runProbe?(
+    request: { readonly root: string; readonly module: string; readonly filter: string },
+    context: {
+      readonly audit: AuditLog;
+      readonly logDir: string;
+      readonly signal?: AbortSignal;
+    },
+  ): Promise<GateOutcome>;
 }
 
 export type ProgressEvent =
@@ -356,6 +389,8 @@ export interface StartRunInput {
     readonly pullRequest?: ReviewPullRequest;
     /** Why the gates must not run on this change (they are then reported as not run). */
     readonly skipGates?: string;
+    /** `--seek-evidence`: probe the model's findings with tests, at most this many (ADR 0025). */
+    readonly seekEvidence?: { readonly maxProbes: number };
   };
 }
 
@@ -887,11 +922,13 @@ async function reviewBase(
     );
   }
   const skipGates = input.review?.skipGates;
+  const seekEvidence = input.review?.seekEvidence;
   return {
     base,
     baseCommit,
     ...(pullRequest === undefined ? {} : { pullRequest }),
     ...(skipGates === undefined ? {} : { gatesSkipped: skipGates }),
+    ...(seekEvidence === undefined ? {} : { seekEvidence: { maxProbes: seekEvidence.maxProbes } }),
   };
 }
 
@@ -1631,7 +1668,13 @@ class Session {
           }
           case "REVIEW":
             if (this.record.mode === "review") {
-              await this.step(STEP.review, () => this.reviewChange());
+              // A resumed run does not ask the model again for a review it already has.
+              if (!(await this.store.exists(ARTIFACT.review))) {
+                await this.step(STEP.review, () => this.reviewChange());
+              }
+              if (this.record.review?.seekEvidence !== undefined) {
+                await this.step(STEP.probes, () => this.seekEvidence());
+              }
             } else {
               await this.step(STEP.review, () => this.review());
             }
@@ -2733,6 +2776,374 @@ class Session {
     );
   }
 
+  /**
+   * Review mode with `--seek-evidence` (ADR 0025): for each selected AI finding, one model call
+   * proposes a test that fails if the suspected defect is real; it is checked, written into a
+   * git worktree of the reviewed state (never the working tree), run alone through the
+   * command policy, and classified by rules. Only an assertion failure of that test confirms
+   * the finding. Every probe and its outcome go to `artifacts/probes.json`.
+   */
+  private async seekEvidence(): Promise<void> {
+    const settings = this.record.review?.seekEvidence;
+    if (settings === undefined || (await this.store.exists(ARTIFACT.probes))) return;
+    const { findings } = await this.store.readJson(ARTIFACT.findings, Findings);
+    const { selected, notProbed } = probeCandidates(findings, settings.maxProbes);
+    const write = async (probes: readonly ProbeRecord[], skipped?: string): Promise<void> => {
+      const byId = new Map(probes.map((probe) => [probe.findingId, probe]));
+      await this.store.writeJson(
+        ARTIFACT.findings,
+        Findings.parse({
+          schemaVersion: 1,
+          findings: findings.map((finding) => {
+            const probe = byId.get(finding.id);
+            return probe === undefined ? finding : probedFinding(finding, probe);
+          }),
+        }),
+      );
+      await this.store.writeJson(
+        ARTIFACT.probes,
+        ProbesRecord.parse({
+          schemaVersion: 1,
+          ranAt: this.now(),
+          maxProbes: settings.maxProbes,
+          ...(skipped === undefined ? {} : { skipped }),
+          notProbed,
+          probes,
+        }),
+      );
+    };
+    if (selected.length === 0) {
+      await write([], "no AI finding of severity medium or higher with a location to probe");
+      return;
+    }
+    const unavailable = await this.probesUnavailable();
+    if (unavailable !== undefined) {
+      await write([], unavailable);
+      return;
+    }
+    const runner = await this.testRunner();
+    let modules: TestModule[];
+    try {
+      modules = await this.testModules();
+    } catch (error) {
+      if (!isDevflowError(error)) throw error;
+      await write([], error.message);
+      return;
+    }
+    const diff = await this.store.readJson(ARTIFACT.reviewDiff, ReviewDiff);
+    // The probes run on the reviewed state: HEAD and the changed files must not have moved.
+    const current = await this.services.git?.diff(diff.baseCommit, { maxPatchBytes: 0 });
+    const shape = (files: readonly { path: string; change: string }[]) =>
+      files.map((file) => `${file.change} ${file.path}`).join("\n");
+    if (current?.head !== diff.headCommit || shape(current.files) !== shape(diff.files)) {
+      await write(
+        [],
+        "the working tree changed since the review took its snapshot, so the probes would not " +
+          "test the reviewed code; review again",
+      );
+      return;
+    }
+    const task = await this.task();
+    const patch = await this.store.readText(ARTIFACT.reviewPatch);
+    const cut = cutPatch(patch, false, MAX_PROBE_PROMPT_PATCH_BYTES);
+    const reviewed = new Set(diff.files.map((file) => file.path));
+    const probes: ProbeRecord[] = [];
+    for (const finding of selected) {
+      if (this.services.signal?.aborted === true) {
+        throw new DevflowError(ErrorCode.Cancelled, "the probes were interrupted", {
+          details: { runId: this.record.id },
+        });
+      }
+      probes.push(await this.probe(finding, { task, modules, diff, cut, reviewed, runner }));
+    }
+    await write(probes);
+  }
+
+  /** Why no probe can run in this review, or undefined when they can. */
+  private async probesUnavailable(): Promise<string | undefined> {
+    const review = this.record.review;
+    if (review?.gatesSkipped !== undefined) {
+      return `the code under review is not run (${review.gatesSkipped}), so no probe ran`;
+    }
+    if (!this.services.trusted) {
+      return "the workspace is not trusted: probes run tests, like gates (review it with devflow trust)";
+    }
+    const git = this.services.git;
+    if (git?.addWorktree === undefined || git.removeWorktree === undefined) {
+      return "git worktrees are not available, so the probes cannot run apart from the working tree";
+    }
+    if (this.services.testRunner === undefined) {
+      return "no test runner was provided, so no probe ran";
+    }
+    if ((await this.testRunner()).runProbe === undefined) {
+      return "the test runner cannot run a single test, so no probe ran";
+    }
+    return undefined;
+  }
+
+  /** One probe: the model's test, its checks, its run in a worktree, its classification. */
+  private async probe(
+    finding: Finding,
+    context: {
+      readonly task: TaskContract;
+      readonly modules: readonly TestModule[];
+      readonly diff: ReviewDiff;
+      readonly cut: { readonly patch: string; readonly truncated: boolean };
+      readonly reviewed: ReadonlySet<string>;
+      readonly runner: TestRunner;
+    },
+  ): Promise<ProbeRecord> {
+    const findingId = finding.id;
+    const file = finding.location?.path ?? "";
+    const module = moduleOfFile(file, context.modules);
+    if (module === undefined) {
+      return {
+        findingId,
+        outcome: "refused",
+        reason: `${file} is in no module with a test directory, so no probe can be written for it`,
+      };
+    }
+    const examples = context.diff.files
+      .filter((entry) => entry.test && entry.change !== "deleted" && entry.path !== file)
+      .filter((entry) => moduleOfFile(entry.path, [module]) !== undefined)
+      .map((entry) => entry.path);
+    const files = await this.promptFiles([file, ...examples], 3, MAX_EXISTING_TEST_FILE_BYTES);
+    const prompt = probePrompt({
+      task: context.task,
+      finding,
+      module,
+      files,
+      patch: context.cut.patch,
+      patchCut: context.diff.patchTruncated || context.cut.truncated,
+    });
+    let wire: ProbeWire;
+    try {
+      const gateway = await this.gateway();
+      const result = await gateway.generateStructured({
+        step: STEP.probes,
+        templateId: PROBE_TEMPLATE.id,
+        templateVersion: PROBE_TEMPLATE.version,
+        model: this.record.settings.models.testDesign ?? this.record.settings.models.planning,
+        system: prompt.system,
+        user: prompt.user,
+        files: prompt.files,
+        schema: ProbeWire,
+        schemaName: "evidence_probe",
+        maxOutputTokens:
+          this.record.settings.maxOutputTokens.testDesign ?? DEFAULT_TEST_DESIGN_OUTPUT_TOKENS,
+        ...this.signalOption(),
+      });
+      wire = result.value;
+    } catch (error) {
+      if (!isDevflowError(error) || error.code === ErrorCode.Cancelled) throw error;
+      return {
+        findingId,
+        outcome: "inconclusive",
+        reason: `the model call for the probe failed: ${this.services.redactor.redactText(error.message)} [${error.code}]`,
+      };
+    }
+    const check = await checkProbe(wire, {
+      module,
+      guard: this.services.guard,
+      redactor: this.services.redactor,
+      reviewed: context.reviewed,
+    });
+    if (!check.ok) {
+      return {
+        findingId,
+        outcome: check.outcome,
+        reason: check.reason,
+        ...(check.path === undefined ? {} : { testFile: check.path }),
+        ...(check.testName === undefined ? {} : { testName: check.testName }),
+      };
+    }
+    const artifact = `artifacts/probes/${findingId}/${check.path}`;
+    // A copy a person can keep; it is never committed and never in the working tree.
+    await this.store.writeText(artifact, check.content);
+    const base = {
+      findingId,
+      testFile: check.path,
+      testName: check.testName,
+      sha256: probeSha256(check.content),
+      artifact: this.store.workspacePath(artifact),
+    };
+    const { ran, removed } = await this.inProbeWorktree(context.diff, (copy) =>
+      this.runProbeIn(copy, context.runner, module, check),
+    );
+    const leftOver = removed
+      ? ""
+      : `; the worktree ${PROBE_WORKTREE} could not be removed: remove it with git worktree remove --force ${PROBE_WORKTREE}`;
+    if (ran.kind !== "ran") {
+      return {
+        ...base,
+        outcome: ran.kind,
+        reason: `${ran.reason}${leftOver}`,
+        ...(ran.created ? { worktreeRemoved: removed } : {}),
+      };
+    }
+    const { result, denial } = ran.outcome;
+    const classified = classifyProbe({
+      gate: result,
+      denial,
+      probeFile: `${PROBE_WORKTREE}/${check.path}`,
+      testName: check.testName,
+    });
+    const execution = result.execution;
+    return {
+      ...base,
+      outcome: classified.outcome,
+      reason: `${classified.reason}${leftOver}`,
+      commandId: result.commandId,
+      ...(execution === undefined
+        ? {}
+        : { argv: [...execution.argv], exitCode: execution.exitCode }),
+      ...(classified.testId === undefined ? {} : { testId: classified.testId }),
+      ...(classified.message === undefined ? {} : { message: classified.message }),
+      ...(denial?.fingerprint === undefined ? {} : { fingerprint: denial.fingerprint }),
+      worktreeRemoved: removed,
+    };
+  }
+
+  /**
+   * Runs `work` in a git worktree of the reviewed state at {@link PROBE_WORKTREE}: HEAD, then
+   * the changed and untracked files of the working tree copied over and the deleted ones
+   * removed. The worktree is removed afterwards, whatever happened.
+   */
+  private async inProbeWorktree(
+    diff: ReviewDiff,
+    work: (copy: PathGuard) => Promise<ProbeRun>,
+  ): Promise<{ ran: ProbeRun; removed: boolean }> {
+    const git = this.services.git;
+    if (git?.addWorktree === undefined || git.removeWorktree === undefined) {
+      return {
+        ran: { kind: "inconclusive", reason: "git worktrees are not available", created: false },
+        removed: true,
+      };
+    }
+    const directory = path.join(this.services.guard.root, ...PROBE_WORKTREE.split("/"));
+    if (await pathExists(directory)) {
+      return {
+        ran: {
+          kind: "inconclusive",
+          reason:
+            `${PROBE_WORKTREE} already exists (another review is probing, or one was ` +
+            `interrupted); if no DevFlow process is running, remove it with ` +
+            `git worktree remove --force ${PROBE_WORKTREE}`,
+          created: false,
+        },
+        removed: true,
+      };
+    }
+    await mkdir(path.dirname(directory), { recursive: true });
+    try {
+      await git.addWorktree(directory, diff.headCommit);
+    } catch (error) {
+      if (!isDevflowError(error)) throw error;
+      const removed = await this.removeProbeWorktree(git, directory);
+      return {
+        ran: {
+          kind: "inconclusive",
+          reason: `the worktree could not be created: ${error.message}`,
+          created: !removed,
+        },
+        removed,
+      };
+    }
+    let ran: ProbeRun;
+    try {
+      const copy = await PathGuard.create(directory);
+      await this.copyReviewedState(diff, copy);
+      ran = await work(copy);
+    } catch (error) {
+      if (!isDevflowError(error) || error.code === ErrorCode.Cancelled) {
+        // The worktree never stays behind, not even on a cancellation.
+        await this.removeProbeWorktree(git, directory);
+        throw error;
+      }
+      ran = {
+        kind: "inconclusive",
+        reason: `the probe could not run: ${this.services.redactor.redactText(error.message)}`,
+        created: true,
+      };
+    }
+    return { ran, removed: await this.removeProbeWorktree(git, directory) };
+  }
+
+  /** Removes the probe worktree; true when its directory is gone. */
+  private async removeProbeWorktree(git: GitWorkspace, directory: string): Promise<boolean> {
+    try {
+      await git.removeWorktree?.(directory);
+    } catch (error) {
+      if (!isDevflowError(error)) throw error;
+    }
+    return !(await pathExists(directory));
+  }
+
+  /**
+   * Makes the worktree (checked out at HEAD) the reviewed state: the changed and untracked
+   * files of the working tree are copied over, the deleted ones removed. Nothing in the working
+   * tree is written.
+   */
+  private async copyReviewedState(diff: ReviewDiff, copy: PathGuard): Promise<void> {
+    for (const file of diff.files) {
+      const target = await copy.check(file.path, { access: "write", origin: "internal" });
+      if (file.change === "deleted") {
+        if (target.exists) await unlink(target.absolute);
+        continue;
+      }
+      const source = await this.services.guard.check(file.path, {
+        access: "read",
+        origin: "internal",
+      });
+      if (!source.exists) continue;
+      await mkdir(path.dirname(target.absolute), { recursive: true });
+      await writeFile(target.absolute, await readFile(source.absolute));
+    }
+  }
+
+  /** Writes the probe into the worktree as a new file and runs only its test. */
+  private async runProbeIn(
+    copy: PathGuard,
+    runner: TestRunner,
+    module: TestModule,
+    probe: { readonly path: string; readonly testName: string; readonly content: string },
+  ): Promise<ProbeRun> {
+    if (runner.runProbe === undefined) {
+      return {
+        kind: "inconclusive",
+        reason: "the test runner cannot run a single test",
+        created: true,
+      };
+    }
+    const target = await copy.check(probe.path, { access: "write", origin: "model" });
+    if (target.exists) {
+      return {
+        kind: "refused",
+        reason: `${probe.path} exists in the reviewed state: a probe only adds a file`,
+        created: true,
+      };
+    }
+    await mkdir(path.dirname(target.absolute), { recursive: true });
+    await writeFile(target.absolute, probe.content, { encoding: "utf8", flag: "wx" });
+    const audit = await this.audit();
+    await audit.append({
+      type: "file-write",
+      path: `${PROBE_WORKTREE}/${probe.path}`,
+      sha256Before: null,
+      sha256After: probeSha256(probe.content),
+      planChangeId: null,
+    });
+    const outcome = await runner.runProbe(
+      { root: PROBE_WORKTREE, module: module.profile.moduleId, filter: probe.testName },
+      {
+        audit,
+        logDir: this.store.workspacePath(`logs/probes/${probe.path.replace(/[^\w.-]+/g, "_")}`),
+        ...this.signalOption(),
+      },
+    );
+    return { kind: "ran", outcome };
+  }
+
   private async writeReport(): Promise<void> {
     const task = await this.task();
     const analysis = await this.store.readJsonIfExists(ARTIFACT.analysis, RequirementsAnalysis);
@@ -2771,6 +3182,7 @@ class Session {
       ARTIFACT.reviewContracts,
       ReviewContracts,
     );
+    const probes = await this.store.readJsonIfExists(ARTIFACT.probes, ProbesRecord);
     // Files of the latest implementation that no person approved (the run ended waiting).
     const unapprovedChanges =
       changeFiles === undefined ||
@@ -2804,6 +3216,7 @@ class Session {
       reviewGates,
       reviewRecord,
       reviewContracts,
+      probes,
     });
     await this.store.writeJson("report.json", report);
     await this.store.writeText(
@@ -2815,6 +3228,25 @@ class Session {
         evidence: evidence?.entries,
       }),
     );
+  }
+}
+
+/** How a probe's run in its worktree ended, before its classification (ADR 0025). */
+type ProbeRun =
+  | { readonly kind: "ran"; readonly outcome: GateOutcome }
+  | {
+      readonly kind: "refused" | "inconclusive";
+      readonly reason: string;
+      /** Whether a worktree was created (and so had to be removed). */
+      readonly created: boolean;
+    };
+
+async function pathExists(file: string): Promise<boolean> {
+  try {
+    await stat(file);
+    return true;
+  } catch {
+    return false;
   }
 }
 

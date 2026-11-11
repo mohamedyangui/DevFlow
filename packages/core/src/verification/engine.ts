@@ -120,10 +120,21 @@ export interface GateOutcome {
   readonly denial?: GateDenial;
 }
 
+/**
+ * Runs only some of a test gate's tests: the module's test command that takes one parameter
+ * (the adapter's filter, such as a test name pattern), with this value. The policy checks the
+ * value against the parameter's anchored pattern. Evidence-seeking review (ADR 0025) runs one
+ * probe test this way.
+ */
+export interface GateSelection {
+  readonly filter: string;
+}
+
 /** Resolves, authorizes, runs and reads one gate. */
 export async function runGate(
   gate: GateDefinition,
   options: VerificationOptions,
+  selection?: GateSelection,
 ): Promise<GateOutcome> {
   const { redactor } = options;
   const finish = (outcome: GateOutcome): GateOutcome => {
@@ -160,13 +171,16 @@ export async function runGate(
       options.toolchain,
       options.repo,
     );
-    const found = catalog.find((c) => c.purpose === gate.use && c.parameters.length === 0);
+    const parameters = selection === undefined ? 0 : 1;
+    const found = catalog.find((c) => c.purpose === gate.use && c.parameters.length === parameters);
     if (found === undefined) {
       options.onEvent?.({ type: "gate-started", gate });
       const purposes = [...new Set(catalog.map((c) => c.purpose))];
       return notExecuted(
         unresolved,
-        `module ${gate.module} has no "${gate.use}" command (it has: ${purposes.join(", ") || "none"})`,
+        selection === undefined
+          ? `module ${gate.module} has no "${gate.use}" command (it has: ${purposes.join(", ") || "none"})`
+          : `module ${gate.module} has no "${gate.use}" command that takes a filter`,
       );
     }
     command = found;
@@ -187,7 +201,14 @@ export async function runGate(
     }
   }
 
-  const decision = await options.policy.evaluate({ spec: command, module: gate.module });
+  const parameter = command.parameters[0];
+  const decision = await options.policy.evaluate({
+    spec: command,
+    module: gate.module,
+    ...(selection === undefined || parameter === undefined
+      ? {}
+      : { params: { [parameter.name]: selection.filter } }),
+  });
   if (!decision.allowed) {
     return notExecuted(command.id, `denied by the command policy: ${decision.message}`, {
       gateId: gate.id,

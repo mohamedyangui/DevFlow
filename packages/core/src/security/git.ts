@@ -96,6 +96,13 @@ export interface GitWorkspace {
    * there (review mode reads the base version of changed contract files with it).
    */
   show?(commit: string, file: string): Promise<string | null>;
+  /**
+   * Adds a detached worktree of `commit` at `directory` (absolute, inside the workspace's
+   * `.devflow/`); evidence-seeking review runs its probe tests there (ADR 0025).
+   */
+  addWorktree?(directory: string, commit: string): Promise<void>;
+  /** Removes a worktree added with {@link addWorktree}, with any file written into it. */
+  removeWorktree?(directory: string): Promise<void>;
 }
 
 export interface GitClientOptions {
@@ -360,6 +367,47 @@ export class GitClient implements GitWorkspace {
       patch: cut.patch,
       patchTruncated: cut.truncated,
     };
+  }
+
+  async addWorktree(directory: string, commit: string): Promise<void> {
+    if (!COMMIT_ID.test(commit)) {
+      throw new DevflowError(ErrorCode.GitFailed, `"${commit}" is not a commit id`);
+    }
+    const target = this.worktreeDirectory(directory);
+    const result = await this.git(["worktree", "add", "--detach", "--quiet", target, commit]);
+    if (result.exitCode !== 0) throw this.failure("worktree add", result);
+  }
+
+  async removeWorktree(directory: string): Promise<void> {
+    const target = this.worktreeDirectory(directory);
+    const result = await this.git(["worktree", "remove", "--force", "--force", target]);
+    // The administrative files of a worktree whose directory is already gone.
+    await this.git(["worktree", "prune"]);
+    if (result.exitCode !== 0) throw this.failure("worktree remove", result);
+  }
+
+  /**
+   * A worktree directory DevFlow passes to git: absolute, and inside the workspace's
+   * `.devflow/` directory, so a worktree never lands in (or replaces) the user's files.
+   */
+  private worktreeDirectory(directory: string): string {
+    const pathApi = this.platform === "win32" ? path.win32 : path.posix;
+    const relative = pathApi.relative(this.root, directory);
+    const parts = relative.split(pathApi.sep);
+    if (
+      !pathApi.isAbsolute(directory) ||
+      relative.startsWith("..") ||
+      pathApi.isAbsolute(relative) ||
+      parts[0] !== ".devflow" ||
+      parts.length < 2
+    ) {
+      throw new DevflowError(
+        ErrorCode.GitFailed,
+        "a DevFlow worktree must be a directory inside the workspace's .devflow/ directory",
+        { details: { directory } },
+      );
+    }
+    return pathApi.resolve(directory);
   }
 
   /** The commit a local branch points to, or null when the branch does not exist. */

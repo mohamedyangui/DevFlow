@@ -98,6 +98,7 @@ export {
   AcceptanceMatrixRow,
   AcceptanceStatus,
   EngineeringReport,
+  EvidenceProbe,
   FileChange,
   UsageSummary,
   Verdict,
@@ -280,6 +281,7 @@ export {
   type GateDenial,
   type GateEvent,
   type GateOutcome,
+  type GateSelection,
   type VerificationOptions,
   type VerificationRun,
 } from "./verification/engine.js";

@@ -345,6 +345,15 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         .option(
           "--run-fork-code",
           "with --pr: run the gates even when the pull request is from a fork",
+        )
+        .option(
+          "--seek-evidence",
+          "ask the model for a test that confirms each AI finding (medium or higher, with a location) and run it in a git worktree of the change",
+        )
+        .option(
+          "--max-probes <n>",
+          "with --seek-evidence: at most this many probe tests (default 3, at most 10)",
+          positiveInteger,
         ),
     ),
   ).action(
@@ -355,6 +364,8 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           pr?: string;
           publish?: "comment" | "check";
           runForkCode?: boolean;
+          seekEvidence?: boolean;
+          maxProbes?: number;
           allow: string[];
           backend?: ExecutionBackendKind;
         },
@@ -371,6 +382,8 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
           ...(options.pr === undefined ? {} : { pr: options.pr }),
           ...(options.publish === undefined ? {} : { publish: options.publish }),
           ...(options.runForkCode === true ? { runForkCode: true } : {}),
+          ...(options.seekEvidence === true ? { seekEvidence: true } : {}),
+          ...(options.maxProbes === undefined ? {} : { maxProbes: options.maxProbes }),
         },
         io,
       );

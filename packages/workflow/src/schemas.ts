@@ -5,6 +5,7 @@ import {
   Contradiction,
   Dependency,
   EdgeCase,
+  EvidenceProbe,
   GateResult,
   GitCommit,
   IsoDateTime,
@@ -231,6 +232,8 @@ export const RunRecord = z.strictObject({
       pullRequest: ReviewPullRequest.optional(),
       /** Why the gates were not run on the change (for example a pull request from a fork). */
       gatesSkipped: z.string().min(1).optional(),
+      /** `--seek-evidence`: probe tests for the model's findings (ADR 0025). */
+      seekEvidence: z.strictObject({ maxProbes: z.int().min(1).max(10) }).optional(),
     })
     .optional(),
 });
@@ -773,6 +776,48 @@ export const ReviewWire = z.strictObject({
   ),
 });
 export type ReviewWire = z.infer<typeof ReviewWire>;
+
+/**
+ * What the model returns for one evidence probe (ADR 0025): a single new test file that should
+ * fail if the suspected defect is real and pass if it is not, and the name of that test.
+ */
+export const ProbeWire = z.strictObject({
+  /** False when no test in this module can show the defect; the rest is then null. */
+  feasible: z.boolean(),
+  path: z.string().min(1).nullable(),
+  testName: z.string().min(1).nullable(),
+  content: z.string().nullable(),
+  explanation: z.string().min(1),
+});
+export type ProbeWire = z.infer<typeof ProbeWire>;
+
+/** One probe as it ran: what the report shows, and how it ran. */
+export const ProbeRecord = EvidenceProbe.extend({
+  /** The probe's command as it ran (redacted), its exit code and the targeted test's id. */
+  argv: z.array(z.string()).optional(),
+  exitCode: z.int().nullable().optional(),
+  testId: z.string().min(1).optional(),
+  /** The targeted test's failure message, redacted. */
+  message: z.string().optional(),
+  /** The policy's fingerprint, when the command was not allowed to run. */
+  fingerprint: z.string().optional(),
+  /** Whether the worktree was removed afterwards; absent when none was created. */
+  worktreeRemoved: z.boolean().optional(),
+});
+export type ProbeRecord = z.infer<typeof ProbeRecord>;
+
+/** `artifacts/probes.json`: the evidence probes of a review (ADR 0025). */
+export const ProbesRecord = z.strictObject({
+  schemaVersion: z.literal(1),
+  ranAt: IsoDateTime,
+  maxProbes: z.int().min(1),
+  /** Why no probe ran, when none did. */
+  skipped: z.string().min(1).optional(),
+  /** Eligible findings left out by `--max-probes`. */
+  notProbed: z.array(z.string().min(1)),
+  probes: z.array(ProbeRecord),
+});
+export type ProbesRecord = z.infer<typeof ProbesRecord>;
 
 export const ImplementationWire = z.strictObject({
   summary: z.string().min(1),

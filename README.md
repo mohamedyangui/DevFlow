@@ -89,6 +89,9 @@ executed tools—not the model's confidence.
   planning, test design, approved edits, bounded repair, and review.
 - **Evidence-first verification:** normalized test results, baseline comparison, regression
   detection, acceptance-criteria coverage, and machine-readable/human-readable reports.
+- **Evidence-seeking review:** `devflow review --seek-evidence` asks the model for a probe test
+  per AI finding and runs it in a temporary git worktree; only a failing assertion confirms a
+  finding, anything else leaves it unverified.
 - **Security and control:** workspace trust, command fingerprints, scoped file changes, protected
   paths, audit logs, redaction, timeouts, and optional network-restricted Docker execution.
 - **GitHub workflows:** issues as tasks, pull request reviews, opt-in comments/check runs, draft PR

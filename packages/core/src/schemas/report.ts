@@ -8,6 +8,7 @@ import {
   IsoDateTime,
   RepoPath,
   RequirementId,
+  Sha256,
   TaskId,
 } from "./primitives.js";
 import { AcceptanceVerification, TaskSource } from "./task.js";
@@ -28,6 +29,27 @@ export const Verdict = z.enum([
   "not_verified",
 ]);
 export type Verdict = z.infer<typeof Verdict>;
+
+/**
+ * Evidence-seeking review (ADR 0025): a test the model proposed to confirm one of its own
+ * findings, run in an isolated worktree. Only `confirmed` (the targeted test failed on an
+ * assertion) makes the finding confirmed; a probe that passed leaves it unverified.
+ */
+export const EvidenceProbe = z.strictObject({
+  findingId: z.string().min(1),
+  outcome: z.enum(["confirmed", "not_reproduced", "inconclusive", "refused", "declined"]),
+  /** What happened, redacted. */
+  reason: z.string().min(1),
+  /** The probe test file, relative to the workspace (it was written only in the worktree). */
+  testFile: RepoPath.optional(),
+  testName: z.string().min(1).optional(),
+  /** SHA-256 of the probe file's content as it ran. */
+  sha256: Sha256.optional(),
+  /** Where the run directory keeps a copy of the probe, for a person to keep or delete. */
+  artifact: z.string().min(1).optional(),
+  commandId: z.string().min(1).optional(),
+});
+export type EvidenceProbe = z.infer<typeof EvidenceProbe>;
 
 export const AcceptanceStatus = z.enum(["verified", "failed", "unverified", "not_executed", "manual"]);
 export type AcceptanceStatus = z.infer<typeof AcceptanceStatus>;
@@ -150,8 +172,30 @@ export const EngineeringReport = z
      */
     impact: z.array(ContractImpact).optional(),
     usage: UsageSummary.optional(),
+    /** Review mode with `--seek-evidence` (ADR 0025). */
+    evidenceProbes: z
+      .strictObject({
+        /** Why no probe ran, when none did. */
+        skipped: z.string().min(1).optional(),
+        probes: z.array(EvidenceProbe),
+      })
+      .optional(),
   })
   .superRefine((report, ctx) => {
+    report.evidenceProbes?.probes.forEach((probe, index) => {
+      const finding = report.findings.find((candidate) => candidate.id === probe.findingId);
+      const confirmed = finding?.verification === "confirmed";
+      if (probe.outcome === "confirmed" ? !confirmed : confirmed) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["evidenceProbes", "probes", index, "outcome"],
+          message:
+            probe.outcome === "confirmed"
+              ? `probe of ${probe.findingId} confirmed a finding the report does not confirm`
+              : `finding ${probe.findingId} is confirmed although its probe did not confirm it`,
+        });
+      }
+    });
     if (!isTerminalState(report.run.state)) {
       ctx.addIssue({
         code: "custom",

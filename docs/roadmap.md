@@ -283,9 +283,17 @@ Implemented:
   localhost, timeout, size cap, failures only warn); `devflow trace <run>`. Tested against a
   local `node:http` receiver only: it has not been sent to a real OpenTelemetry collector.
 
-Planned:
-
-- Evidence-seeking review.
+- Evidence-seeking review ([ADR 0025](adr/0025-evidence-seeking-review.md)):
+  `devflow review --seek-evidence [--max-probes N]` asks the model for one new test file per
+  unverified AI finding (medium or higher, with a location), checks it, runs only that test in
+  a temporary git worktree of the reviewed state through the adapter's filtered test command
+  and the command policy, and removes the worktree. An assertion failure confirms the finding
+  with deterministic evidence; a pass or an inconclusive run leaves it unverified with a note.
+  Tested end to end with the fake provider on a small JavaScript repository with real git
+  and real execution (a stand-in Vitest that imports and runs the test files): confirmed, not
+  reproduced, inconclusive (syntax error), refused paths, the working tree untouched and the
+  worktree removed. Never run with a real model; only the Vitest/Jest name filter is tested,
+  and the Maven filter's `test=` selector does not accept a bare test name.
 
 ## Before the first publication
 
