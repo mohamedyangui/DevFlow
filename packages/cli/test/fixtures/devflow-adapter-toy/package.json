@@ -1,0 +1,12 @@
+{
+  "name": "devflow-adapter-toy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A test plugin: a DevFlow language adapter for the invented Toy language.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    }
+  }
+}

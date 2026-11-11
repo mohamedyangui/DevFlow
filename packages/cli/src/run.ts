@@ -2,6 +2,7 @@ import type { ExecutionBackendKind } from "@devflow/core";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { contractsDiffCommand } from "./commands/contracts.js";
 import { initCommand } from "./commands/init.js";
+import { pluginsAddCommand, pluginsListCommand, pluginsRemoveCommand } from "./commands/plugins.js";
 import { prCreateCommand } from "./commands/pr.js";
 import { taskValidateCommand } from "./commands/task-validate.js";
 import { trustCommand } from "./commands/trust.js";
@@ -89,6 +90,40 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
         );
       },
     );
+
+  const plugins = program
+    .command("plugins")
+    .description(
+      "manage external language adapter plugins (your own list, never the repository's)",
+    );
+  plugins
+    .command("add")
+    .description(
+      "load a plugin, check it, and record it with the SHA-256 of its files (adding it again accepts a change)",
+    )
+    .argument(
+      "<package|path>",
+      "a package installed in $DEVFLOW_HOME/plugins, or a path to a package directory or module",
+    )
+    .option("--json", "print a machine-readable result")
+    .action(async (specifier: string, options: { json?: boolean }) => {
+      exitCode = await pluginsAddCommand(specifier, { json: options.json === true }, io);
+    });
+  plugins
+    .command("list")
+    .description("list the built-in adapters and the installed plugins, with their status")
+    .option("--json", "print a machine-readable result")
+    .action(async (options: { json?: boolean }) => {
+      exitCode = await pluginsListCommand({ json: options.json === true }, io);
+    });
+  plugins
+    .command("remove")
+    .description("remove an installed plugin")
+    .argument("<id>", "the plugin's adapter id")
+    .option("--json", "print a machine-readable result")
+    .action(async (id: string, options: { json?: boolean }) => {
+      exitCode = await pluginsRemoveCommand(id, { json: options.json === true }, io);
+    });
 
   program
     .command("verify")

@@ -42,6 +42,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0019](0019-github-rest-client.md)          | A small GitHub REST client on Node's `fetch` instead of `@octokit/rest`               | Accepted                               |
 | [0020](0020-container-execution-backend.md) | A container execution backend on `docker run`                                         | Accepted                               |
 | [0021](0021-contract-compatibility.md)      | Contract compatibility: in-house OpenAPI and Protobuf parsers and built-in rules      | Accepted                               |
+| [0023](0023-external-adapter-plugins.md)    | External language adapters as user-installed plugins, with adapter API versioning     | Accepted                               |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The

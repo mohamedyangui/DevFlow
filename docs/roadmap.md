@@ -257,9 +257,16 @@ Implemented:
   mapping is tested with recorded output and a fake executor only: neither tool has been run
   by the test suite.
 
+- External adapter plugins ([ADR 0023](adr/0023-external-adapter-plugins.md)): adapter API
+  versioning (`ADAPTER_API_VERSION` 1.0.0; same major, minor not above the host);
+  `devflow plugins add | list | remove` records user-installed plugins in
+  `$DEVFLOW_HOME/plugins.json` with the SHA-256 of the entry file and `package.json`, and a
+  changed plugin is refused; a repository cannot add one. Tested end to end with a fixture
+  plugin for an invented language; no third-party plugin has been tried.
+
 Planned:
 
-- Cross-language change impact (consumers of a changed contract), external adapter plugins, observability export, evidence-seeking
+- Cross-language change impact (consumers of a changed contract), observability export, evidence-seeking
   review.
 
 ## Before the first publication

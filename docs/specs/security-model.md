@@ -52,6 +52,7 @@
 | Overwriting the user's work                       | The user edits files during a run                                   | Clean-tree precondition, dedicated branch, content-hash check before every write                                                                  |
 | Windows `cmd.exe` argument injection              | A test filter containing `&` or `%`                                 | Strategy selection that avoids `cmd.exe`; strict character check on the batch path ([ADR 0014](../adr/0014-windows-invocation.md))                |
 | CI token abuse (Phase 5)                          | `pull_request_target` checking out fork code                        | Split between the fork-safe verify workflow and the gated AI review workflow; least privilege ([spec](github-action.md))                          |
+| Code loaded through an adapter plugin             | A repository ships `node_modules/devflow-adapter-x`                 | Plugins come only from the user's own list, hash-checked before each load; a repository cannot add one (section 3.3)                              |
 
 ## 3. Local execution is restricted to trusted repositories
 
@@ -95,6 +96,30 @@ not answer, a missing image or a container that did not start make the gate `not
 (`CONTAINER_RUNTIME_UNAVAILABLE`, `CONTAINER_IMAGE_UNAVAILABLE`, `PROCESS_START_FAILED`); there
 is no fallback to the host. Timeouts, output caps and redaction are unchanged; on timeout or
 cancellation the container is killed by name (`docker kill`).
+
+### 3.3 Adapter plugins
+
+External language adapters ([ADR 0023](../adr/0023-external-adapter-plugins.md)) are code
+that DevFlow imports into its own process, so they are governed by the user, never by the
+repository:
+
+- Plugins are listed in the user's `$DEVFLOW_HOME/plugins.json` (`~/.devflow/plugins.json`),
+  written only by `devflow plugins add` and `remove`, atomically and readable by its owner
+  only; an invalid file is `PLUGIN_STORE_INVALID` and no plugin is loaded.
+- A package name is resolved only in `$DEVFLOW_HOME/plugins/node_modules`; the current
+  directory and the analysed repository's `node_modules` are never searched. The project
+  configuration can name an adapter id that is already registered, never add one.
+- Each entry records the real path of the plugin's entry file and the SHA-256 of that file
+  and of its `package.json`. Both are checked before every import; a mismatch is
+  `PLUGIN_CHANGED` and stops the command until the user adds the plugin again.
+- Built-in adapters take precedence over a plugin with the same id; duplicate ids are refused.
+- What a plugin returns is validated like a built-in adapter's output, its exceptions become
+  `ADAPTER_FAILED`, and its commands are `CommandSpec`s that go through this policy, the hard
+  deny list, workspace trust and approval fingerprints. A plugin never executes a command
+  through DevFlow; DevFlow only runs what the policy approves.
+- A plugin is **trusted code with the user's privileges**, like any npm package the user
+  installs: it could start processes or read files itself, and the hashes do not cover the
+  modules it imports. This is a residual risk (section 9).
 
 ## 4. Command policy
 
@@ -312,6 +337,9 @@ validates every line and reports a corrupt one with its line number.
 - **Trust is a point-in-time decision.** Fingerprints detect changed scripts, wrappers and
   configuration, not changed test sources or dependency versions pulled later. For a Node.js
   tool only its entry script is bound, not the rest of its installed package.
+- **An adapter plugin is trusted code** running in the DevFlow process with the user's
+  privileges (section 3.3). Its hashes cover its entry file and `package.json`, not the
+  modules it imports, and do not protect against a change between the check and the import.
 - **Redaction is heuristic.** Unknown secret formats can slip through.
 - **Prompt injection can influence the content of generated code.** Human review of the diff
   is a required control.

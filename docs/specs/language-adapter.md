@@ -1,12 +1,13 @@
 # Specification: language adapters (draft)
 
-- **Status:** Draft. The `LanguageAdapter` port (API version 1), `RepositoryView`,
+- **Status:** Draft. The `LanguageAdapter` port (adapter API 1.0.0), `RepositoryView`,
   `ToolchainProbe` and the data schemas (`ModuleCandidate`, `ModuleProfile`,
   `ContractRelation`, `InferredConvention`, `TestInventory`, `TestAuthoringGuide`,
   `CommandSpec`, `ParsedCommandResults`) exist in `@devflow/core` (Phase 1). The adapter SDK,
   output validation, registry, toolchain probe and conformance kit exist (Phase 3, section 8).
   The Java adapter (section 9) and the JavaScript/TypeScript adapter (section 10) exist
-  (Phase 3); the Python adapter (section 11) exists (Phase 6). The interface may still change before Phase 3 completes.
+  (Phase 3); the Python adapter (section 11) and external adapter plugins with API versioning
+  (section 12) exist (Phase 6). The interface may still change before Phase 3 completes.
 
 ## 1. Role
 
@@ -36,7 +37,7 @@ JavaScript/TypeScript and Python projects, and a mixed monorepo simply has modul
 interface LanguageAdapter {
   readonly id: string; // "java", "javascript"
   readonly displayName: string;
-  readonly apiVersion: 1;
+  readonly apiVersion: string; // the adapter API version it targets, e.g. "1.0.0"
   detectModules(repo): Promise<ModuleCandidate[]>;
   analyzeModule(candidate, repo): Promise<ModuleProfile>;
   inferConventions(profile, repo): Promise<InferredConvention[]>;
@@ -107,7 +108,8 @@ wrapper verifies the downloaded distribution (decision D5).
 
 These exist in `@devflow/core`:
 
-- **`defineAdapter(definition)`** fills in the API version and a default `inferConventions`
+- **`defineAdapter(definition)`** fills in the API version when the definition does not
+  declare one, and a default `inferConventions`
   (no conventions). Adapters are composed of `DetectionStrategy` objects (build tool,
   framework, test runner, quality tool), run in order by `runDetectors`, and `ResultParser`
   objects. Helpers build evidence that points at a file and line (`evidenceAt`), join and
@@ -121,8 +123,9 @@ These exist in `@devflow/core`:
   (commands with parameters, such as a test filter, are for targeted runs). Invalid output is
   `ADAPTER_OUTPUT_INVALID`; an exception thrown by an adapter is `ADAPTER_FAILED`, naming the
   adapter and the operation.
-- **Registry.** `AdapterRegistry` registers adapters (id `^[a-z][a-z0-9-]{0,31}$`, API
-  version 1, no duplicates: otherwise `ADAPTER_INVALID`) and discovers modules: from the
+- **Registry.** `AdapterRegistry` registers adapters (id `^[a-z][a-z0-9-]{0,31}$`, no
+  duplicates: otherwise `ADAPTER_INVALID`; a compatible API version, section 12: otherwise
+  `ADAPTER_API_INCOMPATIBLE`) and discovers modules: from the
   `modules` of the project configuration when it declares any, otherwise from every adapter's
   `detectModules`. A failing adapter or module becomes a warning instead of hiding the other
   modules. Detected module ids are derived from the module root; when two adapters claim the
@@ -272,3 +275,102 @@ interface for Python projects (Phase 6).
   without parseable output is `unparseable`. The unittest and mypy parsers are tested with
   real output of Python 3.10 and mypy 0.931; the pytest JUnit fixture is written by hand,
   because pytest was not available where the adapter was built.
+
+## 12. External adapters
+
+Adapters for other ecosystems can be written and released outside DevFlow, as plugins
+([ADR 0023](../adr/0023-external-adapter-plugins.md)). This section is the authoring guide.
+
+### 12.1 Versioning policy
+
+`@devflow/core` exports `ADAPTER_API_VERSION`, the semver version of this interface
+(currently `1.0.0`). Every adapter declares the version it targets in `apiVersion`; the
+built-in adapters declare `1.0.0`. DevFlow runs an adapter when:
+
+- the major versions are equal, and
+- the adapter's minor version is not above the host's (an adapter for `1.2.x` needs a DevFlow
+  implementing at least `1.2.0`).
+
+The patch version is ignored. Otherwise registration fails with `ADAPTER_API_INCOMPATIBLE`,
+naming both versions. A minor version only adds optional capabilities that an adapter for an
+older minor does without; anything that changes or removes what adapters rely on (a method,
+a required field, the meaning of a value) is a new major version.
+
+### 12.2 Writing a plugin
+
+A plugin is an ES module. Its `devflowAdapter` named export (or, when there is none, its
+default export) is an adapter object with a manifest:
+
+| Field                    | Content                                                    |
+| ------------------------ | ---------------------------------------------------------- |
+| `id`                     | `^[a-z][a-z0-9-]{0,31}$`; not the id of a built-in adapter |
+| `displayName`            | shown by `devflow plugins list`                            |
+| `apiVersion`             | the adapter API version it targets, e.g. `"1.0.0"`         |
+| `languages`              | one or more language names, e.g. `["go"]`                  |
+| the methods of section 3 | functions; `inferConventions` is optional (no conventions) |
+
+```js
+// index.js of the package devflow-adapter-toy ("type": "module")
+export const devflowAdapter = {
+  id: "toy",
+  displayName: "Toy",
+  apiVersion: "1.0.0",
+  languages: ["toy"],
+  async detectModules(repo) {
+    /* ModuleCandidate[] */
+  },
+  async analyzeModule(candidate, repo) {
+    /* ModuleProfile */
+  },
+  async discoverTests(profile, repo) {
+    /* TestInventory */
+  },
+  testAuthoringGuide(profile) {
+    /* TestAuthoringGuide */
+  },
+  async commandCatalog(profile, toolchain, repo) {
+    /* CommandSpec[] */
+  },
+  async parseResults(command, execution, repo) {
+    /* ParsedCommandResults */
+  },
+};
+```
+
+A plugin written in TypeScript can depend on `@devflow/core` for the types, `defineAdapter`
+and the SDK helpers of section 8, and run the conformance kit in its own tests; it needs no
+DevFlow dependency at run time. The package's entry is `exports["."]` (`import`, `node` or
+`default` condition), else `main`, else `index.js`, and must be inside the package. A working
+example, used by DevFlow's tests, is `packages/cli/test/fixtures/devflow-adapter-toy`.
+
+The rules of section 2 apply: read only through `RepositoryView`, return commands as data
+(`origin: "adapter"`), never start processes, write files or use the network, and return
+`parse: "unparseable"` rather than guess. Everything the plugin returns is validated exactly as
+for a built-in adapter (section 8), an exception becomes `ADAPTER_FAILED` naming the adapter and
+the operation, and its commands run only through the command policy, with the same trust,
+approval and fingerprints.
+
+### 12.3 Installing and loading
+
+Plugins are installed by the user, never by a repository:
+
+```sh
+npm install --prefix "$DEVFLOW_HOME/plugins" devflow-adapter-toy   # or ~/.devflow/plugins
+devflow plugins add devflow-adapter-toy      # or a path: devflow plugins add ./my-adapter
+devflow plugins list
+```
+
+`devflow plugins add` resolves a package name only in `$DEVFLOW_HOME/plugins/node_modules`
+(any other argument is a path), imports the module, checks the export and its API version, and
+records the plugin in `$DEVFLOW_HOME/plugins.json` with the real path of the entry file and the
+SHA-256 of the entry file and of `package.json`. `devflow verify` and the workflow commands
+register the built-in adapters, then every installed plugin, after checking both hashes. A
+plugin whose files changed is refused (`PLUGIN_CHANGED`) until it is added again; built-in
+adapters take precedence over a plugin with the same id, and duplicate ids are refused
+([CLI](cli.md#devflow-plugins)). The project configuration cannot add a plugin; its
+`modules[].adapter` can name a plugin's id once the plugin is installed.
+
+A plugin is trusted code: it runs in the DevFlow process with the user's privileges, the
+same as installing any npm package. The hashes detect a changed plugin; they do not cover the
+modules it imports, and they do not make a malicious plugin safe
+([security model](security-model.md), section 3.3).

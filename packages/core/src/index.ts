@@ -294,7 +294,7 @@ export type {
   SourceSymbolKind,
 } from "./ports/source-parser.js";
 export {
-  LANGUAGE_ADAPTER_API_VERSION,
+  ADAPTER_API_VERSION,
   type LanguageAdapter,
   type ToolAvailability,
   type ToolchainProbe,
@@ -338,6 +338,34 @@ export {
   type TextMatch,
 } from "./adapters/sdk.js";
 export { catalogProblems, checkIdentity, validatedAdapter } from "./adapters/validate.js";
+export {
+  apiVersionProblem,
+  checkApiVersion,
+  parseApiVersion,
+  type ApiVersion,
+} from "./adapters/api-version.js";
+export {
+  PLUGIN_EXPORT_NAME,
+  PluginStore,
+  addPlugin,
+  defaultPluginStorePath,
+  devflowHome,
+  hashPlugin,
+  importPlugin,
+  loadInstalledPlugins,
+  pluginFileStatus,
+  pluginInstallDirectory,
+  resolvePlugin,
+  type AddPluginResult,
+  type InstalledAdapters,
+  type InstalledPlugin,
+  type LoadedPlugin,
+  type PluginFileStatus,
+  type PluginHashes,
+  type PluginManifest,
+  type PluginOptions,
+  type ResolvedPlugin,
+} from "./adapters/plugins.js";
 export {
   AdapterRegistry,
   findModule,

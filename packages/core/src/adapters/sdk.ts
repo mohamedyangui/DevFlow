@@ -1,5 +1,5 @@
 import type { LanguageAdapter } from "../ports/language-adapter.js";
-import { LANGUAGE_ADAPTER_API_VERSION } from "../ports/language-adapter.js";
+import { ADAPTER_API_VERSION } from "../ports/language-adapter.js";
 import type { RepositoryView } from "../ports/repository-view.js";
 import type { CommandSpec, ExecutionRecord } from "../schemas/command.js";
 import type { Detection, InferredConvention, ModuleCandidate } from "../schemas/module.js";
@@ -15,17 +15,21 @@ import type { ParsedCommandResults } from "../schemas/verification.js";
 /** Adapter ids are also used in `.devflow/config.yaml` (`modules[].adapter`). */
 export const ADAPTER_ID = /^[a-z][a-z0-9-]{0,31}$/;
 
-/** What an adapter author writes. `inferConventions` defaults to "no conventions found". */
+/**
+ * What an adapter author writes. `apiVersion` is the adapter API version the adapter targets;
+ * it defaults to the version of this SDK (`ADAPTER_API_VERSION`). `inferConventions` defaults
+ * to "no conventions found".
+ */
 export type AdapterDefinition = Omit<LanguageAdapter, "apiVersion" | "inferConventions"> &
-  Partial<Pick<LanguageAdapter, "inferConventions">>;
+  Partial<Pick<LanguageAdapter, "apiVersion" | "inferConventions">>;
 
-/** Declares a language adapter for the current SDK version (API version 1). */
+/** Declares a language adapter. The registry checks that its API version is compatible. */
 export function defineAdapter(definition: AdapterDefinition): LanguageAdapter {
   const inferConventions =
     definition.inferConventions ?? (() => Promise.resolve<readonly InferredConvention[]>([]));
   return {
     ...definition,
-    apiVersion: LANGUAGE_ADAPTER_API_VERSION,
+    apiVersion: definition.apiVersion ?? ADAPTER_API_VERSION,
     inferConventions,
   };
 }

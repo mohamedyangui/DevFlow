@@ -1,9 +1,5 @@
-import { javaAdapter } from "@devflow/adapter-java";
-import { javascriptAdapter } from "@devflow/adapter-javascript";
-import { pythonAdapter } from "@devflow/adapter-python";
 import { WorkspaceRepository } from "@devflow/context";
 import {
-  AdapterRegistry,
   CommandPolicy,
   ContainerToolchainProbe,
   Executor,
@@ -16,6 +12,7 @@ import {
   type GateDefinition,
 } from "@devflow/core";
 import type { TestRunner, WorkflowServices } from "@devflow/workflow";
+import { workspaceAdapters } from "./adapters.js";
 import { askApproval } from "./commands/verify.js";
 import type { CliIo } from "./io.js";
 import { type Workspace, currentUser } from "./workspace.js";
@@ -51,7 +48,7 @@ export function testRunnerFactory(
       maxFileBytes: config?.context.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES,
       exclude: config?.context.exclude ?? [],
     });
-    const registry = new AdapterRegistry([javaAdapter, javascriptAdapter, pythonAdapter]);
+    const { registry } = await workspaceAdapters(io.env);
     const declared = config?.modules;
     const discovery = await registry.discover(repo, declared === undefined ? {} : { declared });
     const toolchain =

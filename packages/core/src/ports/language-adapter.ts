@@ -9,8 +9,13 @@ import type {
 import type { ParsedCommandResults } from "../schemas/verification.js";
 import type { RepositoryView } from "./repository-view.js";
 
-/** The adapter SDK version this interface describes. */
-export const LANGUAGE_ADAPTER_API_VERSION = 1;
+/**
+ * The version of this interface (semver). An adapter declares the version it targets in
+ * `apiVersion`; it can be used when the major versions are equal and its minor version is not
+ * above this one (docs/specs/language-adapter.md, section 12). A minor version adds optional
+ * capabilities; a major version changes or removes something adapters rely on.
+ */
+export const ADAPTER_API_VERSION = "1.0.0";
 
 export interface ToolAvailability {
   readonly available: boolean;
@@ -38,7 +43,8 @@ export interface LanguageAdapter {
   /** Stable identifier, e.g. `java` or `javascript`. */
   readonly id: string;
   readonly displayName: string;
-  readonly apiVersion: typeof LANGUAGE_ADAPTER_API_VERSION;
+  /** The adapter API version the adapter targets (semver, see `ADAPTER_API_VERSION`). */
+  readonly apiVersion: string;
 
   /** Finds the project roots this adapter can handle, with confidence and evidence. */
   detectModules(repo: RepositoryView): Promise<readonly ModuleCandidate[]>;
