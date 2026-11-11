@@ -63,3 +63,16 @@ export {
   type ProtoService,
 } from "./protobuf/parse.js";
 export { ProtobufComparison } from "./protobuf/diff.js";
+export {
+  ConsumerIndex,
+  MAX_CONSUMERS_PER_CHANGE,
+  contractImpact,
+  findConsumers,
+  matchEndpoint,
+  type ConsumerRepository,
+  type ConsumerSearch,
+  type ConsumerSource,
+} from "./impact/find.js";
+export { pathSegments, scanFile, type HttpEndpoint, type ScannedFile } from "./impact/scan.js";
+export { protoTarget, protocCamelCase, type ProtoTarget } from "./impact/protobuf.js";
+export { ConsumerRef, ContractImpact } from "@devflow/core";

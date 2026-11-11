@@ -556,6 +556,30 @@ to it.
 - Exit codes: 0 on success; 1 for `remove` of an unknown id (`PLUGIN_NOT_FOUND`); 2 for
   `PLUGIN_INVALID`, `ADAPTER_API_INCOMPATIBLE` and `PLUGIN_STORE_INVALID`.
 
+### `devflow contracts impact`
+
+```text
+devflow contracts impact <file>... [--base <ref>] [--kind openapi|protobuf] [--json]
+```
+
+Compares each working-tree contract file with its version at the merge base of `<ref>` (HEAD
+by default) and HEAD, like `devflow contracts diff --base`, then lists the consumers of each
+breaking change found in the working tree by the deterministic heuristics of
+[ADR 0022](../adr/0022-cross-language-change-impact.md): Spring mappings, TypeScript,
+JavaScript, Java and Python HTTP calls, operation-id calls, and imports of the code generated
+from a `.proto` file.
+
+- Files are discovered like context discovery: ignore files, sensitive files and the
+  `context.include`/`context.exclude` globs of `.devflow/config.yaml` apply; generated code is
+  skipped.
+- Every consumer is printed with its path, line, kind (`test (<mechanism>)` for a test file)
+  and confidence: `exact`, or `pattern`, which may be a false positive. None found does not
+  prove there is none.
+- `--json` prints `{ "breaking", "contracts", "impact", "notes" }`: `contracts` as for
+  `devflow contracts diff`, `impact` a `ContractImpact[]`, `notes` what limited the search.
+- Nothing is executed and no model is called. Exit codes as for `devflow contracts diff`: 1
+  when a change is breaking, 0 otherwise, 2 for unusable input.
+
 ### `devflow trace <run> [--output <file>] [--otlp] [--json]`
 
 Exports the trace of a run as OpenTelemetry OTLP/JSON (an `ExportTraceServiceRequest`;

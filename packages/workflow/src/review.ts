@@ -1,5 +1,6 @@
 import {
   type AcceptanceMatrixRow,
+  type ConsumerRef,
   type Finding,
   type GateResult,
   RepoPath,
@@ -449,6 +450,48 @@ export function reviewFindings(input: {
 
 /** Breaking changes listed per finding; the rest is in `artifacts/review-contracts.json`. */
 const MAX_CONTRACT_EVIDENCE = 20;
+/** Consumers listed per finding; the rest is in the report's Impact section. */
+const MAX_CONSUMER_EVIDENCE = 20;
+
+/**
+ * The consumers of a contract file's breaking changes as file evidence (ADR 0022): found by
+ * deterministic heuristics, they are leads to check, not confirmed breakages. A consumer
+ * found by a pattern only says so.
+ */
+function consumerEvidence(file: string, impact: ReviewContracts["impact"]): Finding["evidence"] {
+  const entries = (impact ?? []).filter((entry) => entry.file === file);
+  if (entries.length === 0) return [];
+  const seen = new Map<string, { target: string; ref: ConsumerRef }>();
+  for (const entry of entries) {
+    for (const ref of entry.consumers) {
+      const key = `${ref.path}:${String(ref.line)}:${ref.match}`;
+      if (!seen.has(key)) seen.set(key, { target: entry.target, ref });
+    }
+  }
+  const omitted = entries.reduce((sum, entry) => sum + entry.omitted, 0);
+  if (seen.size === 0) {
+    return [
+      note(
+        "no consumer of the breaking changes was found by the heuristics (Spring mappings, HTTP " +
+          "client calls, operation ids, generated-code imports); that does not prove there is none",
+      ),
+    ];
+  }
+  const listed = [...seen.values()].slice(0, MAX_CONSUMER_EVIDENCE);
+  const more = seen.size - listed.length + omitted;
+  return [
+    ...listed.map(({ target, ref }) => ({
+      kind: "file" as const,
+      description:
+        `consumer of ${target}: ${ref.kind === "test" ? `test (${ref.via ?? "?"})` : ref.kind}, ` +
+        `${ref.confidence === "exact" ? "exact match" : "pattern match only, may be a false positive"}: ${ref.match}`,
+      deterministic: true,
+      path: ref.path,
+      line: ref.line,
+    })),
+    ...(more > 0 ? [note(`${String(more)} more consumer(s) in the report's Impact section`)] : []),
+  ];
+}
 
 /**
  * Deterministic findings for contract files the change touches (ADR 0021): one `confirmed`
@@ -484,11 +527,17 @@ export function contractFindings(contracts: ReviewContracts | undefined): NewFin
             ]
           : []),
         ...diff.notes.slice(0, 3).map((text) => note(text)),
+        ...consumerEvidence(diff.file, contracts?.impact),
       ],
       ...location(diff.file, breaking[0]?.location.line),
       recommendation:
         `Keep the contract compatible (decided by ${decidedBy}), or, if the break is intended, ` +
-        "version the API and update every consumer before merging.",
+        "version the API and update every consumer before merging" +
+        ((contracts?.impact ?? []).some(
+          (entry) => entry.file === diff.file && entry.consumers.length > 0,
+        )
+          ? " (the consumers found are listed as evidence and in the report's Impact section)."
+          : "."),
     });
   }
   return findings;
@@ -513,6 +562,18 @@ export function contractManualChecks(contracts: ReviewContracts | undefined): st
   for (const entry of contracts.skipped) {
     checks.push(
       `Check the contract ${entry.path} yourself: it was not compared (${entry.reason}).`,
+    );
+  }
+  for (const text of contracts.impactNotes ?? []) {
+    checks.push(`Look for more consumers of the breaking contract changes yourself: ${text}.`);
+  }
+  if (
+    (contracts.impact ?? []).some((entry) =>
+      entry.consumers.some((ref) => ref.confidence === "pattern"),
+    )
+  ) {
+    checks.push(
+      "Check the consumers of the breaking contract changes that were found by a pattern only (Impact section): they may be false positives.",
     );
   }
   return checks;

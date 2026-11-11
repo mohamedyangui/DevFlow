@@ -1,11 +1,14 @@
 # @devflow/contracts
 
 Contract compatibility verification for DevFlow AI: is a change to an OpenAPI or Protobuf
-contract breaking? ([ADR 0021](../../docs/adr/0021-contract-compatibility.md))
+contract breaking? ([ADR 0021](../../docs/adr/0021-contract-compatibility.md)) And which code
+consumes it? ([ADR 0022](../../docs/adr/0022-cross-language-change-impact.md))
 
 **Status: Phase 6.** The built-in rules are implemented and tested with fixture pairs for
 every rule. The `oasdiff` and `buf` integration is tested with recorded output and a fake
-executor only.
+executor only. Change impact is tested with a fixture mini repository (Spring controller,
+Java gRPC service, TypeScript client, Python module and their tests) and per-heuristic tests;
+it has not been run on a real project yet.
 
 ## Comparing two versions
 
@@ -57,3 +60,30 @@ and executor (`OASDIFF_COMMAND`, `BUF_COMMAND`), only when the toolchain probe f
 `parseOasdiffOutput` and `parseBufOutput` map their JSON. Anything that keeps a tool from
 deciding (missing, denied, failed, unexpected output) is a reason, and the built-in rules
 decide instead.
+
+## Change impact
+
+```ts
+import { contractImpact, findConsumers } from "@devflow/contracts";
+
+const repo = { files: [{ path, language, text }], contracts: new Map([[file, [base, head]]]) };
+const consumers = findConsumers(change, repo, modules);
+// consumers[i]: { path, line, language, kind, via?, match, confidence: "exact" | "pattern" }
+const impact = contractImpact(diffs, repo); // one entry per breaking change
+```
+
+- OpenAPI: Spring `@*Mapping` handlers (class prefix plus method path), HTTP calls in
+  TypeScript/JavaScript (`fetch`, axios, `HttpClient`), Java/Kotlin (RestTemplate, WebClient,
+  MockMvc) and Python (`requests`, `httpx`) whose literal URL matches the operation's path with
+  path variables normalized, and member calls named after the `operationId`.
+- Protobuf: imports of the generated code (Java `java_package`/`java_outer_classname` or the
+  proto package, `<Service>Grpc`; TS/JS `<name>_pb` and friends; Python `<name>_pb2`,
+  `<name>_pb2_grpc`) in files that also name the changed declaration.
+- `kind` is the mechanism (`spring-mapping`, `ts-client-call`, `java-client-call`,
+  `python-client-call`, `operation-id-call`, `generated-import`) or `test`, with the mechanism
+  in `via`. Generated code is never a consumer.
+- `pattern` matches (unknown method, stripped base URL, operation-id call, bare module name...)
+  may be false positives. Nothing is executed, no model is asked, and an empty list does not
+  prove there is no consumer: the search is lexical (see ADR 0022 for what it cannot see).
+- The caller reads the files and enforces its path policy; `@devflow/workflow` exports
+  `consumerSources` (context discovery) and `consumerRepository`.

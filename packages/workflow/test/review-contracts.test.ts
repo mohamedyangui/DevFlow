@@ -21,6 +21,11 @@ import {
   type WorkflowServices,
   startRun,
 } from "../src/index.js";
+import {
+  OPENAPI_BASE as IMPACT_OPENAPI_BASE,
+  PROTO_BASE as IMPACT_PROTO_BASE,
+  REPOSITORY as IMPACT_REPOSITORY,
+} from "../../contracts/test/impact-fixture.js";
 import { analysisAnswer, isAnalysis, services, settings, task, workspace } from "./helpers.js";
 
 /**
@@ -223,6 +228,11 @@ describe("review mode: contract compatibility", () => {
         true,
         "[operation-removed, decided by builtin-rules] DELETE /orders/{id}: the operation was removed",
       ],
+      [
+        "note",
+        true,
+        "no consumer of the breaking changes was found by the heuristics (Spring mappings, HTTP client calls, operation ids, generated-code imports); that does not prove there is none",
+      ],
     ]);
     // A confirmed high finding fails the review.
     expect(report.verdict).toBe("failed_verification");
@@ -371,5 +381,80 @@ describe("review mode: contract compatibility", () => {
     expect(second.report.manualChecks.join("\n")).toContain(
       "Check the contract api/shop.proto yourself: it was not compared",
     );
+  });
+});
+
+describe("review mode: change impact", () => {
+  it("lists the consumers of each breaking change in the finding evidence and the Impact section", async () => {
+    // The mini repository of the contracts package: a Spring controller, a Java gRPC service,
+    // a TypeScript client and a Python module consume one OpenAPI document and one .proto.
+    const root = await workspace(IMPACT_REPOSITORY);
+    const git = new ContractGit(
+      [modified("api/openapi.yaml"), modified("proto/shop/v1/orders.proto")],
+      {
+        "api/openapi.yaml": IMPACT_OPENAPI_BASE,
+        "proto/shop/v1/orders.proto": IMPACT_PROTO_BASE,
+      },
+    );
+    const { outcome, report, contracts, store } = await review(root, { git });
+    expect(outcome.status).toBe("completed");
+
+    expect(contracts.impact?.map((entry) => [entry.file, entry.rule, entry.target])).toEqual([
+      ["api/openapi.yaml", "operation-removed", "DELETE /orders/{id}"],
+      ["proto/shop/v1/orders.proto", "field-removed", "shop.v1.Order (proto/shop/v1/orders.proto)"],
+    ]);
+    const [openapi, proto] = contracts.impact ?? [];
+    expect(openapi?.consumers.map((ref) => [ref.path, ref.kind, ref.confidence])).toEqual([
+      [
+        "services/orders/src/main/java/com/shop/orders/OrderController.java",
+        "spring-mapping",
+        "exact",
+      ],
+      ["services/orders/src/test/java/com/shop/orders/OrderControllerTest.java", "test", "exact"],
+      ["tools/sync/orders_client.py", "python-client-call", "pattern"],
+      ["web/src/api/orders.ts", "ts-client-call", "exact"],
+      ["web/src/api/orders.ts", "operation-id-call", "pattern"],
+      ["web/test/orders.test.ts", "test", "pattern"],
+    ]);
+    // Generated code is never a consumer.
+    expect(proto?.consumers.map((ref) => ref.path)).toEqual([
+      "services/orders/src/main/java/com/shop/orders/OrderGrpcService.java",
+      "services/orders/src/main/java/com/shop/orders/OrderGrpcService.java",
+      "tools/sync/orders_client.py",
+      "web/src/api/orders.ts",
+    ]);
+
+    // The report carries the impact, and the findings list the consumers as file evidence.
+    expect(report.impact).toEqual(contracts.impact);
+    const finding = report.findings.find((item) => item.title.includes("api/openapi.yaml"));
+    expect(finding?.verification).toBe("confirmed");
+    expect(finding?.recommendation).toContain("the consumers found are listed as evidence");
+    const consumers = (finding?.evidence ?? []).filter((item) => item.kind === "file");
+    expect(consumers.map((item) => [item.path, item.line])).toContainEqual([
+      "services/orders/src/main/java/com/shop/orders/OrderController.java",
+      15,
+    ]);
+    expect(consumers.map((item) => item.description)).toContain(
+      "consumer of DELETE /orders/{id}: python-client-call, pattern match only, may be a false positive: delete DELETE <base>/api/orders/{}",
+    );
+    expect(report.manualChecks.join(" ")).toContain("found by a pattern only");
+
+    const markdown = await store.readText("report.md");
+    expect(markdown).toContain("## Impact");
+    expect(markdown).toContain(
+      "- `services/orders/src/main/java/com/shop/orders/OrderController.java:15` java, spring-mapping, exact: @DeleteMapping DELETE /api/orders/{}",
+    );
+    expect(markdown).toContain(
+      "- `tools/sync/orders_client.py:9` python, python-client-call, pattern only:",
+    );
+  }, 30_000);
+
+  it("searches no consumer when no change is breaking", async () => {
+    const root = await workspace();
+    const git = await setUp(root);
+    await writeFile(path.join(root, "api", "openapi.yaml"), OPENAPI_BASE);
+    const { report, contracts } = await review(root, { git });
+    expect(contracts.impact).toBeUndefined();
+    expect(report.impact).toBeUndefined();
   });
 });

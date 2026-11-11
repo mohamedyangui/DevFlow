@@ -318,6 +318,9 @@ export function buildReport(input: ReportInput): EngineeringReport {
     risks,
     assumptions,
     manualChecks,
+    ...(record.mode === "review" && input.reviewContracts?.impact !== undefined
+      ? { impact: input.reviewContracts.impact }
+      : {}),
     usage: {
       calls: record.budgetUsage.calls,
       inputTokens: record.budgetUsage.inputTokens,
@@ -501,6 +504,36 @@ export function renderReportMarkdown(
         `- **${finding.id}** (${finding.severity}, ${finding.category}, ${finding.source}, ${finding.verification}): ` +
           `${escapeInline(finding.title)}. ${escapeInline(finding.recommendation)}`,
       );
+    }
+    lines.push("");
+  }
+
+  if (report.impact !== undefined && report.impact.length > 0) {
+    lines.push(
+      "## Impact",
+      "",
+      "Consumers of each breaking contract change, found in the working tree by deterministic " +
+        "heuristics (ADR 0022): Spring mappings, HTTP client calls, operation ids and imports of " +
+        "generated code. They are leads to check, not confirmed breakages; a pattern match may " +
+        "be a false positive, and a consumer the heuristics cannot see (a URL built elsewhere, " +
+        "another repository) is not listed.",
+      "",
+    );
+    for (const entry of report.impact) {
+      lines.push(
+        `- \`${entry.file}\` ${entry.rule}: ${escapeInline(entry.message)}. Consumers of ${escapeInline(entry.target)}: ` +
+          (entry.consumers.length === 0
+            ? "none found."
+            : `${String(entry.consumers.length + entry.omitted)}.`),
+      );
+      for (const ref of entry.consumers) {
+        const kind = ref.kind === "test" ? `test (${ref.via ?? "?"})` : ref.kind;
+        const confidence = ref.confidence === "exact" ? "exact" : "pattern only";
+        lines.push(
+          `  - \`${ref.path}:${String(ref.line)}\` ${ref.language}, ${kind}, ${confidence}: ${escapeInline(ref.match)}`,
+        );
+      }
+      if (entry.omitted > 0) lines.push(`  - ${String(entry.omitted)} more, not listed`);
     }
     lines.push("");
   }

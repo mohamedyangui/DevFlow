@@ -1,6 +1,7 @@
 import {
   AcceptanceCriterionId,
   ClarificationQuestion,
+  ContractImpact,
   Contradiction,
   Dependency,
   EdgeCase,
@@ -722,6 +723,13 @@ export const ReviewContracts = z.strictObject({
   contracts: z.array(ContractDiff),
   /** Changed contract files that could not be compared, and why. */
   skipped: z.array(z.strictObject({ path: z.string().min(1), reason: z.string().min(1) })),
+  /**
+   * The consumers of each breaking change (ADR 0022), found by deterministic heuristics in
+   * the working tree; absent when no change is breaking.
+   */
+  impact: z.array(ContractImpact).optional(),
+  /** What limited the consumer search. */
+  impactNotes: z.array(z.string().min(1)).optional(),
 });
 export type ReviewContracts = z.infer<typeof ReviewContracts>;
 

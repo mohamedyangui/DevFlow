@@ -1,14 +1,23 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { type ContractDiff, compareContractBuiltin, contractKindOf } from "@devflow/contracts";
+import {
+  type ContractDiff,
+  type ContractImpact,
+  compareContractBuiltin,
+  contractImpact,
+  contractKindOf,
+} from "@devflow/contracts";
 import {
   type ContractKind,
   DevflowError,
   ErrorCode,
   GitClient,
+  PathGuard,
   checkRepoRelativePath,
   isDevflowError,
+  loadProjectConfig,
 } from "@devflow/core";
+import { consumerRepository, consumerSources } from "@devflow/workflow";
 import { ExitCode } from "../exit-codes.js";
 import { colorsFor, type CliIo } from "../io.js";
 
@@ -96,6 +105,7 @@ async function againstRef(
   ref: string,
   options: ContractsDiffOptions,
   io: CliIo,
+  versions?: { file: string; base: string | null; head: string | null }[],
 ): Promise<ContractDiff[]> {
   if (files.length === 0) {
     throw new DevflowError(
@@ -130,6 +140,7 @@ async function againstRef(
     const kind = options.kind ?? contractKindOf(relative, base, head);
     if (kind === null) throw notAContract(file);
     diffs.push(compareContractBuiltin({ file: relative, kind, base, head }));
+    versions?.push({ file: relative, base, head });
   }
   return diffs;
 }
@@ -192,5 +203,99 @@ function render(diffs: readonly ContractDiff[], io: CliIo): void {
         ? c.yellow("NO BREAKING CHANGE FOUND, CHECK THE UNKNOWN ONES")
         : c.green("COMPATIBLE");
   out.push(`${c.bold("Result:")} ${result} (${counts})`);
+  io.stdout.write(`${out.join("\n")}\n`);
+}
+
+export interface ContractsImpactOptions {
+  /** Compare with the version at the merge base of this ref and HEAD; HEAD by default. */
+  readonly base?: string | undefined;
+  readonly kind?: ContractKind | undefined;
+  readonly json: boolean;
+}
+
+/**
+ * `devflow contracts impact <file>...`: compares working-tree contract files with their
+ * version at the merge base of `--base` (HEAD by default) and HEAD, like
+ * `devflow contracts diff --base`, then lists the consumers of each breaking change found in
+ * the working tree by deterministic heuristics (ADR 0022). Exit code 1 when a change is
+ * breaking, 0 otherwise, 2 for unusable input. Nothing is executed and no model is called.
+ */
+export async function contractsImpactCommand(
+  files: readonly string[],
+  options: ContractsImpactOptions,
+  io: CliIo,
+): Promise<ExitCode> {
+  const versions: { file: string; base: string | null; head: string | null }[] = [];
+  let diffs: ContractDiff[];
+  let impact: ContractImpact[];
+  let notes: string[];
+  try {
+    diffs = await againstRef(
+      files,
+      options.base ?? "HEAD",
+      { base: options.base, kind: options.kind, json: options.json },
+      io,
+      versions,
+    );
+    const guard = await PathGuard.create(io.cwd);
+    const loaded = await loadProjectConfig(guard);
+    const sources = await consumerSources(guard, loaded.config);
+    impact = contractImpact(diffs, consumerRepository(sources.files, versions));
+    notes = [
+      ...(loaded.valid
+        ? []
+        : [".devflow/config.yaml is invalid: its include and exclude globs were not applied"]),
+      ...sources.notes,
+    ];
+  } catch (error) {
+    if (!isDevflowError(error)) throw error;
+    if (options.json) {
+      io.stdout.write(
+        `${JSON.stringify({ error: { code: error.code, message: error.message } }, null, 2)}\n`,
+      );
+    } else {
+      io.stderr.write(`devflow: ${error.message} [${error.code}]\n`);
+    }
+    return ExitCode.UsageError;
+  }
+  const breaking = diffs.some((diff) => diff.summary.breaking > 0);
+  if (options.json) {
+    io.stdout.write(`${JSON.stringify({ breaking, contracts: diffs, impact, notes }, null, 2)}\n`);
+  } else {
+    render(diffs, io);
+    renderImpact(impact, notes, io);
+  }
+  return breaking ? ExitCode.Failure : ExitCode.Success;
+}
+
+function renderImpact(
+  impact: readonly ContractImpact[],
+  notes: readonly string[],
+  io: CliIo,
+): void {
+  const c = colorsFor(io.stdout, io.env);
+  const out: string[] = ["", c.bold("Impact:")];
+  if (impact.length === 0) out.push("  no breaking change, so no consumer was searched for");
+  for (const entry of impact) {
+    out.push(
+      `  ${c.red(entry.rule)}  ${entry.message}`,
+      `    consumers of ${entry.target}: ${entry.consumers.length === 0 ? "none found" : String(entry.consumers.length + entry.omitted)}`,
+    );
+    for (const ref of entry.consumers) {
+      const kind = ref.kind === "test" ? `test (${ref.via ?? "?"})` : ref.kind;
+      const confidence = ref.confidence === "exact" ? c.green("exact  ") : c.yellow("pattern");
+      out.push(`    ${confidence}  ${ref.path}:${String(ref.line)}  ${c.dim(kind)}  ${ref.match}`);
+    }
+    if (entry.omitted > 0) out.push(`    ${String(entry.omitted)} more, not listed`);
+  }
+  out.push(
+    "",
+    c.dim(
+      "Consumers are found by deterministic heuristics (Spring mappings, HTTP client calls, " +
+        "operation ids, generated-code imports); a pattern match may be a false positive, and " +
+        "none found does not prove there is none.",
+    ),
+  );
+  for (const text of notes) out.push(c.dim(`note: ${text}`));
   io.stdout.write(`${out.join("\n")}\n`);
 }

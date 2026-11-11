@@ -78,6 +78,13 @@ export {
 } from "./schemas/module.js";
 export { Finding, Severity } from "./schemas/findings.js";
 export {
+  ConsumerConfidence,
+  ConsumerKind,
+  ConsumerMechanism,
+  ConsumerRef,
+  ContractImpact,
+} from "./schemas/impact.js";
+export {
   ClarificationQuestion,
   Contradiction,
   Dependency,

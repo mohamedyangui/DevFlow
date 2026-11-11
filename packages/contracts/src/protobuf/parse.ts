@@ -2,7 +2,9 @@
  * An in-house `.proto` parser for the built-in rules (ADR 0021): proto3, proto2 and editions
  * syntax, read for what compatibility needs (package, imports, messages with nested types,
  * fields with numbers, types and labels, oneofs, `reserved` numbers and names, enums with their
- * values, services and their rpcs). Options are skipped. Nothing is compiled or executed.
+ * values, services and their rpcs). Simple file-level options (`option java_package = "...";`)
+ * are kept for change impact (ADR 0022); other options are skipped. Nothing is compiled or
+ * executed.
  */
 
 export interface ProtoRange {
@@ -76,6 +78,11 @@ export interface ProtoFile {
   readonly messages: readonly ProtoMessage[];
   readonly enums: readonly ProtoEnum[];
   readonly services: readonly ProtoService[];
+  /**
+   * File-level options with a plain name and a string, identifier or number value, e.g.
+   * `java_package`, `java_outer_classname`, `java_multiple_files` (values as written).
+   */
+  readonly options: Readonly<Record<string, string>>;
 }
 
 /** A `.proto` text the parser cannot read, with the line where it stopped. */
@@ -191,6 +198,7 @@ class Parser {
     const messages: ProtoMessage[] = [];
     const enums: ProtoEnum[] = [];
     const services: ProtoService[] = [];
+    const options = new Map<string, string>();
     while (!this.done()) {
       const token = this.peek();
       if (this.accept(";")) continue;
@@ -234,12 +242,36 @@ class Parser {
         case "service":
           services.push(this.service());
           break;
+        case "option": {
+          const name = this.peekAt(1);
+          const value = this.peekAt(3);
+          if (
+            name.kind === "ident" &&
+            this.peekAt(2).kind === "symbol" &&
+            this.peekAt(2).text === "=" &&
+            value.kind !== "symbol" &&
+            this.peekAt(4).kind === "symbol" &&
+            this.peekAt(4).text === ";"
+          ) {
+            options.set(name.text, value.text);
+          }
+          this.skipStatement();
+          break;
+        }
         default:
           // option, extend, and anything else that does not change compatibility here.
           this.skipStatement();
       }
     }
-    return { syntax, package: pkg, imports, messages, enums, services };
+    return {
+      syntax,
+      package: pkg,
+      imports,
+      messages,
+      enums,
+      services,
+      options: Object.fromEntries(options),
+    };
   }
 
   private message(parent: string, depth: number): ProtoMessage {
