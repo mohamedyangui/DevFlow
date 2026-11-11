@@ -11,6 +11,7 @@
     { "path": "packages/adapter-python/tsconfig.build.json" },
     { "path": "packages/github/tsconfig.build.json" },
     { "path": "packages/contracts/tsconfig.build.json" },
+    { "path": "packages/mcp/tsconfig.build.json" },
     { "path": "packages/workflow/tsconfig.build.json" },
     { "path": "packages/cli/tsconfig.build.json" }
   ]

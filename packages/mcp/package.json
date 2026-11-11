@@ -1,0 +1,25 @@
+{
+  "name": "@devflow/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DevFlow AI as Model Context Protocol tools: an in-house MCP server over stdio and the DevFlow tool definitions.",
+  "license": "Apache-2.0",
+  "author": "Mohamed Yangui <mohamed.yangui@esprit.tn>",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "devflow-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

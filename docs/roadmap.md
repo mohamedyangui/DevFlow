@@ -295,6 +295,13 @@ Implemented:
   worktree removed. Never run with a real model; only the Vitest/Jest name filter is tested,
   and the Maven filter's `test=` selector does not accept a bare test name.
 
+- DevFlow as MCP tools: `@devflow/mcp` ([ADR 0026](adr/0026-mcp-server.md)), an in-house MCP
+  server over stdio (protocol versions 2025-06-18 and 2025-03-26), and `devflow mcp`. The tools
+  validate tasks, analyse and plan, show runs and reports, verify, review and compare contracts
+  by running the CLI commands in-process with `--json`; trust, approvals, `--allow` and
+  publishing are not exposed. Tested in-process and over real stdio with the built executable;
+  not yet connected to a real MCP client.
+
 ## Before the first publication
 
 - Verify ownership of the npm scope, or rename it with `pnpm scope:rename`

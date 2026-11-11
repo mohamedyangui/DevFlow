@@ -5,7 +5,8 @@
   `analyze`, `plan`, `approve`, `reject`, `answer`, `resume`, `cancel`, `status`, `report`);
   Phase 3 adds `devflow verify`; Phase 4 adds `devflow test`, `devflow implement`,
   `devflow run` and `devflow review`; Phase 5 adds `--issue`, `review --pr` and
-  `--publish`. The commands listed in section 4 are planned and do **not** exist yet.
+  `--publish`; Phase 6 adds `devflow contracts diff` and `devflow mcp`. The commands listed in
+  section 4 are planned and do **not** exist yet.
 
 The same `devflow` CLI serves Java and JavaScript/TypeScript projects, and mixed monorepos.
 Nothing in the CLI is language-specific: languages are handled by adapters.
@@ -633,6 +634,23 @@ endpoint are checked before the run starts (`TRACE_EXPORT_REFUSED`, exit 2). A r
 a person is exported by the command that finishes it (with `--trace` or the variable again).
 An export failure is a warning in the output (`trace.warnings` with `--json`) and never
 changes the run or its exit code.
+
+### `devflow mcp`
+
+```text
+devflow mcp
+```
+
+Serves the DevFlow tools to an MCP client over stdio ([MCP specification](mcp.md),
+[ADR 0026](../adr/0026-mcp-server.md)). MCP clients start it as
+`node <DevFlow>/packages/cli/dist/bin.js mcp` in the project's root.
+
+- stdout carries newline-delimited JSON-RPC messages only; diagnostics go to stderr.
+- Each tool runs one of the commands above in-process with `--json` and without a terminal:
+  nothing is approved interactively, and `trust`, `approve`, `reject`, `resume`, `cancel`,
+  `pr create`, `--publish`, `--allow` and `--run-fork-code` are not available as tools.
+- Decisions made through it are recorded as `<user> (via MCP)`.
+- It exits with 0 when stdin closes.
 
 ## 4. Planned commands
 

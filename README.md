@@ -331,9 +331,19 @@ For example, an instruction to a coding agent could be:
 > review, implement the approved change, and show the DevFlow verification report. Do not bypass
 > approval checkpoints or claim unexecuted checks passed.
 
-**Native MCP integration is a separate integration milestone**, not implied by the presence of
-Java/JavaScript/Python adapters. Only advertise MCP tools and an MCP installation command once an
-actual MCP server package and compatibility tests are available.
+### Use DevFlow as MCP tools
+
+`devflow mcp` serves DevFlow to MCP clients over stdio: task validation, analysis and planning,
+run status, reports, approved verification gates, review and contract diffs. Approvals are not
+tools: plans, tests, code changes, workspace trust and commands are approved by the developer in
+a terminal. After `pnpm build`, for Claude Code:
+
+```bash
+claude mcp add devflow -- node /absolute/path/to/DevFlow/packages/cli/dist/bin.js mcp
+```
+
+Other clients, a `.mcp.json` example, Windows paths and what is not validated yet (no real MCP
+client has been connected) are in the [MCP specification](docs/specs/mcp.md).
 
 ## Security model
 

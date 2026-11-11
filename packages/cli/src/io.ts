@@ -12,6 +12,8 @@ export interface CliIo {
   readonly stdout: CliOutput;
   readonly stderr: CliOutput;
   readonly cwd: string;
+  /** Standard input, read by `devflow mcp` for MCP messages. Absent in most tests. */
+  readonly stdin?: AsyncIterable<string | Uint8Array>;
   readonly env: Readonly<Record<string, string | undefined>>;
   /**
    * Asks the user a question and resolves with the answer. Absent when there is no interactive
@@ -49,6 +51,7 @@ export function processIo(): CliIo {
     stdout: { write: (text) => process.stdout.write(text), isTTY: process.stdout.isTTY },
     stderr: { write: (text) => process.stderr.write(text), isTTY: process.stderr.isTTY },
     cwd: process.cwd(),
+    stdin: process.stdin,
     env: process.env,
     ...(interactive ? { prompt: askOnTerminal } : {}),
     interrupts: listenForInterrupts,
