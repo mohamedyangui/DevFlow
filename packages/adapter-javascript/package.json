@@ -1,6 +1,6 @@
 {
   "name": "@devflow/adapter-javascript",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "DevFlow AI language adapter for JavaScript and TypeScript: npm, pnpm, Yarn and Bun workspaces, Vitest, Jest, ESLint, Prettier and tsc.",
   "license": "Apache-2.0",

@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/mohamedyangui/DevFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/mohamedyangui/DevFlow/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/mohamedyangui/DevFlow)](https://github.com/mohamedyangui/DevFlow/releases)
 [![Language: TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6.svg)](https://www.typescriptlang.org/)
 
 ### Engineering quality and verifiable delivery for AI-assisted software development.
@@ -19,7 +20,7 @@ criteria, project conventions, controlled execution, and verification evidence i
 
 [Get started](#quickstart) · [See how it works](#how-it-works) ·
 [Supported stacks](#supported-stacks) · [Example report](#what-does-the-evidence-look-like) ·
-[Contribute](CONTRIBUTING.md)
+[Demo](#demo-a-coding-agent-through-devflow) · [Contribute](CONTRIBUTING.md)
 
 ---
 
@@ -114,19 +115,22 @@ executed tools—not the model's confidence.
 - **pnpm 10** for building this source repository
 - A supported project toolchain for the checks you want to run (for example, Java/Maven,
   Node.js/npm, or Python/pytest)
-- An Anthropic or OpenAI API key for model-assisted steps
+- For model-assisted steps: an Anthropic or OpenAI API key, or none in agent mode, where your
+  coding agent answers DevFlow's model requests (see [below](#use-devflow-as-mcp-tools))
 - Optional: **Docker** for the container execution backend
 
 ### 1. Install from source
 
 ```bash
-git clone https://github.com/mohamedyangui/DevFlow.git
+git clone --branch v0.1.0 https://github.com/mohamedyangui/DevFlow.git
 cd DevFlow
 pnpm install --frozen-lockfile
 pnpm build
 node packages/cli/dist/bin.js --help
 ```
 
+`v0.1.0` is the latest [release](https://github.com/mohamedyangui/DevFlow/releases) (see the
+[changelog](CHANGELOG.md)); clone without `--branch` for the development version on `main`.
 For now, **run DevFlow from a source checkout**. The repository's npm packages are private; do not
 assume that `npm install -g @devflow/cli` works until a package is officially published.
 
@@ -351,6 +355,28 @@ Codex, other clients, a `.mcp.json` example, Windows paths and what is validated
 Claude Code session implemented a task this way; Codex has not been tried) are in the
 [MCP specification](docs/specs/mcp.md). `devflow init --provider agent` writes a configuration
 for agent mode.
+
+### Demo: a coding agent through DevFlow
+
+A real session, recorded on 2026-11-12: a coding agent connected to `devflow mcp` in agent mode
+implemented a small task in a JavaScript project (Vitest) with three acceptance criteria, one
+behaviour to keep and two to add.
+
+1. The agent validated the task and started an implement run; DevFlow paused at each model
+   request (`AGENT_INPUT_REQUIRED`) and the agent answered with `devflow_agent_respond`. One
+   answer that did not match the schema was refused (`AGENT_ANSWER_INVALID`) and sent again.
+2. The developer approved the plan in a terminal, then **rejected** the first test design with
+   feedback (it tested more than the criteria); the agent rewrote the tests.
+3. The developer approved the revised tests by hash and allowed the test command once by
+   fingerprint. Baseline: the regression test passed, the two feature tests failed on an
+   assertion (red).
+4. The agent wrote the change; the developer approved it by hash. After the change all four
+   tests passed (green), and the report gave **verdict: verified**, with 0 model tokens billed
+   to DevFlow.
+
+The agent could not approve anything: the MCP server has no approval tool. The changes stayed
+on the local branch `devflow/TASK-7`; nothing was pushed. The demo project is a disposable
+workspace and is not part of this repository.
 
 ## Security model
 

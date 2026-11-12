@@ -1,6 +1,6 @@
 {
   "name": "@devflow/adapter-java",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "DevFlow AI language adapter for Java: Maven and Gradle builds, Spring Boot, JUnit, Checkstyle and SpotBugs.",
   "license": "Apache-2.0",

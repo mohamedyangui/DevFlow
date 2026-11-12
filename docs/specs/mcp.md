@@ -241,7 +241,7 @@ runs. The server exits when stdin closes.
 
 ```text
 -> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"client","version":"1"}}}
-<- {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":false}},"serverInfo":{"name":"devflow","version":"0.0.0"},"instructions":"..."}}
+<- {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":false}},"serverInfo":{"name":"devflow","version":"0.1.0"},"instructions":"..."}}
 -> {"jsonrpc":"2.0","method":"notifications/initialized"}
 -> {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"devflow_task_validate","arguments":{"path":"examples/tasks/add-pagination.task.yaml"}}}
 <- {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"examples/tasks/add-pagination.task.yaml is valid ..."}],"structuredContent":{...},"isError":false}}

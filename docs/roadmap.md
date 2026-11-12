@@ -315,8 +315,15 @@ Implemented:
   `devflow init --provider agent` writes a configuration for agent mode. Codex has not been
   tried.
 
-## Before the first publication
+## Releases
+
+- `v0.1.0` (2026-11-12): the first source release, everything above
+  ([changelog](../CHANGELOG.md), [ADR 0028](adr/0028-source-releases.md)). One version for all
+  packages, a git tag and a GitHub release; installed from source.
+
+## Before the first npm publication
 
 - Verify ownership of the npm scope, or rename it with `pnpm scope:rename`
   ([ADR 0016](adr/0016-npm-scope-and-publication.md)).
-- Release ADR: versioning, changelog, provenance, removing `private`.
+- A publication ADR: provenance and removing `private` (versioning and the changelog are
+  decided in [ADR 0028](adr/0028-source-releases.md)).

@@ -107,6 +107,10 @@ describe.each(directories)("package %s", (dir) => {
     expect(referenced).toEqual(internalDependencies(pkg));
   });
 
+  it("carries the release version of the repository (ADR 0028)", () => {
+    expect(pkg.version).toBe(root.version);
+  });
+
   it("has a README", () => {
     expect(existsSync(path.join(repoRoot, "packages", dir, "README.md"))).toBe(true);
   });
@@ -117,6 +121,19 @@ describe("repository files", () => {
     const license = readFileSync(path.join(repoRoot, "LICENSE"), "utf8");
     expect(license).toContain("Apache License");
     expect(license).toContain("Version 2.0, January 2004");
+  });
+
+  it("uses a Semantic Versioning release version (ADR 0028)", () => {
+    expect(root.version).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("has a changelog section for the release version (ADR 0028)", () => {
+    const changelog = readFileSync(path.join(repoRoot, "CHANGELOG.md"), "utf8");
+    const escaped = root.version.replaceAll(".", "\\.");
+    expect(changelog).toMatch(new RegExp(`^## \\[${escaped}\\] - \\d{4}-\\d{2}-\\d{2}$`, "m"));
+    expect(changelog).toContain(
+      `[${root.version}]: https://github.com/mohamedyangui/DevFlow/releases/tag/v${root.version}`,
+    );
   });
 
   it("requires a Node.js version that the development tooling supports", () => {

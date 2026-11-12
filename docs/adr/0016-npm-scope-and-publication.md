@@ -31,7 +31,8 @@ before anything is published, and renaming must stay cheap.
 ## Consequences
 
 - Choosing a different scope later is a single command plus a lockfile refresh.
-- Until the release ADR, DevFlow is installed from source.
+- Until the release ADR, DevFlow is installed from source. Source releases (a tag and a
+  GitHub release, no npm package) are decided in ADR 0028.
 
 ## Alternatives considered
 
