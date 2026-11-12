@@ -334,16 +334,22 @@ For example, an instruction to a coding agent could be:
 ### Use DevFlow as MCP tools
 
 `devflow mcp` serves DevFlow to MCP clients over stdio: task validation, analysis and planning,
-run status, reports, approved verification gates, review and contract diffs. Approvals are not
-tools: plans, tests, code changes, workspace trust and commands are approved by the developer in
-a terminal. After `pnpm build`, for Claude Code:
+test and implement runs, run status, reports, approved verification gates, review and contract
+diffs. Approvals are not tools: plans, tests, code changes, workspace trust and commands are
+approved by the developer in a terminal.
+
+**No API key is needed** in a coding agent's session: by default the server runs in agent mode
+([ADR 0027](docs/adr/0027-agent-mode.md)), where the agent itself answers DevFlow's model
+requests and DevFlow checks the answers as it checks a model's. After `pnpm build`, for Claude
+Code:
 
 ```bash
 claude mcp add devflow -- node /absolute/path/to/DevFlow/packages/cli/dist/bin.js mcp
 ```
 
-Other clients, a `.mcp.json` example, Windows paths and what is not validated yet (no real MCP
-client has been connected) are in the [MCP specification](docs/specs/mcp.md).
+Codex, other clients, a `.mcp.json` example, Windows paths and what is not validated yet (no
+real MCP client or coding agent has been connected) are in the
+[MCP specification](docs/specs/mcp.md).
 
 ## Security model
 

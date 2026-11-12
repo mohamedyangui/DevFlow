@@ -304,6 +304,16 @@ Implemented:
   publishing are not exposed. Tested in-process and over real stdio with the built executable;
   not yet connected to a real MCP client.
 
+- Agent mode ([ADR 0027](adr/0027-agent-mode.md)): `--provider agent`, the default of
+  `devflow mcp`. The calling coding agent answers DevFlow's model requests, so no API key and
+  no model id are needed. An unanswered request is saved under `.devflow/agent` and pauses the
+  run (`AGENT_INPUT_REQUIRED`); `devflow agent show` / `devflow agent answer` and the MCP tools
+  `devflow_agent_request` / `devflow_agent_respond` answer it, and the step reruns with the
+  answers given so far, which do not count against the budgets. New MCP tools `devflow_test`
+  and `devflow_implement`. Tested with a scripted model playing the agent (a full implement
+  run, repairs, refused answers, a plan through `devflow mcp`); never used by a real coding
+  agent.
+
 ## Before the first publication
 
 - Verify ownership of the npm scope, or rename it with `pnpm scope:rename`

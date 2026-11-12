@@ -171,4 +171,18 @@ describe("run settings", () => {
       }),
     ).toThrow(expect.objectContaining({ code: ErrorCode.LlmProviderNotConfigured }));
   });
+
+  it("needs no model id or price in agent mode (ADR 0027)", () => {
+    const { settings, warnings } = resolveRunSettings({
+      config: undefined,
+      configExists: false,
+      configSha256: null,
+      trusted: false,
+      env: {},
+      overrides: { provider: "agent" },
+    });
+    expect(warnings).toEqual([]);
+    expect(settings.provider).toBe("agent");
+    expect(Object.values(settings.models)).toEqual(["agent", "agent", "agent", "agent", "agent"]);
+  });
 });

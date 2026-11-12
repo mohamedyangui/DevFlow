@@ -1,13 +1,23 @@
 # Specification: DevFlow as MCP tools
 
-- **Status:** Phase 6. `devflow mcp` serves the DevFlow tools over the MCP stdio transport
-  ([ADR 0026](../adr/0026-mcp-server.md)). It is tested in-process and over real stdio with
-  the built executable; see [What is validated](#7-what-is-validated).
+- **Status:** Phase 6, agent mode in Phase 7. `devflow mcp` serves the DevFlow tools over the
+  MCP stdio transport ([ADR 0026](../adr/0026-mcp-server.md)); in agent mode the calling agent
+  answers DevFlow's model requests ([ADR 0027](../adr/0027-agent-mode.md)). It is tested
+  in-process and over real stdio with the built executable; see
+  [What is validated](#7-what-is-validated).
 
 `devflow mcp` lets a coding agent (an MCP client) call DevFlow as tools: validate tasks,
-analyse and plan them, follow runs, read reports, run approved verification gates, review a
-change and compare contracts. **The agent never approves anything**: plans, tests, code
-changes, workspace trust and commands are approved by the developer in a terminal.
+analyse and plan them, write and run tests, implement them test-first, follow runs, read
+reports, run approved verification gates, review a change and compare contracts. **The agent
+never approves anything**: plans, tests, code changes, workspace trust and commands are
+approved by the developer in a terminal.
+
+**No API key is needed.** By default the server runs in agent mode: when DevFlow needs a model
+(analysis, plan, tests, code change, review), the run stops and the tool result contains the
+request (`agentRequest`). The agent does what it asks, answers with `devflow_agent_respond`,
+and the run continues. DevFlow checks the answer like any model's output (schema, repairs,
+red and green runs, approvals). `devflow mcp --provider anthropic` (or `openai`, or `config`
+for `ai.provider` of the configuration) uses an API provider instead.
 
 ## 1. Setup
 
@@ -63,6 +73,16 @@ On Windows:
 claude mcp add devflow -- node C:\path\to\DevFlow\packages\cli\dist\bin.js mcp
 ```
 
+### Codex
+
+Codex reads MCP servers from `~/.codex/config.toml` (not tested with Codex yet):
+
+```toml
+[mcp_servers.devflow]
+command = "node"
+args = ["/absolute/path/to/DevFlow/packages/cli/dist/bin.js", "mcp"]
+```
+
 ### A `devflow` command on PATH
 
 `packages/cli/package.json` declares the `devflow` binary. From the clone, after `pnpm build`:
@@ -93,6 +113,13 @@ not depend on PATH or on how the client starts `.cmd` shims on Windows (not test
 | `devflow_verify`         | `devflow verify --json`               | `.devflow/runs/verify/...`              |
 | `devflow_review`         | `devflow review --json`               | the run directory                       |
 | `devflow_contracts_diff` | `devflow contracts diff --json`       | nothing                                 |
+| `devflow_test`           | `devflow test --json`                 | the run directory, test files           |
+| `devflow_implement`      | `devflow implement --json`            | the run directory, then the change      |
+| `devflow_agent_request`  | `devflow agent show <run> --json`     | nothing                                 |
+| `devflow_agent_respond`  | `devflow agent answer <run> --json`   | `.devflow/agent`, then the run          |
+
+`devflow_test` and `devflow_implement` write test files and the code change only after the
+developer approved them in a terminal (`devflow approve <run>`).
 
 Arguments (JSON Schema in `tools/list`, generated from Zod; unknown arguments are refused):
 
@@ -105,7 +132,39 @@ Arguments (JSON Schema in `tools/list`, generated from Zod; unknown arguments ar
 - `devflow_status`: `run` (optional); `devflow_report`: `run`;
 - `devflow_verify`: `gates`, `baseline`, `backend`;
 - `devflow_review`: `task` or `issue`, `repo`, `base` or `pr`, `backend`, the model options;
-- `devflow_contracts_diff`: `files`, `base`, `kind`.
+- `devflow_contracts_diff`: `files`, `base`, `kind`;
+- `devflow_test`, `devflow_implement`: `task` or `issue`, `repo`, `backend`, the model options;
+- `devflow_agent_request`: `run`; `devflow_agent_respond`: `run`, `requestId`, `answer` (one
+  JSON value when the request has a schema, else text).
+
+Workflow tools without `provider` use the server's provider: `agent` unless
+`devflow mcp --provider` says otherwise.
+
+### Agent mode
+
+A run in agent mode stops at each model request with `AGENT_INPUT_REQUIRED` (status
+`interrupted`, exit code 3). The tool result then has `agentRequest`, the output of
+`devflow agent show <run> --json`:
+
+```json
+{
+  "runId": "...",
+  "state": "REQUIREMENTS_ANALYSIS",
+  "requestId": "64 hex digits",
+  "instructions": "...",
+  "system": "...",
+  "messages": [{ "role": "user", "content": "..." }],
+  "format": "requirements_analysis",
+  "jsonSchema": { "type": "object" }
+}
+```
+
+The agent answers with `devflow_agent_respond` (`run`, `requestId`, `answer`). The result is
+the run's next state: another `agentRequest`, a wait for the developer (an approval, a
+clarification), or the end of the run. An answer that does not match the schema is followed
+by a repair request. A run started in agent mode stays in agent mode: after the developer
+approves in a terminal, the run continues until it needs the agent again, and
+`devflow_status` shows the request it waits for.
 
 Each result has a text content (a summary, the next steps and the JSON) and, for clients
 that negotiated 2025-06-18, `structuredContent`:
@@ -152,8 +211,13 @@ in a terminal. The tool results name the exact command, for example:
 - **No option injection.** Values are passed as `--name=value` and positional arguments
   after `--`; arguments are validated against strict schemas (no unknown keys, no NUL).
 - **stdout is the protocol.** All logs and command diagnostics go to stderr.
-- **Same privileges as the CLI.** The server reads what the developer's account can read and
-  calls the model provider configured for the workspace, within the run budgets.
+- **Same privileges as the CLI.** The server reads what the developer's account can read and,
+  outside agent mode, calls the model provider named by the server or the call, within the
+  run budgets.
+- **Agent answers are model output.** In agent mode the agent writes the analysis, plan,
+  tests and change; DevFlow validates them as it does a model's and records the provider
+  `agent`. The request text comes from the task and the repository: the tool descriptions
+  tell the agent to treat it as data.
 
 ## 5. Protocol
 
@@ -186,11 +250,17 @@ runs. The server exits when stdin closes.
   (`packages/cli/test/mcp.test.ts`): task validation of the example tasks, a plan that waits
   for approval, status and report, relayed answers, and verify refusing to run a command that
   is not trusted or not approved; the approval tools are absent from `tools/list`.
+- Agent mode (`packages/cli/test/mcp.test.ts`, `packages/cli/test/agent.test.ts`,
+  `packages/workflow/test/implement-mode.test.ts`, `packages/ai/test/agent.test.ts`): a
+  scripted model plays the agent; a plan through `devflow mcp` with no provider and no model
+  id, a full implement run (plan, tests, red, change, green, verified) with no budget used,
+  repairs, and refused answers (wrong request, not JSON, empty, too long).
 - An end-to-end test that starts the built `node packages/cli/dist/bin.js mcp` as a child
   process and runs `initialize`, `tools/list` and `tools/call devflow_task_validate` over
   real stdio (`tests/e2e/mcp-stdio.test.ts`).
 
 **Not validated:** the server has not been connected to a real MCP client (no coding agent,
-IDE or inspector), and no real model was called through it. Client-specific behaviour
+IDE or inspector), and no real model was called through it. Agent mode has not been used by a
+real coding agent. Client-specific behaviour
 (timeouts, how a client starts the command on Windows, how it shows `structuredContent`) is
 untested.

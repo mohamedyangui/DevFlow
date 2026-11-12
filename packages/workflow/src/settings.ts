@@ -1,4 +1,4 @@
-import { DEFAULT_BUDGET_LIMITS } from "@devflow/ai";
+import { AGENT_MODEL, DEFAULT_BUDGET_LIMITS } from "@devflow/ai";
 import { DEFAULT_CONTEXT_BUDGET_TOKENS } from "@devflow/context";
 import { DevflowError, ErrorCode, type ProjectConfig } from "@devflow/core";
 import type { RunBudgets, RunSettings } from "./schemas.js";
@@ -85,7 +85,9 @@ export function resolveRunSettings(input: ResolveSettingsInput): {
     ai?.provider ??
     nonEmpty(input.env.DEVFLOW_PROVIDER) ??
     DEFAULT_PROVIDER;
-  const fallbackModel = nonEmpty(overrides.model) ?? undefined;
+  // Agent mode (ADR 0027): the coding agent answers, so no model id is needed.
+  const agent = provider === "agent";
+  const fallbackModel = nonEmpty(overrides.model) ?? (agent ? AGENT_MODEL : undefined);
   const envModel = nonEmpty(input.env.DEVFLOW_MODEL);
   // Per-step routing: --model, then ai.models.<step>, then ai.models.default, then DEVFLOW_MODEL.
   const modelFor = (step: Exclude<keyof NonNullable<typeof ai>["models"], "default">) =>
@@ -127,7 +129,7 @@ export function resolveRunSettings(input: ResolveSettingsInput): {
   const unpriced = [...new Set(Object.values(models).filter((m) => m !== undefined))].filter(
     (model) => prices[model] === undefined,
   );
-  if (unpriced.length > 0) {
+  if (unpriced.length > 0 && !agent) {
     warnings.push(
       `no price is configured for ${unpriced.join(", ")} (ai.prices in .devflow/config.yaml), ` +
         `so the cost of its calls is unknown and the cost budget of $${String(budgets.maxCostUsd)} does not limit them`,

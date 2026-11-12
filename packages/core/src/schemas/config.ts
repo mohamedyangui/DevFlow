@@ -83,7 +83,7 @@ export const ProjectConfig = z
       .meta({ description: "Optional. Modules are auto-detected when omitted." }),
     ai: z
       .strictObject({
-        provider: z.enum(["anthropic", "openai"]).optional(),
+        provider: z.enum(["anthropic", "openai", "agent"]).optional(),
         models: z
           .strictObject({
             default: ModelId.optional(),

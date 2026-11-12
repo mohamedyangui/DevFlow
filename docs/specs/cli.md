@@ -635,10 +635,32 @@ a person is exported by the command that finishes it (with `--trace` or the vari
 An export failure is a warning in the output (`trace.warnings` with `--json`) and never
 changes the run or its exit code.
 
+### `devflow agent`
+
+```text
+devflow agent show <run> [--json]
+devflow agent answer <run> --request <id> (--file <file> | --text <answer>) [--json]
+```
+
+Agent mode ([ADR 0027](../adr/0027-agent-mode.md)): with `--provider agent` (or
+`ai.provider: agent`), DevFlow needs no API key and no model id. When the run needs the
+model, it saves the request under `.devflow/agent`, stops with `AGENT_INPUT_REQUIRED` (exit
+code 3) and the output names the next commands.
+
+- `show` prints the request the run waits for: instructions, system prompt, messages and the
+  JSON schema of a structured answer. With `--json`: `runId`, `state`, `requestId`,
+  `instructions`, `system`, `messages`, `format` and `jsonSchema`.
+- `answer` saves the answer to that request and resumes the run, which continues until it
+  needs another answer, waits for a person or finishes. It refuses (`AGENT_ANSWER_INVALID`,
+  exit 2) another request id, both or neither of `--file` and `--text`, an empty answer, an
+  answer over 2,000,000 characters, and text that is not JSON when the request has a schema.
+  A file is read up to 1 MiB.
+- A run that does not wait for the agent is refused with `RUN_NOT_AWAITING_INPUT`.
+
 ### `devflow mcp`
 
 ```text
-devflow mcp
+devflow mcp [--provider <name>]
 ```
 
 Serves the DevFlow tools to an MCP client over stdio ([MCP specification](mcp.md),
@@ -650,6 +672,9 @@ Serves the DevFlow tools to an MCP client over stdio ([MCP specification](mcp.md
   nothing is approved interactively, and `trust`, `approve`, `reject`, `resume`, `cancel`,
   `pr create`, `--publish`, `--allow` and `--run-fork-code` are not available as tools.
 - Decisions made through it are recorded as `<user> (via MCP)`.
+- `--provider` (default `agent`): the provider of the workflow tools when a call names none;
+  `config` leaves it to the configuration. In agent mode the tool results include the model
+  request a run waits for, and `devflow_agent_respond` answers it.
 - It exits with 0 when stdin closes.
 
 ## 4. Planned commands

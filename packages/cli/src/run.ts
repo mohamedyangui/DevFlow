@@ -11,6 +11,8 @@ import { trustCommand } from "./commands/trust.js";
 import { verifyCommand } from "./commands/verify.js";
 import {
   type ModelOptions,
+  agentAnswerCommand,
+  agentShowCommand,
   answerCommand,
   approveCommand,
   cancelCommand,
@@ -493,6 +495,45 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
     );
   });
 
+  const agent = program
+    .command("agent")
+    .description(
+      "agent mode: the coding agent that runs DevFlow answers its model requests, no API key (ADR 0027)",
+    );
+  agent
+    .command("show")
+    .description("show the model request a run waits for")
+    .argument("<run>", "run id")
+    .option("--json", "print a machine-readable result")
+    .action(async (run: string, options: { json?: boolean }) => {
+      exitCode = await agentShowCommand(run, { json: options.json === true }, io);
+    });
+  agent
+    .command("answer")
+    .description("answer the model request a run waits for, then continue the run")
+    .argument("<run>", "run id")
+    .requiredOption("--request <id>", "the request id shown by devflow agent show")
+    .option("--file <file>", "file with the answer (JSON when the request has a schema)")
+    .option("--text <answer>", "the answer itself")
+    .option("--json", "print a machine-readable result")
+    .action(
+      async (
+        run: string,
+        options: { request: string; file?: string; text?: string; json?: boolean },
+      ) => {
+        exitCode = await agentAnswerCommand(
+          run,
+          {
+            requestId: options.request,
+            file: options.file,
+            text: options.text,
+            json: options.json === true,
+          },
+          io,
+        );
+      },
+    );
+
   program
     .command("cancel")
     .description("cancel a run that has not finished")
@@ -569,8 +610,13 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
     .description(
       "serve the DevFlow tools to an MCP client (a coding agent) over stdio; approvals stay in the terminal",
     )
-    .action(async () => {
-      exitCode = await mcpCommand(io, runCli);
+    .option(
+      "--provider <name>",
+      'model provider of the workflow tools: agent (the calling agent answers, no API key), anthropic, openai, replay, or "config" for ai.provider of the configuration',
+      "agent",
+    )
+    .action(async (options: { provider: string }) => {
+      exitCode = await mcpCommand(io, runCli, { provider: options.provider });
     });
 
   const pr = program.command("pr").description("work with GitHub pull requests");
@@ -644,7 +690,10 @@ function traceOption(): Option {
 
 function withModelOptions(command: Command): Command {
   return command
-    .option("--provider <name>", "model provider: anthropic, or replay with --cassette")
+    .option(
+      "--provider <name>",
+      "model provider: anthropic, openai, agent (the coding agent answers, no API key), or replay with --cassette",
+    )
     .option("--model <id>", "model id for every step (no default: also ai.models or DEVFLOW_MODEL)")
     .option("--cassette <file>", "recorded responses for the replay provider")
     .option("--max-input-tokens <n>", "input token budget of the run", positiveInteger)
