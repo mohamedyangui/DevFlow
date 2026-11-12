@@ -1,6 +1,6 @@
 {
   "name": "@devflow/context",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "DevFlow AI engineering context engine: discovery, classification, contract scanning, ranking and packing.",
   "license": "Apache-2.0",

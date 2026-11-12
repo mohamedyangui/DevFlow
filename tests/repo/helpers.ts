@@ -22,6 +22,7 @@ export interface BuildConfig {
 }
 
 export interface RootManifest {
+  readonly version: string;
   readonly engines: { readonly node: string };
   readonly devflow: {
     readonly npmScope: string;
@@ -31,6 +32,7 @@ export interface RootManifest {
 
 export interface PackageManifest {
   readonly name: string;
+  readonly version?: string;
   readonly private?: boolean;
   readonly license?: string;
   readonly type?: string;

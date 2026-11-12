@@ -7,6 +7,7 @@ import { DEVFLOW_TOOL_NAMES } from "@devflow/mcp";
 import type { LlmRequest } from "@devflow/core";
 import { describe, expect, it } from "vitest";
 import { type CliIo, ExitCode, runCli } from "../src/index.js";
+import { readCliVersion } from "../src/version.js";
 
 /**
  * `devflow mcp` in-process: the real command line behind each tool, a scripted model behind
@@ -173,7 +174,7 @@ describe("devflow mcp (in-process)", { timeout: 30_000 }, () => {
     const client = await connect(await workspace());
     expect(client.init.result).toMatchObject({
       protocolVersion: "2025-06-18",
-      serverInfo: { name: "devflow", version: "0.0.0" },
+      serverInfo: { name: "devflow", version: readCliVersion() },
       capabilities: { tools: {} },
     });
     const listed = (await client.request("tools/list")).result as { tools: Json[] };

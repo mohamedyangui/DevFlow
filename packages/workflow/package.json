@@ -1,6 +1,6 @@
 {
   "name": "@devflow/workflow",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "DevFlow AI workflow orchestrator: state machine, run store, requirements analysis, planning, plan checks and reports (assist mode; guarded and autonomous modes in Phase 4).",
   "license": "Apache-2.0",

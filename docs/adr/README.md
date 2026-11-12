@@ -48,6 +48,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0025](0025-evidence-seeking-review.md)      | Evidence-seeking review: model-written probe tests run in a git worktree              | Accepted                               |
 | [0026](0026-mcp-server.md)                   | An in-house MCP server; approvals stay with the developer                             | Accepted                               |
 | [0027](0027-agent-mode.md)                   | Agent mode: the calling coding agent answers DevFlow's model requests, no API key     | Accepted                               |
+| [0028](0028-source-releases.md)              | Source releases with one version for all packages                                     | Accepted                               |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The
