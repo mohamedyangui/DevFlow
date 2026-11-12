@@ -1,4 +1,4 @@
-import { DevflowError, ErrorCode } from "@devflow/core";
+import { DevflowError, ErrorCode } from "@devflow-ai/core";
 import { z } from "zod";
 import { TRACE_SCOPE, type RunTrace, type TraceAttributeValue, type TraceSpan } from "./trace.js";
 

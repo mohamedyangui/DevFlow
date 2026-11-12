@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { SourceImport } from "@devflow/core";
+import type { SourceImport } from "@devflow-ai/core";
 
 /**
  * Lightweight, regex-based outlines and import extraction. They feed ranking and the

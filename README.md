@@ -111,31 +111,41 @@ executed tools—not the model's confidence.
 
 ### Requirements
 
-- **Node.js 22.13+** for development (Node 22.12+ supported by the CLI runtime)
-- **pnpm 10** for building this source repository
+- **Node.js 22.12+** (22.13+ and **pnpm 10** to build from source)
 - A supported project toolchain for the checks you want to run (for example, Java/Maven,
   Node.js/npm, or Python/pytest)
 - For model-assisted steps: an Anthropic or OpenAI API key, or none in agent mode, where your
   coding agent answers DevFlow's model requests (see [below](#use-devflow-as-mcp-tools))
 - Optional: **Docker** for the container execution backend
 
-### 1. Install from source
+### 1. Install
+
+From npm (`@devflow-ai/cli`, published from version 0.2.0 with
+[provenance](https://docs.npmjs.com/generating-provenance-statements)):
 
 ```bash
-git clone --branch v0.1.0 https://github.com/mohamedyangui/DevFlow.git
+npm install -g @devflow-ai/cli
+devflow --help
+```
+
+Or without installing: `npx @devflow-ai/cli --help`. Releases and their notes are on
+[GitHub](https://github.com/mohamedyangui/DevFlow/releases); see also the
+[changelog](CHANGELOG.md).
+
+#### From source
+
+```bash
+git clone https://github.com/mohamedyangui/DevFlow.git
 cd DevFlow
 pnpm install --frozen-lockfile
 pnpm build
 node packages/cli/dist/bin.js --help
 ```
 
-`v0.1.0` is the latest [release](https://github.com/mohamedyangui/DevFlow/releases) (see the
-[changelog](CHANGELOG.md)); clone without `--branch` for the development version on `main`.
-For now, **run DevFlow from a source checkout**. The repository's npm packages are private; do not
-assume that `npm install -g @devflow/cli` works until a package is officially published.
-
-In the examples below, `devflow` means `node /absolute/path/to/DevFlow/packages/cli/dist/bin.js`.
-You can create a local shell alias, for example:
+Clone with `--branch vX.Y.Z` for a release, or without it for the development version on
+`main`. From a source checkout, `devflow` in the examples below means
+`node /absolute/path/to/DevFlow/packages/cli/dist/bin.js`. You can create a local shell alias,
+for example:
 
 ```bash
 alias devflow='node /absolute/path/to/DevFlow/packages/cli/dist/bin.js'
@@ -344,12 +354,14 @@ approved by the developer in a terminal.
 
 **No API key is needed** in a coding agent's session: by default the server runs in agent mode
 ([ADR 0027](docs/adr/0027-agent-mode.md)), where the agent itself answers DevFlow's model
-requests and DevFlow checks the answers as it checks a model's. After `pnpm build`, for Claude
-Code:
+requests and DevFlow checks the answers as it checks a model's. For Claude Code:
 
 ```bash
-claude mcp add devflow -- node /absolute/path/to/DevFlow/packages/cli/dist/bin.js mcp
+claude mcp add devflow -- npx -y @devflow-ai/cli mcp
 ```
+
+From a source checkout, after `pnpm build`:
+`claude mcp add devflow -- node /absolute/path/to/DevFlow/packages/cli/dist/bin.js mcp`.
 
 Codex, other clients, a `.mcp.json` example, Windows paths and what is validated (a real
 Claude Code session implemented a task this way; Codex has not been tried) are in the
@@ -417,18 +429,18 @@ flowchart TB
     VERIFY --> REPORT[Verification report]
 ```
 
-| Package                       | Purpose                                                                    |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| `@devflow/core`               | Task schemas, adapter ports, security policy, execution and evidence model |
-| `@devflow/workflow`           | State machine, approvals, implementation steps, history and reports        |
-| `@devflow/context`            | Repository discovery, code context and rules                               |
-| `@devflow/ai`                 | Anthropic, OpenAI, Fake/Replay providers, usage and budget controls        |
-| `@devflow/adapter-java`       | Java-specific build, test and quality-gate intelligence                    |
-| `@devflow/adapter-javascript` | JavaScript/TypeScript-specific tooling and result parsing                  |
-| `@devflow/adapter-python`     | Python-specific discovery and verification                                 |
-| `@devflow/contracts`          | OpenAPI and Protobuf compatibility analysis                                |
-| `@devflow/github`             | GitHub issue, review and PR integration                                    |
-| `@devflow/cli`                | Developer command-line interface                                           |
+| Package                          | Purpose                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `@devflow-ai/core`               | Task schemas, adapter ports, security policy, execution and evidence model |
+| `@devflow-ai/workflow`           | State machine, approvals, implementation steps, history and reports        |
+| `@devflow-ai/context`            | Repository discovery, code context and rules                               |
+| `@devflow-ai/ai`                 | Anthropic, OpenAI, Fake/Replay providers, usage and budget controls        |
+| `@devflow-ai/adapter-java`       | Java-specific build, test and quality-gate intelligence                    |
+| `@devflow-ai/adapter-javascript` | JavaScript/TypeScript-specific tooling and result parsing                  |
+| `@devflow-ai/adapter-python`     | Python-specific discovery and verification                                 |
+| `@devflow-ai/contracts`          | OpenAPI and Protobuf compatibility analysis                                |
+| `@devflow-ai/github`             | GitHub issue, review and PR integration                                    |
+| `@devflow-ai/cli`                | Developer command-line interface                                           |
 
 Read the [architecture overview](docs/architecture/overview.md), [ADRs](docs/adr/README.md), and
 [technical specifications](docs/specs/).

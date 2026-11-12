@@ -8,15 +8,15 @@ import {
   PriceTable,
   canonicalJson,
   sha256Hex,
-} from "@devflow/ai";
-import { ContextPack, buildContext } from "@devflow/context";
+} from "@devflow-ai/ai";
+import { ContextPack, buildContext } from "@devflow-ai/context";
 import {
   type ContractDiff,
   type ContractToolset,
   compareContract,
   contractImpact,
   contractKindOf,
-} from "@devflow/contracts";
+} from "@devflow-ai/contracts";
 import {
   AuditLog,
   DevflowError,
@@ -42,7 +42,7 @@ import {
   isDevflowError,
   isTerminalState,
   lintTask,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { z } from "zod";
 import { checkAnalysis, checkPlan } from "./checks.js";
 import { consumerRepository, consumerSources } from "./impact.js";

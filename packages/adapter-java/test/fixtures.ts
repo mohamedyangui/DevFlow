@@ -1,4 +1,4 @@
-import { MemoryRepository } from "@devflow/core/testing";
+import { MemoryRepository } from "@devflow-ai/core/testing";
 
 /** A Spring Boot service built with the Maven wrapper, in a monorepo with a shared contract. */
 export const SPRING_POM = `<?xml version="1.0" encoding="UTF-8"?>

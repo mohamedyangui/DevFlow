@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { LlmRequest } from "@devflow/core";
+import type { LlmRequest } from "@devflow-ai/core";
 
 /**
  * JSON with object keys sorted at every level, so equal values always produce the same text.

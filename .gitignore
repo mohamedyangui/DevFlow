@@ -21,3 +21,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Staged npm package (scripts/pack-cli.mjs)
+dist-npm/

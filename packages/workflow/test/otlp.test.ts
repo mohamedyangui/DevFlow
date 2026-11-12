@@ -1,6 +1,6 @@
 import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { DevflowError, ErrorCode, SecretRedactor } from "@devflow/core";
+import { DevflowError, ErrorCode, SecretRedactor } from "@devflow-ai/core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   type OtlpEndpoint,

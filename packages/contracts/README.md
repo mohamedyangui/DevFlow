@@ -1,4 +1,4 @@
-# @devflow/contracts
+# @devflow-ai/contracts
 
 Contract compatibility verification for DevFlow AI: is a change to an OpenAPI or Protobuf
 contract breaking? ([ADR 0021](../../docs/adr/0021-contract-compatibility.md)) And which code
@@ -13,7 +13,7 @@ it has not been run on a real project yet.
 ## Comparing two versions
 
 ```ts
-import { compareContract, compareContractBuiltin } from "@devflow/contracts";
+import { compareContract, compareContractBuiltin } from "@devflow-ai/contracts";
 
 const diff = compareContractBuiltin({ file: "api/openapi.yaml", base, head });
 // diff.decidedBy: "builtin-rules"
@@ -64,7 +64,7 @@ decide instead.
 ## Change impact
 
 ```ts
-import { contractImpact, findConsumers } from "@devflow/contracts";
+import { contractImpact, findConsumers } from "@devflow-ai/contracts";
 
 const repo = { files: [{ path, language, text }], contracts: new Map([[file, [base, head]]]) };
 const consumers = findConsumers(change, repo, modules);
@@ -85,5 +85,5 @@ const impact = contractImpact(diffs, repo); // one entry per breaking change
 - `pattern` matches (unknown method, stripped base URL, operation-id call, bare module name...)
   may be false positives. Nothing is executed, no model is asked, and an empty list does not
   prove there is no consumer: the search is lexical (see ADR 0022 for what it cannot see).
-- The caller reads the files and enforces its path policy; `@devflow/workflow` exports
+- The caller reads the files and enforces its path policy; `@devflow-ai/workflow` exports
   `consumerSources` (context discovery) and `consumerRepository`.

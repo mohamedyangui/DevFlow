@@ -1,4 +1,4 @@
-import { checkRepoRelativePath, repoDirname } from "@devflow/core";
+import { checkRepoRelativePath, repoDirname } from "@devflow-ai/core";
 
 /**
  * Resolves `relative` (which may contain `.` and `..` segments) against the repository

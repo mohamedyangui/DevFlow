@@ -3,7 +3,7 @@ import {
   validatedAdapter,
   type ModuleProfile,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import { javaAdapter, supportsNoTransferProgress } from "../src/index.js";
 import { gradleRepo, legacyGradleRepo, springMavenRepo } from "./fixtures.js";

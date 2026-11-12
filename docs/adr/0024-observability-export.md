@@ -1,6 +1,6 @@
 # ADR 0024: Optional trace export compatible with OpenTelemetry, without an OpenTelemetry SDK
 
-- **Status:** Accepted, 2026-11-11. Implemented in Phase 6 in `@devflow/workflow`
+- **Status:** Accepted, 2026-11-11. Implemented in Phase 6 in `@devflow-ai/workflow`
   (`src/trace.ts`, `otlp.ts`, `trace-export.ts`) and the CLI (`--trace`, `devflow trace`).
 - **Deciders:** Mohamed Yangui
 

@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { DevflowError, ErrorCode, type LlmRequest, SecretRedactor } from "@devflow/core";
+import { DevflowError, ErrorCode, type LlmRequest, SecretRedactor } from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {

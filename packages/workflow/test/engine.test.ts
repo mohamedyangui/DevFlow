@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { FakeProvider, LlmProviderError } from "@devflow/ai";
+import { FakeProvider, LlmProviderError } from "@devflow-ai/ai";
 import {
   type AuditEntry,
   DevflowError,
@@ -10,7 +10,7 @@ import {
   ImplementationPlan,
   type LlmRequest,
   readAuditLog,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import {
   Clarifications,

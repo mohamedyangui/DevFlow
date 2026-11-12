@@ -19,7 +19,7 @@ The design separates **discovery** (early) from **compatibility verification** (
 
 **Read-only discovery (Phases 2–3):**
 
-- `@devflow/context` classifies `.proto` files and OpenAPI documents (`openapi.yaml`,
+- `@devflow-ai/context` classifies `.proto` files and OpenAPI documents (`openapi.yaml`,
   `openapi.json`, files with a top-level `openapi:` or `swagger:` key) as **contract files**.
   It extracts cheaply and without a full parser: the `package`, `import` statements,
   `service` and `message` names for Protobuf; the title, paths and operation ids for OpenAPI.

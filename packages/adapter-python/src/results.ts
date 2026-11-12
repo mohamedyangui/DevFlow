@@ -15,7 +15,7 @@ import {
   type SourceLocation,
   type TestCaseResult,
   type TestOutcome,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { PYTHON_PARSERS } from "./commands.js";
 import { baseName, escapeRegExp, sortPaths, toolPath, unique } from "./paths.js";
 import { acceptanceMarkers } from "./tests.js";

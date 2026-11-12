@@ -1,4 +1,4 @@
-import { type ContextPack, moduleOf } from "@devflow/context";
+import { type ContextPack, moduleOf } from "@devflow-ai/context";
 import {
   type ClarificationQuestion,
   type Contradiction,
@@ -11,7 +11,7 @@ import {
   type TaskContract,
   createPathMatcher,
   isDevflowError,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import type {
   AnalysisWire,
   ClarificationRecord,

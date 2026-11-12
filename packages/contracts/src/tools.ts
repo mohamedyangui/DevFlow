@@ -8,7 +8,7 @@ import {
   type PolicyDecision,
   type ToolchainProbe,
   isDevflowError,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { z } from "zod";
 import type { ContractChange, ContractCompatibility } from "./schemas.js";
 

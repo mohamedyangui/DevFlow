@@ -1,6 +1,6 @@
 # ADR 0027: Agent mode: the calling coding agent answers DevFlow's model requests, no API key
 
-- **Status:** Accepted, 2026-11-12. Implemented in Phase 7 in `@devflow/ai`
+- **Status:** Accepted, 2026-11-12. Implemented in Phase 7 in `@devflow-ai/ai`
   (`packages/ai/src/providers/agent.ts`), `devflow agent` and the MCP tools.
 - **Deciders:** Mohamed Yangui
 
@@ -13,7 +13,7 @@ at hand: the agent itself. Asking for a second API key, billed separately, is an
 using DevFlow as a tool inside that agent's session (ADR 0026).
 
 The MCP server cannot ask the client's model for a completion portably: MCP sampling is not
-supported by every client and is not implemented by `@devflow/mcp`. DevFlow's checks must
+supported by every client and is not implemented by `@devflow-ai/mcp`. DevFlow's checks must
 stay what they are whoever writes the model output: schema validation and repair, the command
 policy, red and green runs, the deterministic review checks, and the developer's approvals.
 
@@ -74,7 +74,7 @@ policy, red and green runs, the deterministic review checks, and the developer's
 ## Alternatives considered
 
 - **MCP sampling** (the server asks the client for a completion). Rejected for now: not
-  supported by every client, and a second protocol surface for `@devflow/mcp` to implement.
+  supported by every client, and a second protocol surface for `@devflow-ai/mcp` to implement.
 - **A provider that calls a coding agent's command line.** Rejected: depends on one agent's
   command line and login, and runs a second agent beside the one the developer works in.
 - **Letting the agent write the run's artefacts directly** (plan, tests, change), skipping the

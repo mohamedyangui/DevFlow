@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { canonicalJson } from "@devflow/ai";
+import { canonicalJson } from "@devflow-ai/ai";
 import {
   type Evidence,
   type Finding,
@@ -13,7 +13,7 @@ import {
   assessTestEvidence,
   compareSnapshots,
   isDevflowError,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import type {
   AfterRun,
   ChangeFiles,

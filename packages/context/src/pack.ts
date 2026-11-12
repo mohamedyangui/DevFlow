@@ -1,4 +1,4 @@
-import type { SecretRedactor } from "@devflow/core";
+import type { SecretRedactor } from "@devflow-ai/core";
 import { estimateTokens } from "./files.js";
 import type { RankCandidate, RankedFile } from "./rank.js";
 import type { PackedFile } from "./schemas.js";

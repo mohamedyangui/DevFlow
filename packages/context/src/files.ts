@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { isDevflowError, type PathGuard } from "@devflow/core";
+import { isDevflowError, type PathGuard } from "@devflow-ai/core";
 import type { SkipReason } from "./schemas.js";
 
 export type LoadedText =

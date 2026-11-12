@@ -3,8 +3,8 @@ import { type IncomingMessage, type ServerResponse, createServer } from "node:ht
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { FakeProvider, type FakeReply } from "@devflow/ai";
-import { OtlpTraceRequest } from "@devflow/workflow";
+import { FakeProvider, type FakeReply } from "@devflow-ai/ai";
+import { OtlpTraceRequest } from "@devflow-ai/workflow";
 import { afterEach, describe, expect, it } from "vitest";
 import { type CliIo, ExitCode, runCli } from "../src/index.js";
 

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { FakeProvider } from "@devflow/ai";
+import { FakeProvider } from "@devflow-ai/ai";
 import {
   type ApprovedCommand,
   CommandSpec,
@@ -12,7 +12,7 @@ import {
   type PolicyDecision,
   StaticToolchainProbe,
   substituteParameters,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { describe, expect, it, vi } from "vitest";
 import {
   ReviewContracts,

@@ -4,7 +4,7 @@ import {
   WorkflowMode,
   WorkflowState,
   isTerminalState,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import {
   IMPLEMENTED_MODES,

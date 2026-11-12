@@ -1,7 +1,7 @@
 # ADR 0004: Hand-written state machine and file-based run store
 
 - **Status:** Accepted, 2026-11-06. Implemented in Phase 2 for assist mode
-  (`@devflow/workflow`); the other modes' steps arrive in Phase 4.
+  (`@devflow-ai/workflow`); the other modes' steps arrive in Phase 4.
 - **Deciders:** Mohamed Yangui
 
 ## Context
@@ -14,7 +14,7 @@ and usable as evidence.
 
 ## Decision
 
-- The workflow is a **typed transition table** written by hand in `@devflow/workflow`. A
+- The workflow is a **typed transition table** written by hand in `@devflow-ai/workflow`. A
   transition not in the table, or not allowed by the active mode (`assist`, `test`,
   `implement`, `review`), fails with `INVALID_TRANSITION`.
 - **Workflow status is separate from the result verdict.** `COMPLETED` means the workflow ran

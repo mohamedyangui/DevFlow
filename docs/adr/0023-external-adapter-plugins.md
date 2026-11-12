@@ -1,7 +1,7 @@
 # ADR 0023: External language adapters as user-installed plugins, with adapter API versioning
 
-- **Status:** Accepted, 2026-11-10. Implemented in Phase 6 in `@devflow/core`
-  (`src/adapters/api-version.ts`, `src/adapters/plugins.ts`) and `@devflow/cli`
+- **Status:** Accepted, 2026-11-10. Implemented in Phase 6 in `@devflow-ai/core`
+  (`src/adapters/api-version.ts`, `src/adapters/plugins.ts`) and `@devflow-ai/cli`
   (`devflow plugins`, `src/adapters.ts`).
 - **Deciders:** Mohamed Yangui
 
@@ -20,7 +20,7 @@ shipping a `node_modules` package, a plugin list, or a configuration entry.
 ## Decision
 
 **API versioning.** The adapter interface has a semver version, `ADAPTER_API_VERSION`
-(`1.0.0`), exported by `@devflow/core`. Every adapter declares the version it targets in
+(`1.0.0`), exported by `@devflow-ai/core`. Every adapter declares the version it targets in
 `apiVersion` (the built-in adapters declare `1.0.0`; `defineAdapter` defaults to the SDK's
 version). The registry accepts an adapter when the major versions are equal and the
 adapter's minor version is not above the host's; the patch version is ignored. Otherwise it

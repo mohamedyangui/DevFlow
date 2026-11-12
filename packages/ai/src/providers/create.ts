@@ -1,4 +1,4 @@
-import { DevflowError, ErrorCode, type LlmProvider } from "@devflow/core";
+import { DevflowError, ErrorCode, type LlmProvider } from "@devflow-ai/core";
 import { AgentProvider } from "./agent.js";
 import { AnthropicProvider } from "./anthropic.js";
 import { OpenAiProvider } from "./openai.js";

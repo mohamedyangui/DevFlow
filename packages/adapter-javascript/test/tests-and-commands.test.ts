@@ -3,8 +3,8 @@ import {
   StaticToolchainProbe,
   validatedAdapter,
   type ModuleProfile,
-} from "@devflow/core";
-import { MemoryRepository } from "@devflow/core/testing";
+} from "@devflow-ai/core";
+import { MemoryRepository } from "@devflow-ai/core/testing";
 import { describe, expect, it } from "vitest";
 import { isSolutionStyleTsconfig, javascriptAdapter, pathFrom } from "../src/index.js";
 import { expressRepo, mochaRepo, monorepoRepo } from "./fixtures.js";

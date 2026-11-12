@@ -1,6 +1,6 @@
 # ADR 0006: Model output is data: command catalog and search/replace edits
 
-- **Status:** Accepted, 2026-11-06. The `CommandSpec` schema exists in `@devflow/core`
+- **Status:** Accepted, 2026-11-06. The `CommandSpec` schema exists in `@devflow-ai/core`
   (Phase 1). The catalog, executor and edit application arrive in Phases 2–4.
 - **Deciders:** Mohamed Yangui
 

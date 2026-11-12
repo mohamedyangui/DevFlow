@@ -11,7 +11,7 @@ import {
   pluginInstallDirectory,
   type InstalledPlugin,
   type PluginFileStatus,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { BUILT_IN_ADAPTERS, BUILT_IN_ADAPTER_IDS } from "../adapters.js";
 import { ExitCode } from "../exit-codes.js";
 import { colorsFor, type CliIo } from "../io.js";

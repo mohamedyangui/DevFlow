@@ -12,7 +12,7 @@ editor completion. Maintaining these separately drifts.
 
 ## Decision
 
-- Every external data shape is a **Zod 4 schema** in `@devflow/core`. TypeScript types are
+- Every external data shape is a **Zod 4 schema** in `@devflow-ai/core`. TypeScript types are
   inferred with `z.infer`.
 - **Invariants live in the schemas**, as refinements, not in scattered `if` statements. For
   example: a gate result of `passed` requires an execution record with exit code 0; a finding

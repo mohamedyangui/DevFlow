@@ -7,7 +7,7 @@ import {
   type Detection,
   type ModuleCandidate,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import {
   isProjectManifest,
   keyLine,

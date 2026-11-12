@@ -1,11 +1,11 @@
-import { buildContext } from "@devflow/context";
+import { buildContext } from "@devflow-ai/context";
 import {
   EngineeringReport,
   ImplementationPlan,
   PathGuard,
   SecretRedactor,
   type TaskContract,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import {
   AnalysisWire,

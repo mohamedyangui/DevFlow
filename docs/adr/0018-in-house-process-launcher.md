@@ -1,7 +1,7 @@
 # ADR 0018: An in-house process launcher instead of `cross-spawn`
 
 - **Status:** Accepted, 2026-11-07. Settles the open question in the alternatives of
-  [ADR 0014](0014-windows-invocation.md). Implemented in Phase 2 in `@devflow/core`
+  [ADR 0014](0014-windows-invocation.md). Implemented in Phase 2 in `@devflow-ai/core`
   (`src/security/invocation.ts`, `windows-invocation.ts`, `process-launcher.ts`,
   `executor.ts`).
 - **Deciders:** Mohamed Yangui
@@ -23,7 +23,7 @@ Maven and Gradle wrappers, and the occasional batch file.
 ## Decision
 
 1. **DevFlow does not depend on `cross-spawn`.** Command resolution and launching are written
-   in `@devflow/core`, in small modules with their own tests.
+   in `@devflow-ai/core`, in small modules with their own tests.
 2. **Exactly one module may start processes:** `src/security/process-launcher.ts` imports
    `node:child_process`, and only the executor imports the launcher. ESLint forbids
    `child_process` everywhere else, and a repository test fails if a second file imports it,
@@ -70,7 +70,7 @@ Maven and Gradle wrappers, and the occasional batch file.
   the argument and the character.
 - Shim formats are recognized by pattern. A package manager that changes its shim format falls
   back to `windows-batch`, which is safe but stricter; a test pins the formats known today.
-- One fewer runtime dependency in `@devflow/core`.
+- One fewer runtime dependency in `@devflow-ai/core`.
 
 ## Alternatives considered
 

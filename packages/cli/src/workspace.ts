@@ -1,5 +1,5 @@
 import path from "node:path";
-import { AgentProvider, createProvider } from "@devflow/ai";
+import { AgentProvider, createProvider } from "@devflow-ai/ai";
 import {
   DevflowError,
   ErrorCode,
@@ -16,8 +16,8 @@ import {
   type LlmProvider,
   loadProjectConfig,
   resolveExecutionSettings,
-} from "@devflow/core";
-import type { ProgressEvent, WorkflowServices } from "@devflow/workflow";
+} from "@devflow-ai/core";
+import type { ProgressEvent, WorkflowServices } from "@devflow-ai/workflow";
 import type { CliIo, Interruption } from "./io.js";
 import { contractToolsFactory, testRunnerFactory } from "./test-runner.js";
 import { readCliVersion } from "./version.js";

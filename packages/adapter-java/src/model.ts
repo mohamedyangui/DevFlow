@@ -1,4 +1,4 @@
-import type { Evidence } from "@devflow/core";
+import type { Evidence } from "@devflow-ai/core";
 import type { XmlElement } from "./xml.js";
 
 export type BuildToolId = "maven" | "gradle";

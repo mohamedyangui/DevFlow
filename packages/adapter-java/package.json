@@ -1,6 +1,6 @@
 {
-  "name": "@devflow/adapter-java",
-  "version": "0.1.0",
+  "name": "@devflow-ai/adapter-java",
+  "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI language adapter for Java: Maven and Gradle builds, Spring Boot, JUnit, Checkstyle and SpotBugs.",
   "license": "Apache-2.0",
@@ -20,7 +20,7 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow/core": "workspace:*",
+    "@devflow-ai/core": "workspace:*",
     "fast-xml-parser": "~5.11.2"
   }
 }

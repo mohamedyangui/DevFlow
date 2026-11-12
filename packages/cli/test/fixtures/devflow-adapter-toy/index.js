@@ -1,6 +1,6 @@
 /**
  * A DevFlow adapter plugin for the invented Toy language, used by the plugin tests
- * (docs/specs/language-adapter.md, section 12). It depends on nothing, not even @devflow/core.
+ * (docs/specs/language-adapter.md, section 12). It depends on nothing, not even @devflow-ai/core.
  *
  * - A module is a directory with a `toy.json` manifest.
  * - Tests are `*.toy` files under `tests/`.

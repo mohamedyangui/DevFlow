@@ -9,7 +9,7 @@ import {
   type ModuleCandidate,
   type ModuleProfile,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import {
   dependencies,
   installedPackage,

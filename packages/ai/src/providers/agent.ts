@@ -6,7 +6,7 @@ import {
   type LlmProvider,
   type LlmRequest,
   type LlmResponse,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { z } from "zod";
 import { requestFingerprint } from "../hash.js";
 

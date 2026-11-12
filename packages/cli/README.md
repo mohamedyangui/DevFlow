@@ -1,4 +1,4 @@
-# @devflow/cli
+# @devflow-ai/cli
 
 The `devflow` command.
 

@@ -1,6 +1,6 @@
-import { AGENT_MODEL, DEFAULT_BUDGET_LIMITS } from "@devflow/ai";
-import { DEFAULT_CONTEXT_BUDGET_TOKENS } from "@devflow/context";
-import { DevflowError, ErrorCode, type ProjectConfig } from "@devflow/core";
+import { AGENT_MODEL, DEFAULT_BUDGET_LIMITS } from "@devflow-ai/ai";
+import { DEFAULT_CONTEXT_BUDGET_TOKENS } from "@devflow-ai/context";
+import { DevflowError, ErrorCode, type ProjectConfig } from "@devflow-ai/core";
 import type { RunBudgets, RunSettings } from "./schemas.js";
 
 export const DEFAULT_PROVIDER = "anthropic";

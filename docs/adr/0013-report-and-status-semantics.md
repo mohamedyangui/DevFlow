@@ -1,7 +1,7 @@
 # ADR 0013: JSON report as source of truth, strict status semantics
 
 - **Status:** Accepted, 2026-11-06. The report, gate and acceptance-matrix schemas and their
-  invariants exist in `@devflow/core` (Phase 1). Report generation arrives in Phase 2.
+  invariants exist in `@devflow-ai/core` (Phase 1). Report generation arrives in Phase 2.
 - **Deciders:** Mohamed Yangui
 
 ## Context

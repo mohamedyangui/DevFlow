@@ -1,4 +1,4 @@
-# @devflow/mcp
+# @devflow-ai/mcp
 
 DevFlow AI as Model Context Protocol tools
 ([ADR 0026](../../docs/adr/0026-mcp-server.md), [specification](../../docs/specs/mcp.md)):
@@ -23,7 +23,7 @@ not tools: the developer gives them in a terminal.
 ## API
 
 ```ts
-import { McpServer, defineTool, devflowTools, serveStdio } from "@devflow/mcp";
+import { McpServer, defineTool, devflowTools, serveStdio } from "@devflow-ai/mcp";
 
 const server = new McpServer({
   name: "devflow",
@@ -42,7 +42,7 @@ await serveStdio(server, { input: process.stdin, output: process.stdout });
 - `defineTool` builds a tool from a Zod schema: the listing gets it as JSON Schema, and every
   call is validated against it (invalid arguments are a -32602 error).
 - `devflowTools({ run })` defines the DevFlow tools on top of a `CommandRunner` that runs
-  `devflow <args> --json` in a workspace; `devflow mcp` in `@devflow/cli` supplies one that
+  `devflow <args> --json` in a workspace; `devflow mcp` in `@devflow-ai/cli` supplies one that
   calls `runCli` in-process with captured output and no terminal.
 
 The package depends on `zod` only; it has no workspace dependency.

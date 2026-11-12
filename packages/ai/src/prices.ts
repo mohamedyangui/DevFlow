@@ -1,4 +1,4 @@
-import type { LlmTokenUsage } from "@devflow/core";
+import type { LlmTokenUsage } from "@devflow-ai/core";
 
 /**
  * What a model costs, in US dollars per million tokens. Prices come from the project

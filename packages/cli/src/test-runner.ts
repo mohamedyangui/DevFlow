@@ -1,4 +1,4 @@
-import { WorkspaceRepository } from "@devflow/context";
+import { WorkspaceRepository } from "@devflow-ai/context";
 import {
   CommandPolicy,
   ContainerToolchainProbe,
@@ -15,8 +15,8 @@ import {
   type GateDefinition,
   type ModuleProfile,
   type WorkspaceModule,
-} from "@devflow/core";
-import type { TestRunner, WorkflowServices } from "@devflow/workflow";
+} from "@devflow-ai/core";
+import type { TestRunner, WorkflowServices } from "@devflow-ai/workflow";
 import { workspaceAdapters } from "./adapters.js";
 import { askApproval } from "./commands/verify.js";
 import type { CliIo } from "./io.js";

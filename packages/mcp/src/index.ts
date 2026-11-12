@@ -1,5 +1,5 @@
 /**
- * @devflow/mcp: DevFlow as Model Context Protocol tools (ADR 0026). An in-house MCP server
+ * @devflow-ai/mcp: DevFlow as Model Context Protocol tools (ADR 0026). An in-house MCP server
  * (JSON-RPC 2.0 over the stdio transport) and the DevFlow tool definitions, which run the
  * CLI's commands through an injected runner. `devflow mcp` wires them to the CLI.
  */

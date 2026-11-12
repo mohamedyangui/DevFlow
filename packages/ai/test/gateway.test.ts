@@ -8,7 +8,7 @@ import {
   type LlmResponse,
   SecretRedactor,
   readAuditLog,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {

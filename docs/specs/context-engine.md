@@ -1,6 +1,6 @@
 # Specification: engineering context engine
 
-- **Status:** Phase 2 implements the pipeline in `@devflow/context`: discovery, classification,
+- **Status:** Phase 2 implements the pipeline in `@devflow-ai/context`: discovery, classification,
   sensitive-content filtering, contract scanning, instruction loading, ranking and packing,
   and the `WorkspaceRepository` implementation of `RepositoryView`. Section 5 lists what
   differs from the full design and what is still to come.

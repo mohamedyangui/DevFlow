@@ -1,6 +1,6 @@
 {
-  "name": "@devflow/workflow",
-  "version": "0.1.0",
+  "name": "@devflow-ai/workflow",
+  "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI workflow orchestrator: state machine, run store, requirements analysis, planning, plan checks and reports (assist mode; guarded and autonomous modes in Phase 4).",
   "license": "Apache-2.0",
@@ -20,10 +20,10 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow/ai": "workspace:*",
-    "@devflow/context": "workspace:*",
-    "@devflow/contracts": "workspace:*",
-    "@devflow/core": "workspace:*",
+    "@devflow-ai/ai": "workspace:*",
+    "@devflow-ai/context": "workspace:*",
+    "@devflow-ai/contracts": "workspace:*",
+    "@devflow-ai/core": "workspace:*",
     "zod": "^4.6.7"
   }
 }

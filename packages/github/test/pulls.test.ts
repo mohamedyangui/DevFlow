@@ -1,4 +1,4 @@
-import { ErrorCode } from "@devflow/core";
+import { ErrorCode } from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import { GitHubClient, getPullRequest, parsePullRequestReference } from "../src/index.js";
 import { fixture, scriptedFetch } from "./helpers.js";

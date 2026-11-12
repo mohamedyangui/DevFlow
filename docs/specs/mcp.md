@@ -21,7 +21,26 @@ for `ai.provider` of the configuration) uses an API provider instead.
 
 ## 1. Setup
 
-DevFlow is not published to npm yet. Build it from a clone:
+From npm (version 0.2.0 and later), the server command is:
+
+```text
+npx -y @devflow-ai/cli mcp
+```
+
+or `devflow mcp` after `npm install -g @devflow-ai/cli`. For example, in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "devflow": { "command": "npx", "args": ["-y", "@devflow-ai/cli", "mcp"] }
+  }
+}
+```
+
+On Windows, some clients cannot start `npx` directly (it is a `.cmd` shim); use
+`"command": "cmd", "args": ["/c", "npx", "-y", "@devflow-ai/cli", "mcp"]` there (not tested).
+
+To run the development version, build it from a clone:
 
 ```bash
 git clone https://github.com/mohamedyangui/DevFlow.git
@@ -96,7 +115,7 @@ Both were checked on Windows without network access: `npm link` creates a `devfl
 npm's global prefix, and `pnpm link --global` one in `PNPM_HOME` (which `pnpm setup` adds to
 PATH). `devflow --version` worked through both shims, and `devflow mcp` answered a `ping`
 through the npm one. The filtered form
-`pnpm --filter @devflow/cli link --global` is refused by pnpm 10 ("Unknown option:
+`pnpm --filter @devflow-ai/cli link --global` is refused by pnpm 10 ("Unknown option:
 recursive"). For MCP client configurations, prefer the `node .../bin.js mcp` form: it does
 not depend on PATH or on how the client starts `.cmd` shims on Windows (not tested).
 

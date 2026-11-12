@@ -11,7 +11,7 @@ Implemented and tested:
 - pnpm workspace, TypeScript project references, ESLint with package-boundary rules,
   Prettier, Vitest, and a CI workflow (Ubuntu and Windows × Node 22, 24, 26).
 - Seven packages; `core` and `cli` have content, the other five are empty skeletons.
-- `@devflow/core`: Zod schemas for tasks, configuration, modules, commands, verification,
+- `@devflow-ai/core`: Zod schemas for tasks, configuration, modules, commands, verification,
   findings, plans and reports, with their invariants; ports; error model; red/green evidence
   rules.
 - Task loading from YAML, JSON and Markdown, normalization, and lint with line numbers.
@@ -25,7 +25,7 @@ Implemented and tested:
 Implemented and tested:
 
 - Path guard, secret detection and redaction, audit log and redacting logger
-  (`@devflow/core`, [security model](specs/security-model.md) sections 6 to 8).
+  (`@devflow-ai/core`, [security model](specs/security-model.md) sections 6 to 8).
 - Project configuration loader, trust store and `devflow trust`
   ([security model](specs/security-model.md) section 3.1).
 - Command policy with the hard deny list and approval by fingerprint, and the executor
@@ -37,19 +37,19 @@ Implemented and tested:
   [ADR 0014](adr/0014-windows-invocation.md): batch argument round trip, rejection of forbidden
   characters before any process starts, `node-script` shims, `java-launcher` resolution.
   Running a real Gradle or Maven wrapper waits for the Phase 3 example builds.
-- Context engine (`@devflow/context`, [spec](specs/context-engine.md)): discovery honouring
+- Context engine (`@devflow-ai/context`, [spec](specs/context-engine.md)): discovery honouring
   ignore files, classification, **read-only `.proto` and OpenAPI discovery**
   ([ADR 0017](adr/0017-contract-aware-context.md)), sensitive-content filtering, instruction
   loading, explainable BM25 ranking ([ADR 0008](adr/0008-lexical-ranking.md)) and packing to a
   token budget.
-- LLM gateway (`@devflow/ai`, [ADR 0010](adr/0010-llm-providers.md)): redaction with audit
+- LLM gateway (`@devflow-ai/ai`, [ADR 0010](adr/0010-llm-providers.md)): redaction with audit
   entries, token and call budgets checked before each call, retries with backoff and jitter
   that honour `retry-after`, timeouts, cancellation, JSON answers validated with Zod and one
   repair request, an llm-call audit entry per call. Providers: Anthropic (official SDK, loaded
   lazily, tested against a local HTTP stand-in), Fake (scripted) and Replay (cassettes keyed by
   a request hash, with a record mode). A live API test runs only when `ANTHROPIC_API_KEY` and
   `DEVFLOW_LIVE_MODEL` are set; it is skipped otherwise and has not been run.
-- Workflow engine (`@devflow/workflow`, [ADR 0004](adr/0004-state-machine-and-run-store.md)):
+- Workflow engine (`@devflow-ai/workflow`, [ADR 0004](adr/0004-state-machine-and-run-store.md)):
   transition table tested exhaustively per mode, run store with atomic writes, schema
   validation on read and a lock file, assist mode end to end (context loading, requirements
   analysis with clarification, planning with deterministic plan checks and one revision, plan
@@ -77,16 +77,16 @@ Implemented and tested:
 
 - Adapter SDK (`defineAdapter`, detection strategies, evidence and path helpers, fresh report
   files), output validation, adapter registry with module discovery, PATH toolchain probe, and
-  the conformance kit in `@devflow/core/testing`
+  the conformance kit in `@devflow-ai/core/testing`
   ([spec](specs/language-adapter.md) section 8).
-- Java adapter (`@devflow/adapter-java`, [spec](specs/language-adapter.md) section 9): Maven
+- Java adapter (`@devflow-ai/adapter-java`, [spec](specs/language-adapter.md) section 9): Maven
   and Gradle (Groovy and Kotlin DSL, multi-module, version catalogs, wrappers), Spring Boot,
   JUnit 5/4, TestNG, Mockito, AssertJ, Testcontainers, Checkstyle, SpotBugs, PMD, JaCoCo,
   Spotless, Protobuf/OpenAPI generator detection; test inventory, conventions, authoring guide,
   command catalog, and parsers for JUnit XML, Checkstyle, SpotBugs and compiler output. Tested
   with in-memory fixture repositories and the conformance kit, and against real Maven and
   Gradle builds of the example repositories (below).
-- JavaScript/TypeScript adapter (`@devflow/adapter-javascript`,
+- JavaScript/TypeScript adapter (`@devflow-ai/adapter-javascript`,
   [spec](specs/language-adapter.md) section 10): npm, pnpm, Yarn and Bun projects and
   workspaces, TypeScript, Express, Fastify, NestJS, Next.js, React, Vue, Angular, Vite, Vitest,
   Jest, Mocha, Playwright, ESLint, Prettier, `tsc`, Protobuf and OpenAPI generator detection;
@@ -97,7 +97,7 @@ Implemented and tested:
   Prettier 3.9, and their output parsed as specified; Jest has not been run against it.
 - Command policy: a `node` script must be an existing file inside the workspace, and is bound
   into the approval fingerprint by its hash.
-- Verification engine (`@devflow/core`, [spec](specs/verification-and-evidence.md) section
+- Verification engine (`@devflow-ai/core`, [spec](specs/verification-and-evidence.md) section
   4.1) and `devflow verify` ([CLI spec](specs/cli.md)): the configured gates, or a test gate
   per module; every command through the command policy (interactive approval, or
   `--allow <fingerprint>`); statuses decided from the exit code and the parsed results, never
@@ -109,7 +109,7 @@ Implemented and tested:
   reported it as fixed. Maven, Gradle, npm/Vitest and `tsc` runs go through it in the example
   builds (below).
 - Source parser ([ADR 0009](adr/0009-tree-sitter.md), spike results in the ADR): the
-  `SourceParser` port in `@devflow/core`, and in `@devflow/context` a `web-tree-sitter`
+  `SourceParser` port in `@devflow-ai/core`, and in `@devflow-ai/context` a `web-tree-sitter`
   implementation with pinned grammars for Java, TypeScript, TSX and JavaScript, falling back
   to the regex outline. It provides the outlines of the context pack and the import edges of
   ranking. Tested by parsing real code with the pinned grammars, including invalid code and
@@ -201,7 +201,7 @@ Planned:
 
 Implemented:
 
-- `@devflow/github`: a REST client on Node's `fetch` (no redirects, timeouts, size limits,
+- `@devflow-ai/github`: a REST client on Node's `fetch` (no redirects, timeouts, size limits,
   schema-validated answers, the token redacted and sent only to the API;
   [ADR 0019](adr/0019-github-rest-client.md)).
 - Issues as task sources: `--issue <ref>` (with `--repo`, or the `origin` remote) on
@@ -237,7 +237,7 @@ Implemented:
   `docker run --network none`, resource limits, no capabilities and only the workspace
   mounted; the backend and image are part of the command fingerprint; images are never pulled;
   no fallback to the host.
-- Python adapter (`@devflow/adapter-python`): detects uv, Poetry, pip and plain projects,
+- Python adapter (`@devflow-ai/adapter-python`): detects uv, Poetry, pip and plain projects,
   Django, Flask and FastAPI, pytest and unittest, Ruff, flake8, mypy and Pyright; prefers the
   project's `.venv` interpreter (bound to its `pyvenv.cfg` in the approval fingerprint), never
   installs anything, and allows `python -m` only for pytest, unittest, mypy, ruff and flake8.
@@ -246,7 +246,7 @@ Implemented:
   0.931; pytest was not installed, so the pytest JUnit fixture is written by hand and the
   `python-pytest` example has not been run.
 
-- Contract compatibility verification: `@devflow/contracts`
+- Contract compatibility verification: `@devflow-ai/contracts`
   ([ADR 0021](adr/0021-contract-compatibility.md)) with in-house OpenAPI 3.x (YAML, JSON,
   local `$ref`s) and Protobuf (proto3, proto2, editions syntax) parsers and built-in
   breaking-change rules, each change `breaking`, `non-breaking` or `unknown`; review mode
@@ -297,7 +297,7 @@ Implemented:
   1.1.0): `test=Class#method` for Maven, `package.Class.method` for Gradle; unit-tested, never
   run with a real Maven or Gradle build.
 
-- DevFlow as MCP tools: `@devflow/mcp` ([ADR 0026](adr/0026-mcp-server.md)), an in-house MCP
+- DevFlow as MCP tools: `@devflow-ai/mcp` ([ADR 0026](adr/0026-mcp-server.md)), an in-house MCP
   server over stdio (protocol versions 2025-06-18 and 2025-03-26), and `devflow mcp`. The tools
   validate tasks, analyse and plan, show runs and reports, verify, review and compare contracts
   by running the CLI commands in-process with `--json`; trust, approvals, `--allow` and
@@ -321,9 +321,8 @@ Implemented:
   ([changelog](../CHANGELOG.md), [ADR 0028](adr/0028-source-releases.md)). One version for all
   packages, a git tag and a GitHub release; installed from source.
 
-## Before the first npm publication
-
-- Verify ownership of the npm scope, or rename it with `pnpm scope:rename`
-  ([ADR 0016](adr/0016-npm-scope-and-publication.md)).
-- A publication ADR: provenance and removing `private` (versioning and the changelog are
-  decided in [ADR 0028](adr/0028-source-releases.md)).
+- `v0.2.0` (2026-11-12): the npm package `@devflow-ai/cli`
+  ([ADR 0029](adr/0029-npm-publication.md)), published from GitHub Actions with provenance.
+  The staged package was installed from its tarball into a clean npm prefix and run on
+  Windows (`--version`, `task validate`, an agent-mode run, the three tree-sitter grammars, an
+  MCP `initialize` and `tools/list`); the publish workflow has not run yet.

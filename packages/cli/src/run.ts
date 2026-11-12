@@ -1,4 +1,4 @@
-import type { ExecutionBackendKind } from "@devflow/core";
+import type { ExecutionBackendKind } from "@devflow-ai/core";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { contractsDiffCommand, contractsImpactCommand } from "./commands/contracts.js";
 import { INIT_PROVIDERS, type InitProvider, initCommand } from "./commands/init.js";

@@ -6,7 +6,7 @@ import {
   compareContractBuiltin,
   contractImpact,
   contractKindOf,
-} from "@devflow/contracts";
+} from "@devflow-ai/contracts";
 import {
   type ContractKind,
   DevflowError,
@@ -16,8 +16,8 @@ import {
   checkRepoRelativePath,
   isDevflowError,
   loadProjectConfig,
-} from "@devflow/core";
-import { consumerRepository, consumerSources } from "@devflow/workflow";
+} from "@devflow-ai/core";
+import { consumerRepository, consumerSources } from "@devflow-ai/workflow";
 import { ExitCode } from "../exit-codes.js";
 import { colorsFor, type CliIo } from "../io.js";
 

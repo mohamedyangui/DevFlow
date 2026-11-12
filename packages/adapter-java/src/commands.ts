@@ -4,7 +4,7 @@ import {
   type CommandSpec,
   type ModuleProfile,
   type ParamSpec,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { baseName } from "./paths.js";
 
 /** Result parsers of the Java adapter, named in `CommandSpec.results.parser`. */

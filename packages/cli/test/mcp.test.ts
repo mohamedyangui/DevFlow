@@ -2,9 +2,9 @@ import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises"
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import { FakeProvider, type FakeReply } from "@devflow/ai";
-import { DEVFLOW_TOOL_NAMES } from "@devflow/mcp";
-import type { LlmRequest } from "@devflow/core";
+import { FakeProvider, type FakeReply } from "@devflow-ai/ai";
+import { DEVFLOW_TOOL_NAMES } from "@devflow-ai/mcp";
+import type { LlmRequest } from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import { type CliIo, ExitCode, runCli } from "../src/index.js";
 import { readCliVersion } from "../src/version.js";

@@ -1,4 +1,4 @@
-import { DevflowError, ErrorCode } from "@devflow/core";
+import { DevflowError, ErrorCode } from "@devflow-ai/core";
 
 /** Limits for one run. */
 export interface BudgetLimits {

@@ -7,7 +7,7 @@ import {
   type PathGuard,
   type RepositoryEntry,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { ALWAYS_EXCLUDED_DIRECTORIES, discoverFiles } from "./discover.js";
 import { readTextForPrompt } from "./files.js";
 

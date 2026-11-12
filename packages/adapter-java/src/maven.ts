@@ -6,7 +6,7 @@ import {
   readTextIfPresent,
   repoDirname,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import type { BuildModel, ConfiguredSources, Declaration, Located } from "./model.js";
 import { escapeRegExp, resolveRepoPath, unique } from "./paths.js";
 import { child, childText, descendants, parseXml, path, type XmlElement } from "./xml.js";

@@ -1,4 +1,4 @@
-import { MemoryRepository } from "@devflow/core/testing";
+import { MemoryRepository } from "@devflow-ai/core/testing";
 
 const lines = (...text: string[]): string => `${text.join("\n")}\n`;
 

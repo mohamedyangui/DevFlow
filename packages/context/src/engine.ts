@@ -6,7 +6,7 @@ import type {
   SourceImport,
   SourceParser,
   TaskContract,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { languageOf, moduleOf, roleOf } from "./classify.js";
 import { looksLikeOpenApi, scanOpenApi, scanProtobuf } from "./contracts.js";
 import { discoverFiles } from "./discover.js";

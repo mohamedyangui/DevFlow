@@ -10,7 +10,7 @@ import {
   type TestAuthoringGuide,
   type TestInventory,
   type TestLevel,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { readModuleFile } from "./manifest.js";
 import { baseName, resolveRepoPath, sortPaths, unique } from "./paths.js";
 import { nestedModuleRoots, ownedBy } from "./workspace.js";

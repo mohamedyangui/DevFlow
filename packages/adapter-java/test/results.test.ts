@@ -1,5 +1,5 @@
-import { validatedAdapter, type CommandSpec, type ExecutionRecord } from "@devflow/core";
-import type { MemoryRepository } from "@devflow/core/testing";
+import { validatedAdapter, type CommandSpec, type ExecutionRecord } from "@devflow-ai/core";
+import type { MemoryRepository } from "@devflow-ai/core/testing";
 import { describe, expect, it } from "vitest";
 import {
   acceptanceMarkers,

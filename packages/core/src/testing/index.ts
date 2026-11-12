@@ -1,5 +1,5 @@
 /**
- * Test helpers for language adapters: `@devflow/core/testing`. Not used at runtime.
+ * Test helpers for language adapters: `@devflow-ai/core/testing`. Not used at runtime.
  */
 export {
   checkAdapterConformance,

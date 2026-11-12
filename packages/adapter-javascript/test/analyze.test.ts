@@ -1,5 +1,5 @@
-import { validatedAdapter, type ModuleProfile } from "@devflow/core";
-import { MemoryRepository } from "@devflow/core/testing";
+import { validatedAdapter, type ModuleProfile } from "@devflow-ai/core";
+import { MemoryRepository } from "@devflow-ai/core/testing";
 import { describe, expect, it } from "vitest";
 import {
   javascriptAdapter,

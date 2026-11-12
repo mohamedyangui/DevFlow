@@ -5,7 +5,7 @@ import {
   type Finding,
   SecretRedactor,
   type Verdict,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { z } from "zod";
 import { type GitHubClient, apiPath } from "./client.js";
 import type { GitHubRepository } from "./repository.js";

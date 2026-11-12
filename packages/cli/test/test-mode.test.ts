@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { FakeProvider } from "@devflow/ai";
-import type { LlmRequest } from "@devflow/core";
+import { FakeProvider } from "@devflow-ai/ai";
+import type { LlmRequest } from "@devflow-ai/core";
 import { describe, expect, it } from "vitest";
 import { type CliIo, ExitCode, runCli } from "../src/index.js";
 

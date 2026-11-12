@@ -9,7 +9,7 @@ import {
   type LoadedProjectConfig,
   type WorkspaceTrustEntry,
   type WorkspaceTrustStatus,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { ExitCode } from "../exit-codes.js";
 import { colorsFor, type CliIo, type Colors } from "../io.js";
 

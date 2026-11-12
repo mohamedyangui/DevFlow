@@ -8,7 +8,7 @@ import {
   type LlmResponse,
   type SecretRedactor,
   isDevflowError,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import type { z } from "zod";
 import type { BudgetTracker } from "./budget.js";
 import type { PriceTable } from "./prices.js";

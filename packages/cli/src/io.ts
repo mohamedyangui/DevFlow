@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline/promises";
-import type { GitClient, GitClientOptions, LlmProvider } from "@devflow/core";
+import type { GitClient, GitClientOptions, LlmProvider } from "@devflow-ai/core";
 import { createColors } from "picocolors";
 
 export interface CliOutput {

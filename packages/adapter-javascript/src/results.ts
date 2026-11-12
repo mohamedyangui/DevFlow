@@ -14,7 +14,7 @@ import {
   type SourceLocation,
   type TestCaseResult,
   type TestOutcome,
-} from "@devflow/core";
+} from "@devflow-ai/core";
 import { JAVASCRIPT_PARSERS } from "./commands.js";
 import {
   baseName,

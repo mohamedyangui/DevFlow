@@ -3,7 +3,7 @@
 - **Status:** Draft. The `LanguageAdapter` port (adapter API 1.0.0), `RepositoryView`,
   `ToolchainProbe` and the data schemas (`ModuleCandidate`, `ModuleProfile`,
   `ContractRelation`, `InferredConvention`, `TestInventory`, `TestAuthoringGuide`,
-  `CommandSpec`, `ParsedCommandResults`) exist in `@devflow/core` (Phase 1). The adapter SDK,
+  `CommandSpec`, `ParsedCommandResults`) exist in `@devflow-ai/core` (Phase 1). The adapter SDK,
   output validation, registry, toolchain probe and conformance kit exist (Phase 3, section 8).
   The Java adapter (section 9) and the JavaScript/TypeScript adapter (section 10) exist
   (Phase 3); the Python adapter (section 11) and external adapter plugins with API versioning
@@ -113,7 +113,7 @@ wrapper verifies the downloaded distribution (decision D5).
 
 ## 8. SDK, validation and registry
 
-These exist in `@devflow/core`:
+These exist in `@devflow-ai/core`:
 
 - **`defineAdapter(definition)`** fills in the API version when the definition does not
   declare one, and a default `inferConventions`
@@ -148,7 +148,7 @@ These exist in `@devflow/core`:
   as a pass from a previous run's reports, and a filtered run right after a full run does not
   report the full run's tests.
 - **Conformance kit.** `checkAdapterConformance(adapter, fixtures)` from
-  `@devflow/core/testing` runs the shared checks: identity, valid and deterministic output of
+  `@devflow-ai/core/testing` runs the shared checks: identity, valid and deterministic output of
   every operation, the expected module roots, evidence and test files that exist, catalogs
   that are valid with every tool available and with none, and `parseResults` that never
   reports a passed test when no report file was written. `MemoryRepository` and
@@ -162,7 +162,7 @@ These exist in `@devflow/core`:
 
 ## 9. The Java adapter
 
-`@devflow/adapter-java` ([README](../../packages/adapter-java/README.md)) implements this
+`@devflow-ai/adapter-java` ([README](../../packages/adapter-java/README.md)) implements this
 interface for Maven and Gradle.
 
 - **Modules.** A module is one build: a POM that no other POM aggregates (its `<modules>` and
@@ -198,7 +198,7 @@ interface for Maven and Gradle.
 
 ## 10. The JavaScript adapter
 
-`@devflow/adapter-javascript` ([README](../../packages/adapter-javascript/README.md))
+`@devflow-ai/adapter-javascript` ([README](../../packages/adapter-javascript/README.md))
 implements this interface for npm, pnpm, Yarn and Bun projects.
 
 - **Modules.** One module per `package.json` that describes a project; a manifest that only
@@ -243,7 +243,7 @@ implements this interface for npm, pnpm, Yarn and Bun projects.
 
 ## 11. The Python adapter
 
-`@devflow/adapter-python` ([README](../../packages/adapter-python/README.md)) implements this
+`@devflow-ai/adapter-python` ([README](../../packages/adapter-python/README.md)) implements this
 interface for Python projects (Phase 6).
 
 - **Modules.** One module per `pyproject.toml` (with `[project]`, `[tool.poetry]` or
@@ -290,7 +290,7 @@ Adapters for other ecosystems can be written and released outside DevFlow, as pl
 
 ### 12.1 Versioning policy
 
-`@devflow/core` exports `ADAPTER_API_VERSION`, the semver version of this interface
+`@devflow-ai/core` exports `ADAPTER_API_VERSION`, the semver version of this interface
 (currently `1.1.0`). Every adapter declares the version it targets in `apiVersion`; the
 Java adapter declares `1.1.0`, the JavaScript and Python adapters `1.0.0`. DevFlow runs an
 adapter when:
@@ -350,7 +350,7 @@ export const devflowAdapter = {
 };
 ```
 
-A plugin written in TypeScript can depend on `@devflow/core` for the types, `defineAdapter`
+A plugin written in TypeScript can depend on `@devflow-ai/core` for the types, `defineAdapter`
 and the SDK helpers of section 8, and run the conformance kit in its own tests; it needs no
 DevFlow dependency at run time. The package's entry is `exports["."]` (`import`, `node` or
 `default` condition), else `main`, else `index.js`, and must be inside the package. A working
