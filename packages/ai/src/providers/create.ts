@@ -1,10 +1,11 @@
 import { DevflowError, ErrorCode, type LlmProvider } from "@devflow/core";
+import { AgentProvider } from "./agent.js";
 import { AnthropicProvider } from "./anthropic.js";
 import { OpenAiProvider } from "./openai.js";
 import { ReplayProvider } from "./replay.js";
 
 /** Providers that can be selected by name (configuration or `--provider`). */
-export const PROVIDER_NAMES = ["anthropic", "openai", "replay"] as const;
+export const PROVIDER_NAMES = ["anthropic", "openai", "replay", "agent"] as const;
 export type ProviderName = (typeof PROVIDER_NAMES)[number];
 
 export interface CreateProviderOptions {
@@ -12,6 +13,8 @@ export interface CreateProviderOptions {
   readonly env?: Readonly<Record<string, string | undefined>>;
   /** Cassette file, required by `replay`. */
   readonly cassette?: string;
+  /** Where `agent` keeps requests and answers: `<workspace>/.devflow/agent` (ADR 0027). */
+  readonly agentDirectory?: string;
 }
 
 /** Creates a provider by name. Configuration problems raise `LLM_PROVIDER_NOT_CONFIGURED`. */
@@ -28,6 +31,15 @@ export async function createProvider(options: CreateProviderOptions): Promise<Ll
         );
       }
       return ReplayProvider.load(options.cassette);
+    case "agent":
+      if (options.agentDirectory === undefined || options.agentDirectory === "") {
+        throw new DevflowError(
+          ErrorCode.LlmProviderNotConfigured,
+          "the agent provider needs the workspace's .devflow/agent directory",
+          { details: { provider: "agent" } },
+        );
+      }
+      return new AgentProvider({ directory: options.agentDirectory });
     case "openai":
       return new OpenAiProvider({ ...(options.env === undefined ? {} : { env: options.env }) });
     default:

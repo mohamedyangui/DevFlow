@@ -1,6 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { FakeProvider, type FakeReply } from "@devflow/ai";
+import {
+  AgentProvider,
+  FakeProvider,
+  type FakeReply,
+  agentRequestIdIn,
+  readAgentRequest,
+  writeAgentAnswer,
+} from "@devflow/ai";
 import {
   DevflowError,
   EngineeringReport,
@@ -21,6 +28,7 @@ import {
   AfterRun,
   ChangedFiles,
   RunStore,
+  type RunOutcome,
   type TestRunner,
   TestEvidenceRecord,
   type WorkflowServices,
@@ -875,5 +883,126 @@ describe("implement mode on a git branch (ADR 0012)", () => {
       "The changes are not on a DevFlow branch (the workspace is not in a git repository " +
         "(fatal: not a git repository)): they are uncommitted in the working tree.",
     );
+  });
+});
+
+describe("implement mode in agent mode (ADR 0027)", () => {
+  /**
+   * Plays the coding agent: while the run waits for an answer, it reads the saved request,
+   * lets the scripted model answer it, saves the answer and resumes the run.
+   */
+  async function asAgent(
+    outcome: RunOutcome,
+    brain: FakeProvider,
+    directory: string,
+    svc: WorkflowServices,
+    asked: string[],
+  ): Promise<RunOutcome> {
+    let current = outcome;
+    for (let turn = 0; turn < 40; turn += 1) {
+      if (current.error?.code !== ErrorCode.AgentInputRequired) return current;
+      const id = agentRequestIdIn(current.error.message);
+      if (id === undefined) throw new Error("no request id");
+      const saved = await readAgentRequest(directory, id);
+      if (saved === undefined) throw new Error(`request ${id} not saved`);
+      asked.push(id);
+      const answer = await brain.generate(saved.request, new AbortController().signal);
+      await writeAgentAnswer(directory, id, answer.text);
+      current = await resumeRun(current.runId, svc);
+    }
+    throw new Error("the run kept asking");
+  }
+
+  it("runs the whole workflow with the agent as the model: no key, same checks and verdict", async () => {
+    const root = await workspace();
+    const directory = path.join(root, ".devflow", "agent");
+    const agent = new AgentProvider({ directory });
+    const brain = model().provider;
+    const { runner, calls } = fakeRunner(root, [run("assertion_failure"), run("passed")]);
+    const svc = await services(root, brain, {
+      provider: () => agent,
+      testRunner: () => Promise.resolve(runner),
+    });
+    const asked: string[] = [];
+
+    const first = await startRun(
+      {
+        task: task(),
+        taskFile: "tasks/TASK-7.yaml",
+        mode: "implement",
+        goal: "implement",
+        settings: settings({ provider: "agent", maxRepairAttempts: 2 }),
+      },
+      svc,
+    );
+    // The first model call stops the run: nothing is answered yet.
+    expect(first).toMatchObject({ status: "interrupted", error: { code: "AGENT_INPUT_REQUIRED" } });
+    const planned = await asAgent(first, brain, directory, svc, asked);
+    expect(planned).toMatchObject({ status: "waiting", waitingFor: "plan-approval" });
+
+    const runId = first.runId;
+    const tests = await asAgent(
+      await approvePlan(runId, { by: "mohamed" }, svc),
+      brain,
+      directory,
+      svc,
+      asked,
+    );
+    expect(tests).toMatchObject({ status: "waiting", waitingFor: "test-approval" });
+    const change = await asAgent(
+      await approveTests(runId, { by: "mohamed" }, svc),
+      brain,
+      directory,
+      svc,
+      asked,
+    );
+    expect(change).toMatchObject({ status: "waiting", waitingFor: "change-approval" });
+    // The red baseline ran before the change was written.
+    expect(calls[0]?.source).toBe(REPO[SOURCE]);
+    expect(await source(root)).toContain("orders.slice(");
+
+    const done = await approveChanges(runId, { by: "mohamed" }, svc);
+    expect(done).toMatchObject({ state: "COMPLETED", status: "completed" });
+    const store = await RunStore.open(root, runId);
+    const report = await reportOf(store);
+    expect(report.verdict).toBe("verified");
+    expect(report.acceptanceMatrix.find((row) => row.acId === "AC-1")?.status).toBe("verified");
+
+    // Analysis, plan, test design and implementation: each request asked once, never twice.
+    expect(asked.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(asked).size).toBe(asked.length);
+    // Stored answers are not new model calls: the budget saw no tokens.
+    const record = await store.readRecord();
+    expect(record.budgetUsage.inputTokens).toBe(0);
+    expect(record.budgetUsage.calls).toBe(0);
+  });
+
+  it("asks for a repair when the agent's answer does not match the schema", async () => {
+    const root = await workspace();
+    const directory = path.join(root, ".devflow", "agent");
+    const agent = new AgentProvider({ directory });
+    const svc = await services(root, model().provider, { provider: () => agent });
+    const first = await startRun(
+      {
+        task: task(),
+        taskFile: "tasks/TASK-7.yaml",
+        mode: "assist",
+        goal: "plan",
+        settings: settings({ provider: "agent" }),
+      },
+      svc,
+    );
+    const id = agentRequestIdIn(first.error?.message ?? "");
+    if (id === undefined) throw new Error("no request");
+    await expect(writeAgentAnswer(directory, id, "not json")).rejects.toMatchObject({
+      code: "AGENT_ANSWER_INVALID",
+    });
+    await writeAgentAnswer(directory, id, JSON.stringify({ unexpected: true }));
+    const next = await resumeRun(first.runId, svc);
+    // The gateway asked again with the problems: a new request for the agent.
+    const repairId = agentRequestIdIn(next.error?.message ?? "");
+    expect(next.error?.code).toBe("AGENT_INPUT_REQUIRED");
+    expect(repairId).toBeDefined();
+    expect(repairId).not.toBe(id);
   });
 });

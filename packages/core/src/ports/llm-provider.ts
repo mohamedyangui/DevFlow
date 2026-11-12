@@ -45,4 +45,10 @@ export interface LlmResponse {
   readonly stopReason: "end_turn" | "max_tokens" | "refusal" | "other";
   readonly usage: LlmTokenUsage;
   readonly providerRequestId?: string;
+  /**
+   * True when the response is an answer stored earlier rather than a new model call (the agent
+   * provider, ADR 0027, serves the answers of a resumed step again). It is not counted against
+   * the run's call and token budgets.
+   */
+  readonly stored?: boolean;
 }

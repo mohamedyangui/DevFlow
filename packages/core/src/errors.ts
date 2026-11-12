@@ -51,6 +51,13 @@ export const ErrorCode = {
   ReplayCassetteMiss: "REPLAY_CASSETTE_MISS",
   /** A replay cassette file cannot be read or does not match its schema. */
   ReplayCassetteInvalid: "REPLAY_CASSETTE_INVALID",
+  /**
+   * Agent mode (ADR 0027): the run needs the coding agent's answer to a model request. The run
+   * stays resumable; the agent answers with `devflow agent answer` and the run continues.
+   */
+  AgentInputRequired: "AGENT_INPUT_REQUIRED",
+  /** Agent mode: the answer does not belong to the request the run waits for. */
+  AgentAnswerInvalid: "AGENT_ANSWER_INVALID",
   /** The operation was cancelled by the caller (for example Ctrl+C). */
   Cancelled: "CANCELLED",
   /** A state transition is not in the transition table or not allowed in the run's mode. */

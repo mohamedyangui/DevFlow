@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createProvider } from "@devflow/ai";
+import { AgentProvider, createProvider } from "@devflow/ai";
 import {
   DevflowError,
   ErrorCode,
@@ -80,6 +80,11 @@ export async function openWorkspace(io: CliIo): Promise<Workspace> {
   };
 }
 
+/** Where agent mode keeps the model requests and the agent's answers (ADR 0027). */
+export function agentDirectory(workspaceRoot: string): string {
+  return path.join(workspaceRoot, ".devflow", "agent");
+}
+
 export interface ServiceOptions {
   /** Cassette file for the replay provider (`--cassette`, or `DEVFLOW_CASSETTE`). */
   readonly cassette?: string | undefined;
@@ -111,9 +116,15 @@ export function workflowServices(
     let created = providers.get(name);
     if (created === undefined) {
       created =
-        io.createProvider !== undefined
-          ? io.createProvider(name, cassette === undefined ? {} : { cassette })
-          : createProvider({ name, env: io.env, ...(cassette === undefined ? {} : { cassette }) });
+        name === "agent"
+          ? Promise.resolve(new AgentProvider({ directory: agentDirectory(workspace.root) }))
+          : io.createProvider !== undefined
+            ? io.createProvider(name, cassette === undefined ? {} : { cassette })
+            : createProvider({
+                name,
+                env: io.env,
+                ...(cassette === undefined ? {} : { cassette }),
+              });
       providers.set(name, created);
     }
     return created;

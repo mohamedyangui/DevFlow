@@ -255,7 +255,10 @@ export class LlmGateway {
       throwIfCancelled(signal);
       try {
         const response = await this.attempt(request, signal);
-        this.options.budget.record(call.step, response.usage, this.costOf(request, response));
+        // A stored answer (agent mode, ADR 0027) is not a new model call: it costs nothing.
+        if (response.stored !== true) {
+          this.options.budget.record(call.step, response.usage, this.costOf(request, response));
+        }
         await this.observe({ call, purpose, attempt, fingerprint, request, response });
         await this.auditCall(
           call,

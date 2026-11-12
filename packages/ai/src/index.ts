@@ -63,3 +63,13 @@ export {
 } from "./providers/create.js";
 export { FakeProvider, type FakeReply, type FakeScript } from "./providers/fake.js";
 export { Cassette, ReplayProvider } from "./providers/replay.js";
+export {
+  AGENT_MODEL,
+  AgentProvider,
+  MAX_AGENT_ANSWER_CHARS,
+  agentRequestIdIn,
+  readAgentRequest,
+  writeAgentAnswer,
+  type AgentProviderOptions,
+  type StoredAgentRequest,
+} from "./providers/agent.js";

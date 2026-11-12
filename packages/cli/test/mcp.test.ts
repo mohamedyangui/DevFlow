@@ -368,3 +368,78 @@ describe("devflow mcp (in-process)", { timeout: 30_000 }, () => {
     await expect(readFile(path.join(root, "ran.txt"), "utf8")).rejects.toThrow();
   });
 });
+
+describe("devflow mcp in agent mode (ADR 0027)", { timeout: 30_000 }, () => {
+  it("plans with the calling agent as the model, no API key and no model id", async () => {
+    const root = await workspace();
+    // The provider factory of the test is never asked: agent mode needs no provider set-up.
+    const unused = new FakeProvider(() => {
+      throw new Error("the agent-mode run asked another provider");
+    });
+    const client = await connect(root, unused);
+    const brain = model();
+    let current = structured(await client.call("devflow_plan", { task: "tasks/TASK-7.yaml" }));
+    const answered: string[] = [];
+    for (let turn = 0; turn < 10 && current.agentRequest !== undefined; turn += 1) {
+      const shown = current.agentRequest as {
+        runId: string;
+        requestId: string;
+        system: string;
+        messages: { role: "user" | "assistant"; content: string }[];
+        format?: string;
+        jsonSchema?: Record<string, unknown>;
+      };
+      expect(current).toMatchObject({
+        exitCode: ExitCode.WaitingForInput,
+        result: { status: "interrupted", error: { code: "AGENT_INPUT_REQUIRED" } },
+      });
+      expect((current.nextSteps as string[]).join("\n")).toContain("devflow_agent_respond");
+      answered.push(shown.requestId);
+      const reply = await brain.generate(
+        {
+          model: "agent",
+          system: shown.system,
+          messages: shown.messages,
+          maxOutputTokens: 1_000,
+          ...(shown.format === undefined || shown.jsonSchema === undefined
+            ? {}
+            : { responseFormat: { name: shown.format, jsonSchema: shown.jsonSchema } }),
+        },
+        new AbortController().signal,
+      );
+      current = structured(
+        await client.call("devflow_agent_respond", {
+          run: shown.runId,
+          requestId: shown.requestId,
+          answer: reply.text,
+        }),
+      );
+    }
+    // The analysis and the plan, each asked once.
+    expect(answered).toHaveLength(2);
+    expect(new Set(answered).size).toBe(2);
+    expect(current).toMatchObject({
+      exitCode: ExitCode.WaitingForInput,
+      result: { status: "waiting", waitingFor: "plan-approval" },
+    });
+    expect(current).not.toHaveProperty("agentRequest");
+    const runId = String((current.result as Json).runId);
+    const record = JSON.parse(
+      await readFile(path.join(root, ".devflow", "runs", runId, "run.json"), "utf8"),
+    ) as { settings: { provider: string }; budgetUsage: { calls: number; inputTokens: number } };
+    expect(record.settings.provider).toBe("agent");
+    expect(record.budgetUsage).toMatchObject({ calls: 0, inputTokens: 0 });
+
+    // A wrong answer is refused before the run moves.
+    const again = await client.call("devflow_agent_respond", {
+      run: runId,
+      requestId: answered[0] ?? "",
+      answer: "{}",
+    });
+    expect(again.isError).toBe(true);
+    expect(structured(again)).toMatchObject({
+      result: { error: { code: "RUN_NOT_AWAITING_INPUT" } },
+    });
+    await client.close();
+  });
+});
