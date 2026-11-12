@@ -311,8 +311,9 @@ Implemented:
   `devflow_agent_request` / `devflow_agent_respond` answer it, and the step reruns with the
   answers given so far, which do not count against the budgets. New MCP tools `devflow_test`
   and `devflow_implement`. Tested with a scripted model playing the agent (a full implement
-  run, repairs, refused answers, a plan through `devflow mcp`); never used by a real coding
-  agent.
+  run, repairs, refused answers, a plan through `devflow mcp`). A real coding-agent session (an MCP client, headless, 2026-11-12) implemented a task in a small JavaScript project through `devflow mcp`: analysis, plan, tests, red run, change, green run, verdict verified, no API key, with the developer's approvals in a terminal.
+  `devflow init --provider agent` writes a configuration for agent mode. Codex has not been
+  tried.
 
 ## Before the first publication
 

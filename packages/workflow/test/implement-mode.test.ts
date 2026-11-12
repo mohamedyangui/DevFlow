@@ -365,6 +365,7 @@ describe("implement mode", () => {
     expect(markdown).toContain("## Test evidence (red/green)");
     expect(markdown).toContain("| assertion_failure (expected) | passed (passed) | yes |");
     expect(markdown).toContain("nothing was committed or pushed");
+    expect(markdown).toMatch(/- \*\*Change approved by:\*\* \S/);
 
     const audit = await readAuditLog(store.path("audit.jsonl"));
     expect(audit).toContainEqual(

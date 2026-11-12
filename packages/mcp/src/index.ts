@@ -26,7 +26,9 @@ export {
 } from "./tool.js";
 export {
   DEVFLOW_TOOL_NAMES,
+  MAX_EMBEDDED_REQUEST_CHARS,
   devflowTools,
+  embeddable,
   type CommandResult,
   type CommandRunner,
   type DevflowToolsOptions,

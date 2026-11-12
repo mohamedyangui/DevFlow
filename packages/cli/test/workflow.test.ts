@@ -612,6 +612,21 @@ describe("configuration, trust and refusals", () => {
     expect(json(status)).toMatchObject({ config: { exists: true, valid: true } });
   });
 
+  it("devflow init --provider agent writes agent mode, with no model to set", async () => {
+    const root = await workspace();
+    const created = await cli(root, ["init", "--provider", "agent"]);
+    expect(created.code).toBe(ExitCode.Success);
+    expect(created.stdout).not.toContain("ai.models.default");
+    expect(created.stdout).toContain("devflow mcp");
+    const config = await readFile(path.join(root, ".devflow", "config.yaml"), "utf8");
+    expect(config).toMatch(/^ {2}provider: agent$/m);
+    expect(config).toContain("no API key and no model id");
+    const status = await cli(root, ["trust", "--status", "--json"]);
+    expect(json(status)).toMatchObject({ config: { exists: true, valid: true } });
+    const refused = await cli(root, ["init", "--provider", "replay"]);
+    expect(refused.code).toBe(ExitCode.UsageError);
+  });
+
   it("uses the model of a trusted configuration only", async () => {
     const root = await workspace();
     await mkdir(path.join(root, ".devflow"), { recursive: true });

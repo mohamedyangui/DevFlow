@@ -3236,6 +3236,12 @@ class Session {
         lastError: this.record.lastError,
         planApproval,
         testsApproval,
+        // Only the approval of the implementation the report describes.
+        ...(changeApproval !== undefined &&
+        unapprovedChanges.length === 0 &&
+        changeFiles !== undefined
+          ? { changeApproval: { by: changeApproval.by, at: changeApproval.at } }
+          : {}),
         evidence: evidence?.entries,
       }),
     );

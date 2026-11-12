@@ -51,6 +51,12 @@ export function packFiles(options: PackOptions): { files: PackedFile[]; usedToke
   for (const ranked of options.ranked) {
     const candidate = options.candidates.get(ranked.path);
     if (candidate === undefined) continue;
+    // Generated files (lockfiles, *.generated.*) are listed only: their content is long and
+    // says little about the change.
+    if (candidate.role === "generated") {
+      listFile(candidate, ranked.score, ranked.reasons);
+      continue;
+    }
     if (full < MAX_FULL_FILES && candidate.text !== "") {
       const redacted = options.redactor.redact(candidate.text);
       const tokens = estimateTokens(redacted.text);

@@ -174,7 +174,26 @@ const START_INPUT = z
   .refine(exactlyOneTaskSource, "give exactly one of task or issue");
 
 const AGENT_NOTE =
-  " In agent mode the run stops whenever DevFlow needs the model: the result then contains `agentRequest`; answer it with devflow_agent_respond.";
+  " In agent mode the run stops whenever DevFlow needs the model: the result then contains `agentRequest`; answer it with devflow_agent_respond." +
+  " This tool starts a new run: to continue a run (for example after the developer approved), call devflow_status with its run id, never this tool again.";
+
+/**
+ * The largest model request embedded in a tool result, in characters of JSON. A larger one is
+ * replaced by its prompt file, which the agent reads in parts: MCP clients cap the size of a
+ * tool result.
+ */
+export const MAX_EMBEDDED_REQUEST_CHARS = 24_000;
+
+/** The request itself when it is small enough, else where to read it. */
+export function embeddable(request: Record<string, unknown>): Record<string, unknown> {
+  if (JSON.stringify(request).length <= MAX_EMBEDDED_REQUEST_CHARS) return request;
+  const { system: _system, messages: _messages, jsonSchema: _schema, ...rest } = request;
+  return {
+    ...rest,
+    embedded: false,
+    note: "The request is too large to include here. Read promptFile (in parts if needed): it holds the system text, the messages and the JSON schema. Then answer with devflow_agent_respond.",
+  };
+}
 
 const APPROVAL_NOTE =
   "Approvals stay with the developer: this tool never approves anything, and the developer approves in a terminal.";
@@ -192,6 +211,7 @@ export function devflowTools(options: DevflowToolsOptions): McpTool[] {
       return failure(`The workspace ${cwd} is not an existing directory.`, "WORKSPACE_NOT_FOUND");
     }
     const result = await options.run(args, { cwd, signal: context.signal });
+    if (tool === "devflow_agent_request") return toolResult(tool, cwd, result, undefined, true);
     return toolResult(tool, cwd, result, await pendingAgentRequest(result, cwd, context));
   };
 
@@ -216,7 +236,8 @@ export function devflowTools(options: DevflowToolsOptions): McpTool[] {
       cwd,
       signal: context.signal,
     });
-    return parseObject(shown.stdout);
+    const request = parseObject(shown.stdout);
+    return request === undefined ? undefined : embeddable(request);
   };
   const withProvider = (args: Parameters<typeof modelArgs>[0]) =>
     modelArgs({
@@ -619,8 +640,13 @@ function toolResult(
   workspaceRoot: string,
   result: CommandResult,
   agentRequest?: Record<string, unknown>,
+  isAgentRequest = false,
 ): ToolResult {
-  const outcome = parseObject(result.stdout);
+  const parsed = parseObject(result.stdout);
+  const outcome =
+    isAgentRequest && parsed !== undefined && parsed.error === undefined
+      ? embeddable(parsed)
+      : parsed;
   if (outcome === undefined) {
     const message = (result.stderr.trim() || result.stdout.trim() || "no output").slice(0, 4000);
     return failure(
@@ -669,6 +695,7 @@ function render(summary: string, nextSteps: readonly string[], structured: unkno
         ]),
     "",
     "Result (JSON):",
-    JSON.stringify(structured, null, 2),
+    // Compact: clients cap the size of a tool result, and the JSON is also in structuredContent.
+    JSON.stringify(structured),
   ].join("\n");
 }

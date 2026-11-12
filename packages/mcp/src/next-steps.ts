@@ -65,7 +65,7 @@ function taskGuidance(outcome: JsonObject): Guidance {
     return {
       summary: `${file} is valid (${String(warnings)} warning(s)).`,
       nextSteps: [
-        "Analyse or plan it with devflow_analyze or devflow_plan (they need a model provider).",
+        "Analyse or plan it with devflow_analyze or devflow_plan, or implement it test-first with devflow_implement.",
       ],
     };
   }
@@ -190,7 +190,7 @@ function runGuidance(outcome: JsonObject): Guidance {
     case "waiting":
       steps.push(...waitingSteps(id, outcome));
       steps.push(
-        `Check the run again with devflow_status (run "${id}") after the developer acted.`,
+        `After the developer acted, continue this run with devflow_status (run "${id}"): it shows what the run waits for next. Do not start the task again.`,
       );
       break;
     case "interrupted":

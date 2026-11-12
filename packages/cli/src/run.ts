@@ -1,7 +1,7 @@
 import type { ExecutionBackendKind } from "@devflow/core";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { contractsDiffCommand, contractsImpactCommand } from "./commands/contracts.js";
-import { initCommand } from "./commands/init.js";
+import { INIT_PROVIDERS, type InitProvider, initCommand } from "./commands/init.js";
 import { mcpCommand } from "./commands/mcp.js";
 import { pluginsAddCommand, pluginsListCommand, pluginsRemoveCommand } from "./commands/plugins.js";
 import { prCreateCommand } from "./commands/pr.js";
@@ -231,9 +231,17 @@ export async function runCli(args: readonly string[], io: CliIo): Promise<ExitCo
   program
     .command("init")
     .description("write .devflow/config.yaml and a rules template, and ignore .devflow/runs/")
+    .addOption(
+      new Option(
+        "--provider <name>",
+        "ai.provider to write: anthropic, openai, or agent (the coding agent answers, no API key)",
+      )
+        .choices([...INIT_PROVIDERS])
+        .default("anthropic"),
+    )
     .option("--json", "print a machine-readable result")
-    .action(async (options: { json?: boolean }) => {
-      exitCode = await initCommand({ json: options.json === true }, io);
+    .action(async (options: { json?: boolean; provider: InitProvider }) => {
+      exitCode = await initCommand({ json: options.json === true, provider: options.provider }, io);
     });
 
   for (const goal of ["analyze", "plan"] as const) {

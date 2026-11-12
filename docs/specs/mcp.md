@@ -159,6 +159,12 @@ A run in agent mode stops at each model request with `AGENT_INPUT_REQUIRED` (sta
 }
 ```
 
+Every request is also saved as plain text, `promptFile` (`.devflow/agent/<id>.prompt.md`). A
+request whose JSON is longer than 24,000 characters is not embedded, since clients cap the size of a
+tool result: `agentRequest` then has `embedded: false`, `promptFile` and `promptChars`, and
+the agent reads the file (in parts if needed). The text content of every result carries
+compact JSON.
+
 The agent answers with `devflow_agent_respond` (`run`, `requestId`, `answer`). The result is
 the run's next state: another `agentRequest`, a wait for the developer (an approval, a
 clarification), or the end of the run. An answer that does not match the schema is followed
@@ -259,8 +265,9 @@ runs. The server exits when stdin closes.
   process and runs `initialize`, `tools/list` and `tools/call devflow_task_validate` over
   real stdio (`tests/e2e/mcp-stdio.test.ts`).
 
-**Not validated:** the server has not been connected to a real MCP client (no coding agent,
-IDE or inspector), and no real model was called through it. Agent mode has not been used by a
-real coding agent. Client-specific behaviour
+- A real Claude Code session (headless, 2026-11-12) implemented a task in a small JavaScript project through `devflow mcp`: analysis, plan, tests, red run, change, green run, verdict verified, no API key, with the developer's approvals in a terminal.
+
+**Not validated:** no other MCP client (Codex, an IDE, an inspector) has been connected, and
+no API model was called through the server. Client-specific behaviour
 (timeouts, how a client starts the command on Windows, how it shows `structuredContent`) is
 untested.

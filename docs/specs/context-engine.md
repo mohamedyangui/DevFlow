@@ -28,7 +28,8 @@ sensitive content to a model, and explain every selection.
 6. **Rank** with BM25 plus structural boosts ([ADR 0008](../adr/0008-lexical-ranking.md)).
    Every selected file carries its reasons.
 7. **Pack** to the step's budget: top files in full, the next tier as outlines, the rest of the
-   module as a path list.
+   module as a path list. Generated files (lockfiles, `*.generated.*`, generated sources) are
+   listed by path only, never included in full or as outlines.
 
 The model can request more through read-only tools (`read_file`, `search_text`, `list_files`,
 `get_outline`), each routed through the path guard and redaction and capped per step.

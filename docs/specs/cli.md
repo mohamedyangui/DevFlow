@@ -259,7 +259,7 @@ hexadecimal characters).
 ### Assist and test workflows
 
 ```text
-devflow init [--json]
+devflow init [--provider anthropic|openai|agent] [--json]
 devflow analyze <task source> [model options]
 devflow plan    <task source> [model options]
 devflow test    <task source> [model options] [--allow <fingerprint> ...] [--backend local|container]
@@ -649,7 +649,9 @@ code 3) and the output names the next commands.
 
 - `show` prints the request the run waits for: instructions, system prompt, messages and the
   JSON schema of a structured answer. With `--json`: `runId`, `state`, `requestId`,
-  `instructions`, `system`, `messages`, `format` and `jsonSchema`.
+  `instructions`, `system`, `messages`, `format`, `jsonSchema`, `promptFile` (the same prompt
+  as plain text, `.devflow/agent/<id>.prompt.md`) and `promptChars`.
+- `devflow init --provider agent` writes `ai.provider: agent`, with no model to set.
 - `answer` saves the answer to that request and resumes the run, which continues until it
   needs another answer, waits for a person or finishes. It refuses (`AGENT_ANSWER_INVALID`,
   exit 2) another request id, both or neither of `--file` and `--text`, an empty answer, an

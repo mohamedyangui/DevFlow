@@ -80,7 +80,7 @@ describe("devflow mcp over stdio (built executable)", { timeout: 30_000 }, () =>
     expect(result.isError).toBe(false);
     const text = String((result.content as Json[])[0]?.text);
     expect(text).toContain("is valid");
-    expect(text).toContain('"valid": true');
+    expect(text).toContain('"valid":true');
     // 2025-03-26 has no structuredContent; the text carries the JSON.
     expect(result.structuredContent).toBeUndefined();
 

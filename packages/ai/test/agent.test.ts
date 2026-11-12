@@ -5,14 +5,17 @@ import { DevflowError, ErrorCode, type LlmRequest, SecretRedactor } from "@devfl
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
+  AGENT_INSTRUCTIONS,
   AGENT_MODEL,
   AgentProvider,
   BudgetTracker,
   LlmGateway,
   MAX_AGENT_ANSWER_CHARS,
+  agentPromptFile,
   agentRequestIdIn,
   createProvider,
   readAgentRequest,
+  renderAgentPrompt,
   requestFingerprint,
   writeAgentAnswer,
 } from "../src/index.js";
@@ -57,13 +60,31 @@ describe("AgentProvider (ADR 0027)", () => {
     expect(error.code).toBe(ErrorCode.AgentInputRequired);
     expect(agentRequestIdIn(error.message)).toBe(id);
     expect(error.details).toEqual({ requestId: id, format: "analysis" });
-    expect(await readdir(dir)).toEqual([`${id}.request.json`]);
+    expect((await readdir(dir)).sort()).toEqual([`${id}.prompt.md`, `${id}.request.json`]);
     expect(await readAgentRequest(dir, id)).toEqual({
       schemaVersion: 1,
       id,
       createdAt: "2026-11-12T10:00:00.000Z",
       request: sent,
     });
+  });
+
+  it("writes the prompt as plain text too, for agents that read it in parts", async () => {
+    const dir = await directory();
+    const sent = request();
+    await waitingError(
+      new AgentProvider({ directory: dir }).generate(sent, new AbortController().signal),
+    );
+    const id = requestFingerprint(sent);
+    const prompt = await readFile(agentPromptFile(dir, id), "utf8");
+    expect(prompt).toContain(`# DevFlow model request ${id}`);
+    expect(prompt).toContain(AGENT_INSTRUCTIONS);
+    expect(prompt).toContain("## System\n\nYou analyse requirements.");
+    expect(prompt).toContain("## user\n\nAnalyse TASK-1.");
+    expect(prompt).toContain("## JSON schema (analysis)");
+    const saved = await readAgentRequest(dir, id);
+    if (saved === undefined) throw new Error("not saved");
+    expect(prompt).toBe(renderAgentPrompt(saved));
   });
 
   it("serves a stored answer, marked stored, with no tokens", async () => {
@@ -148,7 +169,7 @@ describe("writeAgentAnswer", () => {
     expect(await invalid(writeAgentAnswer(dir, id, "Sure! Here it is: {"))).toContain(
       "must be JSON matching the analysis schema",
     );
-    expect(await readdir(dir)).toEqual([`${id}.request.json`]);
+    expect((await readdir(dir)).sort()).toEqual([`${id}.prompt.md`, `${id}.request.json`]);
   });
 
   it("refuses a saved request that was tampered with", async () => {
