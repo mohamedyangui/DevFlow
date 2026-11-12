@@ -425,6 +425,8 @@ export function renderReportMarkdown(
     lastError?: RunRecord["lastError"];
     planApproval?: { by: string; at: string } | undefined;
     testsApproval?: { by: string; at: string } | undefined;
+    /** Implement mode: the person who approved the code change that was verified. */
+    changeApproval?: { by: string; at: string } | undefined;
     evidence?: readonly EvidenceEntry[] | undefined;
   } = {},
 ): string {
@@ -468,6 +470,11 @@ export function renderReportMarkdown(
   if (extra.testsApproval !== undefined) {
     lines.push(
       `- **Tests approved by:** ${escapeInline(extra.testsApproval.by)} at ${extra.testsApproval.at}`,
+    );
+  }
+  if (extra.changeApproval !== undefined) {
+    lines.push(
+      `- **Change approved by:** ${escapeInline(extra.changeApproval.by)} at ${extra.changeApproval.at}`,
     );
   }
   if (extra.lastError !== undefined && extra.lastError !== null) {
@@ -939,9 +946,13 @@ function section(lines: string[], title: string, items: readonly string[]): void
   lines.push("");
 }
 
-/** Model text is rendered as text: HTML is neutralized so a report viewer cannot run it. */
+/**
+ * Model text is rendered as text: HTML is neutralized so a report viewer cannot run it. Only a
+ * `<` that can open a tag, a comment or a declaration is escaped, so arrows and comparisons in
+ * code (`=>`, `a > b`, `a < b`) stay readable.
+ */
 function escapeHtml(text: string): string {
-  return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text.replace(/<(?=[A-Za-z/!?])/g, "&lt;");
 }
 
 function escapeInline(text: string): string {

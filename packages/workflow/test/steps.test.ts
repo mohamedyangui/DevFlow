@@ -506,7 +506,7 @@ describe("report", () => {
     );
     expect(markdown).toContain("- EC-2: Page 2 of 25. Covered by AC-1.");
     expect(markdown).toContain(
-      "- CT-1 between FR-1, AC-1: Sizes &lt;differ&gt;. Resolved by the answer to Q-1: Any size.",
+      "- CT-1 between FR-1, AC-1: Sizes &lt;differ>. Resolved by the answer to Q-1: Any size.",
     );
     expect(markdown).toContain("Unresolved: question Q-2 is not answered.");
     expect(markdown).toContain("- DEP-1 data: Order history.");
@@ -535,6 +535,7 @@ describe("report", () => {
       checks,
     });
     expect(markdown).not.toContain("<script>");
-    expect(markdown).toContain("&lt;script&gt;");
+    expect(markdown).toContain("&lt;script>");
+    expect(markdown).not.toContain("<script");
   });
 });

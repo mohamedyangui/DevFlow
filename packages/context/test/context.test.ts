@@ -362,6 +362,24 @@ describe("buildContext", () => {
     expect(small.files.some((file) => file.mode === "full")).toBe(true);
   });
 
+  it("lists generated files such as lockfiles, never includes their content", async () => {
+    const root = await workspace({
+      "package.json": '{ "name": "shop", "type": "module" }\n',
+      "src/orders.js": "export function listOrders(page, size) { return []; }\n",
+      "pnpm-lock.yaml": `lockfileVersion: '9.0'\n${"  page-size-orders: 1.0.0 optional\n".repeat(400)}`,
+    });
+    const pack = await buildContext({
+      guard: await PathGuard.create(root),
+      task: task(),
+      redactor: new SecretRedactor(),
+      trusted: true,
+    });
+    const lock = pack.files.find((file) => file.path === "pnpm-lock.yaml");
+    expect(lock).toMatchObject({ mode: "listed", role: "generated", tokens: 0 });
+    expect(lock).not.toHaveProperty("content");
+    expect(pack.files.find((file) => file.path === "src/orders.js")?.mode).toBe("full");
+  });
+
   it("loads instructions in precedence order, nearest AGENTS.md first", async () => {
     const pack = await buildContext({
       guard,

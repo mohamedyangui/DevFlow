@@ -63,8 +63,13 @@ policy, red and green runs, the deterministic review checks, and the developer's
 - An answer cannot be checked to come from a model: a person can answer as well. The audit
   log records the provider `agent` and the user of the command (`<user> (via MCP)`).
 - Tested end to end with a scripted model playing the agent, in implement mode (plan, tests,
-  red, change, green, verified) and through `devflow mcp` (analysis and plan). Not yet tested
-  with a real coding agent.
+  red, change, green, verified) and through `devflow mcp` (analysis and plan). A real coding-agent session (an MCP client, headless, 2026-11-12) implemented a task in a small JavaScript project through `devflow mcp`: analysis, plan, tests, red run, change, green run, verdict verified, no API key, with the developer's approvals in a terminal.
+  That session found three problems, fixed since: tool results over the client's size limit
+  (a request is now replaced by its prompt file, `<id>.prompt.md`, when its JSON exceeds
+  24,000 characters, and the text content carries compact JSON), lockfiles included in the
+  prompt (generated files are now listed only), and a second run started by the agent to
+  "resume" (the guidance and the tool descriptions now say to continue with
+  `devflow_status`). Codex has not been tried.
 
 ## Alternatives considered
 

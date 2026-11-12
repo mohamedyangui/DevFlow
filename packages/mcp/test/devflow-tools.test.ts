@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   type CommandResult,
   DEVFLOW_TOOL_NAMES,
+  MAX_EMBEDDED_REQUEST_CHARS,
   McpServer,
   devflowTools,
   guidanceFor,
@@ -369,6 +370,51 @@ describe("agent mode (ADR 0027)", () => {
       'devflow_agent_respond (run "R-1"',
     );
     expect(calls.map((recorded) => recorded.args[0])).toEqual(["plan", "agent"]);
+  });
+
+  it("replaces a request too large for a tool result by its prompt file", async () => {
+    const large = {
+      ...SHOWN,
+      messages: [{ role: "user", content: "x".repeat(MAX_EMBEDDED_REQUEST_CHARS) }],
+      format: "analysis",
+      jsonSchema: { type: "object" },
+      promptFile: "/abs/.devflow/agent/id.prompt.md",
+      promptChars: 30_000,
+    };
+    const { call } = await harness((args) => (args[0] === "agent" ? ok(large) : ok(WAITING, 3)));
+    for (const response of [
+      await call("devflow_plan", { task: "tasks/T.yaml" }),
+      await call("devflow_agent_request", { run: "R-1" }),
+    ]) {
+      const result = response.result as Json;
+      const structuredContent = result.structuredContent as Json;
+      const embedded = (structuredContent.agentRequest ?? structuredContent.result) as Json;
+      expect(embedded).toMatchObject({
+        requestId: REQUEST_ID,
+        embedded: false,
+        promptFile: "/abs/.devflow/agent/id.prompt.md",
+        format: "analysis",
+      });
+      expect(embedded).not.toHaveProperty("messages");
+      expect(embedded).not.toHaveProperty("system");
+      expect(String((result.content as Json[])[0]?.text).length).toBeLessThan(10_000);
+    }
+  });
+
+  it("tells the agent to continue a waiting run with devflow_status, never to start it again", async () => {
+    const waiting = guidanceFor("devflow_implement", {
+      runId: "R-1",
+      status: "waiting",
+      waitingFor: "plan-approval",
+      state: "AWAITING_PLAN_APPROVAL",
+    });
+    expect(waiting.nextSteps.join("\n")).toContain(
+      'continue this run with devflow_status (run "R-1")',
+    );
+    expect(waiting.nextSteps.join("\n")).toContain("Do not start the task again");
+    const { list } = await harness();
+    const implement = (await list()).find((tool) => tool.name === "devflow_implement");
+    expect(implement?.description).toContain("never this tool again");
   });
 
   it("embeds nothing for a run that waits for the developer", async () => {

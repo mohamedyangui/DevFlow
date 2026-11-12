@@ -347,9 +347,10 @@ Code:
 claude mcp add devflow -- node /absolute/path/to/DevFlow/packages/cli/dist/bin.js mcp
 ```
 
-Codex, other clients, a `.mcp.json` example, Windows paths and what is not validated yet (no
-real MCP client or coding agent has been connected) are in the
-[MCP specification](docs/specs/mcp.md).
+Codex, other clients, a `.mcp.json` example, Windows paths and what is validated (a real
+Claude Code session implemented a task this way; Codex has not been tried) are in the
+[MCP specification](docs/specs/mcp.md). `devflow init --provider agent` writes a configuration
+for agent mode.
 
 ## Security model
 
