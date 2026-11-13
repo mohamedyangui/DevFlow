@@ -2,7 +2,7 @@
 
 - **Status:** Accepted, 2026-11-06 (decision D6). Phase 1 defines the `workflow.git`
   configuration schema. Phase 4 implements the branch isolation: the clean-tree check, the
-  dedicated branch and the commits per phase (`GitClient` in `@devflow/core`, used by test and
+  dedicated branch and the commits per phase (`GitClient` in `@devflowai/core`, used by test and
   implement mode). Worktree isolation is not implemented; a run configured for it does not
   start (`GIT_ISOLATION_UNSUPPORTED`).
 - **Deciders:** Mohamed Yangui

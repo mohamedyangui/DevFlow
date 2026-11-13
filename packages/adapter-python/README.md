@@ -1,19 +1,19 @@
-# @devflow/adapter-python
+# @devflowai/adapter-python
 
 The Python language adapter: it recognizes uv, Poetry, Pipenv, pip and plain Python projects,
 describes what they use with evidence, lists their tests, provides the commands that test,
 lint and type-check them, and reads the output and reports those commands write. It
-implements the `LanguageAdapter` port of `@devflow/core`
+implements the `LanguageAdapter` port of `@devflowai/core`
 ([docs/specs/language-adapter.md](../../docs/specs/language-adapter.md), section 11).
 
 The adapter only reads files through `RepositoryView` and returns data. It never imports,
 runs or installs anything to learn about a project: `pyproject.toml` is parsed as TOML,
 `setup.cfg`, `tox.ini` and `mypy.ini` as INI, and `setup.py` and requirements files are read
 as text. ESLint forbids it from importing `node:child_process`, `node:fs` or network modules.
-Its dependencies are `@devflow/core` and `fast-xml-parser` (for pytest's JUnit XML).
+Its dependencies are `@devflowai/core` and `fast-xml-parser` (for pytest's JUnit XML).
 
 ```ts
-import { pythonAdapter } from "@devflow/adapter-python";
+import { pythonAdapter } from "@devflowai/adapter-python";
 registry.register(pythonAdapter);
 ```
 

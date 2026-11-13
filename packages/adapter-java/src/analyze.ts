@@ -10,7 +10,7 @@ import {
   type ModuleCandidate,
   type ModuleProfile,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { ADAPTER_ID, loadBuildModel } from "./build.js";
 import { matches, type BuildModel, type Declaration } from "./model.js";
 import { baseName, unique } from "./paths.js";

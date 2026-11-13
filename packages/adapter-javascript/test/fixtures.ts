@@ -1,4 +1,4 @@
-import { MemoryRepository } from "@devflow/core/testing";
+import { MemoryRepository } from "@devflowai/core/testing";
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 

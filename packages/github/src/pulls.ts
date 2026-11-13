@@ -1,4 +1,4 @@
-import { DevflowError, ErrorCode } from "@devflow/core";
+import { DevflowError, ErrorCode } from "@devflowai/core";
 import { z } from "zod";
 import { type GitHubClient, apiPath } from "./client.js";
 import { type GitHubRepository, isRepository, repositoryLabel } from "./repository.js";

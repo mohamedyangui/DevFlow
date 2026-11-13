@@ -15,16 +15,16 @@
 
 ## 1. Current state of the repository
 
-| Item                  | Finding                                                                     | Consequence                                                                                                                             |
-| --------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `D:\DevFlow`          | Empty, not a git repository                                                 | Greenfield project. Nothing to preserve or migrate.                                                                                     |
-| Node.js / npm / pnpm  | v22.12.0 / 11.19.1 / 10.34.1                                                | Baseline is Node 22 LTS with pnpm workspaces.                                                                                           |
-| git                   | 2.54                                                                        | File discovery and branch isolation can use git.                                                                                        |
-| Java                  | OpenJDK 21.0.12                                                             | The Java adapter can be tested on this machine...                                                                                       |
-| Maven / Gradle        | **Not installed**                                                           | ...but builds need wrappers, which download Maven or Gradle on first use, or Docker images (decision D5).                               |
-| Docker                | 29.9.2                                                                      | Can supply the Java toolchain now and the container sandbox later.                                                                      |
-| yarn, gh, protoc, buf | Not installed                                                               | yarn execution is tested in CI only. GitHub is called through its REST API, so `gh` isn't needed. Proto tooling is deferred to Phase 6. |
-| npm names             | `devflow` and `devflow-ai` are taken. No `@devflow/*` package is published. | The npm scope has to be claimed before the first publish (decision D3).                                                                 |
+| Item                  | Finding                                                                       | Consequence                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `D:\DevFlow`          | Empty, not a git repository                                                   | Greenfield project. Nothing to preserve or migrate.                                                                                     |
+| Node.js / npm / pnpm  | v22.12.0 / 11.19.1 / 10.34.1                                                  | Baseline is Node 22 LTS with pnpm workspaces.                                                                                           |
+| git                   | 2.54                                                                          | File discovery and branch isolation can use git.                                                                                        |
+| Java                  | OpenJDK 21.0.12                                                               | The Java adapter can be tested on this machine...                                                                                       |
+| Maven / Gradle        | **Not installed**                                                             | ...but builds need wrappers, which download Maven or Gradle on first use, or Docker images (decision D5).                               |
+| Docker                | 29.9.2                                                                        | Can supply the Java toolchain now and the container sandbox later.                                                                      |
+| yarn, gh, protoc, buf | Not installed                                                                 | yarn execution is tested in CI only. GitHub is called through its REST API, so `gh` isn't needed. Proto tooling is deferred to Phase 6. |
+| npm names             | `devflow` and `devflow-ai` are taken. No `@devflowai/*` package is published. | The npm scope has to be claimed before the first publish (decision D3).                                                                 |
 
 ---
 
@@ -51,13 +51,13 @@ This has three structural consequences. They don't depend on prompt wording:
 ```mermaid
 flowchart TB
   subgraph IF["Interfaces"]
-    CLI["@devflow/cli<br/>devflow command"]
-    SDK["Programmatic SDK<br/>(exported by @devflow/workflow)"]
+    CLI["@devflowai/cli<br/>devflow command"]
+    SDK["Programmatic SDK<br/>(exported by @devflowai/workflow)"]
     GHA["GitHub Action<br/>(Phase 5)"]
     IDE["IDE extension<br/>(future)"]
   end
 
-  subgraph WF["@devflow/workflow"]
+  subgraph WF["@devflowai/workflow"]
     ORCH["Orchestrator<br/>typed state machine"]
     STEPS["Steps<br/>Analyze · Plan · TestDesign · Implement · Verify · Review"]
     PROMPTS["Versioned prompt templates"]
@@ -66,15 +66,15 @@ flowchart TB
   end
 
   subgraph INT["Intelligence"]
-    CTX["@devflow/context<br/>discovery · instructions · ranking · packing"]
-    AI["@devflow/ai<br/>LLM gateway · Anthropic · OpenAI · Fake/Replay"]
-    AJ["@devflow/adapter-java<br/>Maven · Gradle · JUnit 5"]
-    AJS["@devflow/adapter-javascript<br/>npm · pnpm · yarn · Jest · Vitest"]
-    CON["@devflow/contracts<br/>OpenAPI · Protobuf (Phase 6)"]
-    GH["@devflow/github<br/>issues · PRs · checks (Phase 5)"]
+    CTX["@devflowai/context<br/>discovery · instructions · ranking · packing"]
+    AI["@devflowai/ai<br/>LLM gateway · Anthropic · OpenAI · Fake/Replay"]
+    AJ["@devflowai/adapter-java<br/>Maven · Gradle · JUnit 5"]
+    AJS["@devflowai/adapter-javascript<br/>npm · pnpm · yarn · Jest · Vitest"]
+    CON["@devflowai/contracts<br/>OpenAPI · Protobuf (Phase 6)"]
+    GH["@devflowai/github<br/>issues · PRs · checks (Phase 5)"]
   end
 
-  subgraph CORE["@devflow/core (no internal dependencies)"]
+  subgraph CORE["@devflowai/core (no internal dependencies)"]
     SCH["Zod schemas<br/>task · plan · results · findings · report"]
     PORTS["Ports<br/>LanguageAdapter · LlmProvider · IssueSource · RunStore"]
     POL["Security policy<br/>PathGuard · CommandPolicy · TrustStore · Redactor"]
@@ -156,20 +156,20 @@ An early sketch had 12 or more packages, roughly one per engine. This design use
 - the LLM SDKs are heavy and optional;
 - the CLI is a composition root.
 
-The engines (analysis, planning, test design, implementation, verification, review, reporting) share one lifecycle and the same types, so they live together in `@devflow/workflow`.
+The engines (analysis, planning, test design, implementation, verification, review, reporting) share one lifecycle and the same types, so they live together in `@devflowai/workflow`.
 
 ```
 devflow-ai/                         (D:\DevFlow)
 ├── packages/
-│   ├── core/                 @devflow/core              schemas, ports, security policy, executor, audit, errors
-│   ├── context/              @devflow/context           discovery, classification, instructions, ranking, packing, git
-│   ├── ai/                   @devflow/ai                LLM gateway, Anthropic, OpenAI, Fake and Replay providers
-│   ├── adapter-java/         @devflow/adapter-java      Maven, Gradle, Spring Boot, JUnit 5, Mockito, Checkstyle, SpotBugs
-│   ├── adapter-javascript/   @devflow/adapter-javascript npm, pnpm, yarn, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc
-│   ├── workflow/             @devflow/workflow          orchestrator, steps, prompts, run store, reporting, SDK entry point
-│   ├── cli/                  @devflow/cli               `devflow` binary
-│   ├── github/               @devflow/github            (Phase 5)
-│   └── contracts/            @devflow/contracts         (Phase 6)
+│   ├── core/                 @devflowai/core              schemas, ports, security policy, executor, audit, errors
+│   ├── context/              @devflowai/context           discovery, classification, instructions, ranking, packing, git
+│   ├── ai/                   @devflowai/ai                LLM gateway, Anthropic, OpenAI, Fake and Replay providers
+│   ├── adapter-java/         @devflowai/adapter-java      Maven, Gradle, Spring Boot, JUnit 5, Mockito, Checkstyle, SpotBugs
+│   ├── adapter-javascript/   @devflowai/adapter-javascript npm, pnpm, yarn, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc
+│   ├── workflow/             @devflowai/workflow          orchestrator, steps, prompts, run store, reporting, SDK entry point
+│   ├── cli/                  @devflowai/cli               `devflow` binary
+│   ├── github/               @devflowai/github            (Phase 5)
+│   └── contracts/            @devflowai/contracts         (Phase 6)
 ├── templates/                rule packs and task templates used by `devflow init`
 │   ├── spring-boot/  ├── nestjs/  ├── express/  └── react/
 ├── examples/
@@ -306,7 +306,7 @@ So the analysis step can't write files, and the planning step can't run commands
 
 ## 5. Core schemas and interfaces (sketches)
 
-All of these are Zod schemas in `@devflow/core`. TypeScript types are inferred from them. JSON Schema is generated from them for editor support and for LLM wire formats.
+All of these are Zod schemas in `@devflowai/core`. TypeScript types are inferred from them. JSON Schema is generated from them for editor support and for LLM wire formats.
 
 ### 5.1 Engineering Task Contract
 
@@ -663,7 +663,7 @@ interface TestRunnerStrategy  { id: string; detect(profile, repo): Promise<Evide
 interface QualityToolStrategy { id: string; detect(profile, repo): Promise<Evidence | null>; command?(...): CommandSpec; parse(exec, repo): Promise<Diagnostic[]>; }
 ```
 
-`@devflow/core/testing` ships an **adapter conformance kit**: a shared test suite that every adapter must pass, including any future Python, Go or .NET adapter.
+`@devflowai/core/testing` ships an **adapter conformance kit**: a shared test suite that every adapter must pass, including any future Python, Go or .NET adapter.
 
 ### 8.3 Java adapter (MVP)
 
@@ -1014,7 +1014,7 @@ Each phase ends with a report covering:
    - Prettier and a Vitest workspace;
    - root scripts `build`, `typecheck`, `lint`, `format:check` and `test`.
 3. Package skeletons for `core`, `context`, `ai`, `adapter-java`, `adapter-javascript`, `workflow` and `cli`, with tests that check package boundaries.
-4. `@devflow/core` schemas: `TaskFile` with its normalizer to `TaskContract`, `ProjectConfig`, `ModuleProfile`, `CommandSpec`, `ExecutionRecord`, `GateResult`, `Finding`, `ImplementationPlan` and `EngineeringReport`. Also the `DevflowError` model with stable codes, and the port interfaces.
+4. `@devflowai/core` schemas: `TaskFile` with its normalizer to `TaskContract`, `ProjectConfig`, `ModuleProfile`, `CommandSpec`, `ExecutionRecord`, `GateResult`, `Finding`, `ImplementationPlan` and `EngineeringReport`. Also the `DevflowError` model with stable codes, and the port interfaces.
 5. A task loader for YAML, JSON and Markdown, and deterministic task lint with precise error paths.
 6. JSON Schema generated into `schemas/`. CI checks that it doesn't drift from the Zod definitions.
 7. A minimal CLI: `devflow --version` and `devflow task validate <file>`.
@@ -1110,7 +1110,7 @@ Each decision lists the chosen option and the main alternative that was consider
 | --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | D1  | Package structure                          | 7 MVP packages, plus `github` and `contracts` later (§3)                                                                                                                                                                                                      | A fine-grained layout with one package per engine (12+)                                                                            |
 | D2  | Phase order                                | Move the provider abstraction, Anthropic, Fake and Replay into Phase 2 so `analyze` and `plan` work end to end early. OpenAI stays in Phase 4.                                                                                                                | Keep all AI work in Phase 4. Phase 2 planning would then be exercised only with the Fake provider.                                 |
-| D3  | npm scope                                  | Use `@devflow/*` in code now and confirm or claim the npm org before the first publish (renaming is mechanical). The CLI binary is `devflow` either way.                                                                                                      | `@devflow-ai/*`                                                                                                                    |
+| D3  | npm scope                                  | Use `@devflowai/*` in code now and confirm or claim the npm org before the first publish (renaming is mechanical). The CLI binary is `devflow` either way.                                                                                                    | `@devflowai/*`                                                                                                                     |
 | D4  | License                                    | Apache-2.0, which includes an explicit patent grant and is common for frameworks                                                                                                                                                                              | MIT                                                                                                                                |
 | D5  | Java toolchain for local integration tests | Use the official `maven` and `gradle` Docker images **once** to generate the wrapper scripts for the example repos. The wrappers then download Maven or Gradle and dependencies from Maven Central. This needs network access and roughly 0.5–1 GB of images. | (b) Install Maven and Gradle on the host. (c) Java integration tests run in CI only, and local runs report them as `not_executed`. |
 | D6  | Git isolation                              | A dedicated local `devflow/<task>` branch with local commits per phase (tests, then implementation, then repairs). It never pushes. Worktrees are opt-in.                                                                                                     | Worktree by default                                                                                                                |

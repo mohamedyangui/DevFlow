@@ -1,18 +1,18 @@
-# @devflow/adapter-java
+# @devflowai/adapter-java
 
 The Java language adapter: it recognizes Maven and Gradle builds, describes what they use with
 evidence, lists their tests, provides the commands that build and test them, and reads the
-reports those commands write. It implements the `LanguageAdapter` port of `@devflow/core`
+reports those commands write. It implements the `LanguageAdapter` port of `@devflowai/core`
 ([docs/specs/language-adapter.md](../../docs/specs/language-adapter.md), section 9).
 
 The adapter only reads files through `RepositoryView` and returns data. It never runs a build
 to learn about a project: POMs are parsed as XML, Gradle scripts and version catalogs are read
 as text. ESLint forbids it from importing `node:child_process`, `node:fs` or network modules
-(ADR 0003, ADR 0006). Its only dependency besides `@devflow/core` is `fast-xml-parser`; XML
+(ADR 0003, ADR 0006). Its only dependency besides `@devflowai/core` is `fast-xml-parser`; XML
 with entity declarations is refused, and truncated XML is never read as complete.
 
 ```ts
-import { javaAdapter } from "@devflow/adapter-java";
+import { javaAdapter } from "@devflowai/adapter-java";
 registry.register(javaAdapter);
 ```
 

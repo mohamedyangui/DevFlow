@@ -6,7 +6,7 @@ import {
   type ParamSpec,
   type RepositoryView,
   type ToolchainProbe,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { entry, readIni, readToml } from "./config-files.js";
 import { findVirtualEnv } from "./manifest.js";
 import { pathFrom } from "./paths.js";

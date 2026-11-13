@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * Workflow states and modes. The transition table and orchestrator are implemented in
- * @devflow/workflow (Phase 2); the vocabulary lives here because reports and run records
+ * @devflowai/workflow (Phase 2); the vocabulary lives here because reports and run records
  * reference it.
  */
 export const WorkflowState = z.enum([

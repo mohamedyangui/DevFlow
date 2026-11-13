@@ -6,7 +6,7 @@ import {
   SecretRedactor,
   credentialValuesFromEnv,
   isDevflowError,
-} from "@devflow/core";
+} from "@devflowai/core";
 import {
   type OtlpEndpoint,
   type OtlpSendResult,

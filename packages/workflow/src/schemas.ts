@@ -21,8 +21,8 @@ import {
   TestOutcome,
   WorkflowMode,
   WorkflowState,
-} from "@devflow/core";
-import { ContractDiff } from "@devflow/contracts";
+} from "@devflowai/core";
+import { ContractDiff } from "@devflowai/contracts";
 import { z } from "zod";
 
 /**

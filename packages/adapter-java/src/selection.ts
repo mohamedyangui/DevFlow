@@ -1,4 +1,4 @@
-import type { ModuleProfile, TestToSelect } from "@devflow/core";
+import type { ModuleProfile, TestToSelect } from "@devflowai/core";
 
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const SOURCE_FILE = /^([A-Za-z_$][A-Za-z0-9_$]*)\.(java|kt|groovy)$/;

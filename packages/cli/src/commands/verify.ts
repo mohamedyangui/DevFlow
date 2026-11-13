@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { WorkspaceRepository } from "@devflow/context";
+import { WorkspaceRepository } from "@devflowai/context";
 import {
   AuditLog,
   CommandPolicy,
@@ -27,7 +27,7 @@ import {
   type SnapshotComparison,
   type VerificationRun,
   type WorkspaceModule,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { workspaceAdapters } from "../adapters.js";
 import { ExitCode } from "../exit-codes.js";
 import { colorsFor, type CliIo, type Colors } from "../io.js";

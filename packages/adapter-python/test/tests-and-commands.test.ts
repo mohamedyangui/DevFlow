@@ -1,5 +1,5 @@
-import { hardDenyReason, validatedAdapter, type ModuleProfile } from "@devflow/core";
-import { MemoryRepository, StaticToolchainProbe } from "@devflow/core/testing";
+import { hardDenyReason, validatedAdapter, type ModuleProfile } from "@devflowai/core";
+import { MemoryRepository, StaticToolchainProbe } from "@devflowai/core/testing";
 import { describe, expect, it } from "vitest";
 import { acceptanceMarkers, pythonAdapter } from "../src/index.js";
 import { monorepoRepo, poetryRepo, unittestRepo, uvRepo } from "./fixtures.js";

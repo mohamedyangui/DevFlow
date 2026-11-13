@@ -1,9 +1,9 @@
-import { validatedAdapter, type CommandSpec, type ExecutionRecord } from "@devflow/core";
+import { validatedAdapter, type CommandSpec, type ExecutionRecord } from "@devflowai/core";
 import {
   checkAdapterConformance,
   MemoryRepository,
   StaticToolchainProbe,
-} from "@devflow/core/testing";
+} from "@devflowai/core/testing";
 import { describe, expect, it } from "vitest";
 import {
   acceptanceMarkers,

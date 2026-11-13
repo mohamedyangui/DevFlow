@@ -6,7 +6,7 @@
 
 ## Context
 
-No `@devflow/*` package is published on npm, but an unpublished name does not mean the scope
+No `@devflowai/*` package is published on npm, but an unpublished name does not mean the scope
 is available: the `devflow` organization may exist without public packages, or be claimed
 later. The unscoped names `devflow` and `devflow-ai` are taken. The scope must be verified
 before anything is published, and renaming must stay cheap.
@@ -32,7 +32,8 @@ before anything is published, and renaming must stay cheap.
 
 - Choosing a different scope later is a single command plus a lockfile refresh.
 - Until the release ADR, DevFlow is installed from source. Source releases (a tag and a
-  GitHub release, no npm package) are decided in ADR 0028.
+  GitHub release) are decided in ADR 0028; npm publication, under the scope `@devflowai`,
+  in ADR 0029.
 
 ## Alternatives considered
 

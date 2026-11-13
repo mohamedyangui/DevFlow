@@ -5,7 +5,7 @@ import {
   repoDirname,
   type ModuleCandidate,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { BUILD_FILES, SETTINGS_FILES, loadGradleBuild } from "./gradle.js";
 import { aggregatedPoms, loadMavenBuild, readPom, type Pom } from "./maven.js";
 import type { BuildModel, BuildToolId } from "./model.js";

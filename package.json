@@ -1,6 +1,6 @@
 {
   "name": "devflow-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI: a language-agnostic, evidence-driven AI software engineering workflow framework.",
   "license": "Apache-2.0",
@@ -19,7 +19,7 @@
     "node": ">=22.13.0"
   },
   "devflow": {
-    "npmScope": "@devflow",
+    "npmScope": "@devflowai",
     "packageBoundaries": {
       "core": [],
       "context": [
@@ -68,12 +68,12 @@
     "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
   },
   "devDependencies": {
-    "@devflow/adapter-java": "workspace:*",
-    "@devflow/adapter-javascript": "workspace:*",
-    "@devflow/adapter-python": "workspace:*",
-    "@devflow/cli": "workspace:*",
-    "@devflow/context": "workspace:*",
-    "@devflow/core": "workspace:*",
+    "@devflowai/adapter-java": "workspace:*",
+    "@devflowai/adapter-javascript": "workspace:*",
+    "@devflowai/adapter-python": "workspace:*",
+    "@devflowai/cli": "workspace:*",
+    "@devflowai/context": "workspace:*",
+    "@devflowai/core": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.0",
     "eslint": "^10.14.0",

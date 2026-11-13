@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises"
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FakeProvider } from "@devflow/ai";
-import { GitClient, type LlmRequest } from "@devflow/core";
+import { FakeProvider } from "@devflowai/ai";
+import { GitClient, type LlmRequest } from "@devflowai/core";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type CliIo, ExitCode, runCli } from "../src/index.js";
 

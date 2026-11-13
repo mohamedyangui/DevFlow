@@ -1,8 +1,8 @@
-# @devflow/context
+# @devflowai/context
 
 The engineering context engine: it selects the repository content a workflow step needs,
 within a token budget, without sending sensitive content to a model, and explains every
-selection. It depends only on `@devflow/core`. Specified in
+selection. It depends only on `@devflowai/core`. Specified in
 [docs/specs/context-engine.md](../../docs/specs/context-engine.md).
 
 **Implemented (Phase 2):**
@@ -31,8 +31,8 @@ come from `.devflow/config.yaml` or default to the workspace root), discovery wi
 (`read_file`, `search_text`, `list_files`, `get_outline`) and parser-based outlines (ADR 0009).
 
 ```ts
-import { buildContext } from "@devflow/context";
-import { PathGuard, SecretRedactor } from "@devflow/core";
+import { buildContext } from "@devflowai/context";
+import { PathGuard, SecretRedactor } from "@devflowai/core";
 
 const pack = await buildContext({
   guard: await PathGuard.create(process.cwd()),

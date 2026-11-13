@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { FakeProvider, type FakeReply } from "@devflow/ai";
+import { FakeProvider, type FakeReply } from "@devflowai/ai";
 import {
   EngineeringReport,
   ErrorCode,
@@ -10,7 +10,7 @@ import {
   type VerificationRun,
   type WorkspaceModule,
   readAuditLog,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   RunStore,

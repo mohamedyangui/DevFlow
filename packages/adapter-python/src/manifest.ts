@@ -4,7 +4,7 @@ import {
   readTextIfPresent,
   type Evidence,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflowai/core";
 import {
   readIni,
   readToml,

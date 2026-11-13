@@ -7,7 +7,7 @@ import {
   type WorkflowMode,
   isDevflowError,
   isTerminalState,
-} from "@devflow/core";
+} from "@devflowai/core";
 import {
   type ProgressEvent,
   type RunBudgets,
@@ -36,7 +36,7 @@ import {
   resumeRun,
   startRun,
   traceRedactor,
-} from "@devflow/workflow";
+} from "@devflowai/workflow";
 import {
   AGENT_INSTRUCTIONS,
   agentPromptFile,
@@ -44,13 +44,13 @@ import {
   readAgentRequest,
   renderAgentPrompt,
   writeAgentAnswer,
-} from "@devflow/ai";
+} from "@devflowai/ai";
 import { parse as parseYaml } from "yaml";
 import { ExitCode } from "../exit-codes.js";
 import { type CliIo, type Colors, type Interruption, colorsFor } from "../io.js";
 import { type TaskSourceOptions, resolveTask } from "../task-source.js";
 import { checkCanPublish, githubClient, githubRepository, publishRun } from "../github.js";
-import { type PublishTarget, type Published, getPullRequest } from "@devflow/github";
+import { type PublishTarget, type Published, getPullRequest } from "@devflowai/github";
 import {
   type ServiceOptions,
   type Workspace,

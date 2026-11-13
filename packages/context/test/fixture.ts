@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { TaskContract } from "@devflow/core";
+import { TaskContract } from "@devflowai/core";
 
 /** Writes files (relative path → content) into a fresh temporary workspace. */
 export async function workspace(files: Readonly<Record<string, string | Buffer>>): Promise<string> {

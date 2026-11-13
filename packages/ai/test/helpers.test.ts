@@ -1,4 +1,4 @@
-import { ErrorCode } from "@devflow/core";
+import { ErrorCode } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {

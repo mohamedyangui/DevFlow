@@ -1,7 +1,7 @@
-import { javaAdapter } from "@devflow/adapter-java";
-import { javascriptAdapter } from "@devflow/adapter-javascript";
-import { pythonAdapter } from "@devflow/adapter-python";
-import { AdapterRegistry, loadInstalledPlugins, type LanguageAdapter } from "@devflow/core";
+import { javaAdapter } from "@devflowai/adapter-java";
+import { javascriptAdapter } from "@devflowai/adapter-javascript";
+import { pythonAdapter } from "@devflowai/adapter-python";
+import { AdapterRegistry, loadInstalledPlugins, type LanguageAdapter } from "@devflowai/core";
 
 /** The adapters shipped with DevFlow. They take precedence over plugins with the same id. */
 export const BUILT_IN_ADAPTERS: readonly LanguageAdapter[] = [

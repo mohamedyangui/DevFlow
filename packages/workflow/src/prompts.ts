@@ -1,6 +1,6 @@
-import { UNTRUSTED_CONTENT_RULE, untrustedBlock } from "@devflow/ai";
-import type { ContextPack } from "@devflow/context";
-import type { Finding, GateResult, ImplementationPlan, TaskContract } from "@devflow/core";
+import { UNTRUSTED_CONTENT_RULE, untrustedBlock } from "@devflowai/ai";
+import type { ContextPack } from "@devflowai/context";
+import type { Finding, GateResult, ImplementationPlan, TaskContract } from "@devflowai/core";
 import type {
   ClarificationRecord,
   DesignedTest,

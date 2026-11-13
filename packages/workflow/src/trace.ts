@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
-import { type AuditEntry, type SecretRedactor, readAuditLog } from "@devflow/core";
+import { type AuditEntry, type SecretRedactor, readAuditLog } from "@devflowai/core";
 import { z } from "zod";
 import type { RunStore } from "./run-store.js";
 import type { RunEvent, RunRecord } from "./schemas.js";

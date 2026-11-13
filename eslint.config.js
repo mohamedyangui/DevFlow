@@ -83,7 +83,16 @@ function boundaryConfig(pkg, allowed, options = {}) {
 
 export default defineConfig(
   // The example repositories are projects of their own, with their own tools.
-  globalIgnores(["**/node_modules/", "**/dist/", "coverage/", "schemas/", "examples/"]),
+  globalIgnores([
+    "**/node_modules/",
+    "**/dist/",
+    "dist-npm/",
+    "coverage/",
+    "schemas/",
+    "examples/",
+    // Local agent worktrees: full copies of the repository, never committed.
+    ".claude/",
+  ]),
   {
     files: ["**/*.{ts,js,mjs}"],
     extends: [

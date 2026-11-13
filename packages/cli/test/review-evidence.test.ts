@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { FakeProvider } from "@devflow/ai";
-import type { LlmRequest } from "@devflow/core";
+import { FakeProvider } from "@devflowai/ai";
+import type { LlmRequest } from "@devflowai/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { type CliIo, ExitCode, runCli } from "../src/index.js";
 

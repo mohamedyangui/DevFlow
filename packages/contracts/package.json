@@ -1,6 +1,6 @@
 {
-  "name": "@devflow/contracts",
-  "version": "0.1.0",
+  "name": "@devflowai/contracts",
+  "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI contract compatibility: OpenAPI and Protobuf parsers, built-in breaking-change rules, and optional oasdiff and buf integration.",
   "license": "Apache-2.0",
@@ -20,7 +20,7 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow/core": "workspace:*",
+    "@devflowai/core": "workspace:*",
     "yaml": "^2.9.1",
     "zod": "^4.6.7"
   }

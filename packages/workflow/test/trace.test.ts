@@ -1,5 +1,5 @@
-import { FakeProvider, LlmProviderError } from "@devflow/ai";
-import { AuditLog, SecretRedactor } from "@devflow/core";
+import { FakeProvider, LlmProviderError } from "@devflowai/ai";
+import { AuditLog, SecretRedactor } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   OtlpTraceRequest,

@@ -1,4 +1,4 @@
-# @devflow/workflow
+# @devflowai/workflow
 
 The workflow orchestrator: the typed state machine, the run store, the requirements-analysis and
 planning steps, the deterministic checks of model answers, and the engineering report. The CLI
@@ -6,7 +6,7 @@ and future IDE integrations call the same functions.
 
 **Status: assist mode (Phase 2), test, implement and review mode (Phase 4) are implemented.**
 
-The package may depend on `@devflow/core`, `@devflow/context` and `@devflow/ai`. It never starts
+The package may depend on `@devflowai/core`, `@devflowai/context` and `@devflowai/ai`. It never starts
 processes itself: test mode runs gates through the `testRunner` its caller provides, which
 goes through the command policy. In assist mode it never changes a repository file: it only
 writes its own run directory. In test mode it writes only test files, after deterministic
@@ -69,7 +69,7 @@ diff comes from `services.git` (`GitClient.diff`); review mode writes no file.
 
 ## Git isolation
 
-With `services.git` (a `GitWorkspace`, such as `GitClient` from `@devflow/core`), test and
+With `services.git` (a `GitWorkspace`, such as `GitClient` from `@devflowai/core`), test and
 implement mode need a clean working tree, create the run's branch just before the first write
 (`record.git`), and commit exactly the approved files at each approval
 ([ADR 0012](../../docs/adr/0012-git-isolation.md)). Without it, or outside a repository, the
@@ -102,7 +102,7 @@ continues), `failed` or `cancelled`.
 
 ### Steps
 
-- **Context loading** builds the context pack with `@devflow/context` and stores it.
+- **Context loading** builds the context pack with `@devflowai/context` and stores it.
 - **Requirements analysis** asks the model for a structured analysis. The answer is data: notes
   about unknown requirement ids, files outside the context and repeated questions are dropped,
   and every drop is recorded in the artifact's `checks`. New questions get ids `Q-n` that

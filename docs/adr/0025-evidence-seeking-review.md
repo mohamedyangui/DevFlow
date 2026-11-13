@@ -1,7 +1,7 @@
 # ADR 0025: Evidence-seeking review: model-written probe tests run in a git worktree
 
-- **Status:** Accepted, 2026-11-11. Implemented in Phase 6 in `@devflow/workflow`
-  (`src/probes.ts`, the `evidence-probes` step of review mode), `@devflow/core`
+- **Status:** Accepted, 2026-11-11. Implemented in Phase 6 in `@devflowai/workflow`
+  (`src/probes.ts`, the `evidence-probes` step of review mode), `@devflowai/core`
   (`GitClient.addWorktree`/`removeWorktree`, filtered gates in `runGate`) and the CLI
   (`devflow review --seek-evidence [--max-probes N]`).
 - **Deciders:** Mohamed Yangui

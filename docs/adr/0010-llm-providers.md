@@ -1,7 +1,7 @@
 # ADR 0010: Official provider SDKs behind `LlmProvider`
 
-- **Status:** Accepted, 2026-11-06. The `LlmProvider` port exists in `@devflow/core` (Phase 1).
-  The gateway and the Anthropic, Fake and Replay providers are implemented in `@devflow/ai`
+- **Status:** Accepted, 2026-11-06. The `LlmProvider` port exists in `@devflowai/core` (Phase 1).
+  The gateway and the Anthropic, Fake and Replay providers are implemented in `@devflowai/ai`
   (Phase 2, decision D2), the OpenAI provider and cost tracking in Phase 4.
 - **Deciders:** Mohamed Yangui
 
@@ -20,7 +20,7 @@ workflow deterministically without network access or cost.
 - **`FakeProvider`** returns scripted responses for unit tests.
 - **`ReplayProvider`** records and replays responses keyed by a hash of the request, giving
   deterministic end-to-end tests in CI.
-- A gateway in `@devflow/ai` wraps every provider: redaction, budget checks before the call,
+- A gateway in `@devflowai/ai` wraps every provider: redaction, budget checks before the call,
   audit records, retries with backoff, response validation.
 - API keys come from environment variables only, never from files in the repository.
 - No model id is built in. The model always comes from the command line, the configuration
@@ -73,7 +73,7 @@ workflow deterministically without network access or cost.
 
 ## Consequences
 
-- Swapping or adding a provider touches only `@devflow/ai`.
+- Swapping or adding a provider touches only `@devflowai/ai`.
 - Provider SDK upgrades are isolated and covered by replay tests.
 
 ## Alternatives considered

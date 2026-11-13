@@ -1,5 +1,5 @@
 /**
- * @devflow/github: GitHub integration over the REST API (Phase 5, ADR 0019).
+ * @devflowai/github: GitHub integration over the REST API (Phase 5, ADR 0019).
  *
  * Issues as task sources, pull requests to review, opt-in publishing of reviews, and draft
  * pull requests created only with explicit authorization.

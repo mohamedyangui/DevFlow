@@ -1,0 +1,68 @@
+name: Publish to npm
+
+# Publishes @devflowai/cli when the maintainer pushes a release tag (ADR 0028, ADR 0029).
+# Trusted publishing (OIDC) with provenance: no npm token is stored. The `npm` environment
+# requires the maintainer's approval on GitHub before the job runs, and the staged version is
+# released only when the maintainer approves it on npmjs.com.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @devflowai/cli
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        # pnpm/action-setup v6.1.1 (version comes from "packageManager" in package.json)
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+
+      - name: Set up Node.js
+        # actions/setup-node v7.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Check that the tag matches the version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node -e 'const v = require("./package.json").version; if (process.env.TAG !== `v${v}`) { console.error(`tag ${process.env.TAG} does not match version ${v}`); process.exit(1); }'
+
+      - name: Stage and pack the package
+        run: node scripts/pack-cli.mjs --pack
+
+      - name: Stage the release on npm, with provenance
+        # Staged publishing (npm 11.15.0 or newer): the version is uploaded but not installable
+        # until the maintainer approves it on npmjs.com with 2FA. The trusted publisher allows
+        # `npm stage publish` only, not a direct `npm publish`.
+        working-directory: dist-npm/package
+        run: npx --yes npm@11.21.2 stage publish --access public --provenance

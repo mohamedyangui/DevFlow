@@ -1,6 +1,6 @@
 # ADR 0008: BM25 plus structural ranking, no embeddings
 
-- **Status:** Accepted, 2026-11-06. Implementation in Phase 2 (`@devflow/context`).
+- **Status:** Accepted, 2026-11-06. Implementation in Phase 2 (`@devflowai/context`).
 - **Deciders:** Mohamed Yangui
 
 ## Context

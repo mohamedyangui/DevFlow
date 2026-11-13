@@ -1,4 +1,4 @@
-import { ModuleId, RepoPath, Sha256 } from "@devflow/core";
+import { ModuleId, RepoPath, Sha256 } from "@devflowai/core";
 import { z } from "zod";
 
 /**

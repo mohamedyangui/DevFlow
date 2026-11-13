@@ -1,4 +1,4 @@
-import { createPathMatcher, type SourceImport, type TaskContract } from "@devflow/core";
+import { createPathMatcher, type SourceImport, type TaskContract } from "@devflowai/core";
 import { Bm25Index, tokenize } from "./bm25.js";
 import { importsOf, resolveImports, suffixIndexOf } from "./outline.js";
 import type { ContractSummary, FileRole } from "./schemas.js";

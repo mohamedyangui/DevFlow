@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-npm/
+.claude/
 coverage/
 pnpm-lock.yaml
 package-lock.json

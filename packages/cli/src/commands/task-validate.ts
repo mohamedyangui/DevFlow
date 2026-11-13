@@ -5,7 +5,7 @@ import {
   type LoadedTask,
   type TaskContract,
   type ValidationIssue,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { ExitCode } from "../exit-codes.js";
 import { colorsFor, type CliIo, type Colors } from "../io.js";
 

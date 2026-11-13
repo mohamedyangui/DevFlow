@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Cassette, FakeProvider, type FakeReply, ReplayProvider } from "@devflow/ai";
-import { EngineeringReport, type LlmRequest } from "@devflow/core";
+import { Cassette, FakeProvider, type FakeReply, ReplayProvider } from "@devflowai/ai";
+import { EngineeringReport, type LlmRequest } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import { type CliIo, ExitCode, runCli } from "../src/index.js";
 

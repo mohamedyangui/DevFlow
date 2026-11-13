@@ -1,5 +1,5 @@
 import { readdir, writeFile } from "node:fs/promises";
-import { ErrorCode } from "@devflow/core";
+import { ErrorCode } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { RunId, RunStore } from "../src/index.js";

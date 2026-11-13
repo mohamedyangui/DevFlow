@@ -5,7 +5,7 @@ import {
   ContractImpact,
   type ModuleProfile,
   type SourceImport,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { OpenApiDocument, isObject, operationKey } from "../openapi/document.js";
 import { ProtoParseError, type ProtoFile, parseProto } from "../protobuf/parse.js";
 import type { ContractChange, ContractDiff } from "../schemas.js";

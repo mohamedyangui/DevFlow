@@ -1,4 +1,4 @@
-import { DevflowError, ErrorCode, SecretRedactor } from "@devflow/core";
+import { DevflowError, ErrorCode, SecretRedactor } from "@devflowai/core";
 import type { z } from "zod";
 
 /**

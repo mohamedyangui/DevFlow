@@ -8,7 +8,7 @@ import {
   type Evidence,
   type ModuleCandidate,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { entry, readIni, readToml, tableLine, tomlString } from "./config-files.js";
 import type { ProjectFiles } from "./manifest.js";
 import { baseName, isIgnoredPath, sortPaths } from "./paths.js";

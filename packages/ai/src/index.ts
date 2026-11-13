@@ -1,6 +1,6 @@
 /**
  * The LLM gateway and the provider adapters implementing the `LlmProvider` port of
- * `@devflow/core` (ADR 0010).
+ * `@devflowai/core` (ADR 0010).
  *
  * The gateway (redaction, budgets, retries, timeouts, structured-output validation with one
  * repair, audit, cost from a configured price table), the Anthropic and OpenAI providers, and

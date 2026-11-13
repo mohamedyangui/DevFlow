@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { DevflowError, ErrorCode } from "@devflow/core";
+import { DevflowError, ErrorCode } from "@devflowai/core";
 import type { z } from "zod";
 import { RunEvent, RunId, RunRecord } from "./schemas.js";
 

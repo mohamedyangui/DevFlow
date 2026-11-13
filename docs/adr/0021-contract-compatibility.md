@@ -1,6 +1,6 @@
 # ADR 0021: Contract compatibility: in-house OpenAPI and Protobuf parsers and built-in rules
 
-- **Status:** Accepted, 2026-11-10. Implemented in Phase 6 in `@devflow/contracts`
+- **Status:** Accepted, 2026-11-10. Implemented in Phase 6 in `@devflowai/contracts`
   (`src/openapi/`, `src/protobuf/`, `src/tools.ts`, `src/compare.ts`), used by review mode
   and `devflow contracts diff`.
 - **Deciders:** Mohamed Yangui
@@ -15,7 +15,7 @@ on machines where neither tool is installed, and a model must never decide it.
 
 ## Decision
 
-**A new package, `@devflow/contracts`, depending on `@devflow/core` only.** It adds no npm
+**A new package, `@devflowai/contracts`, depending on `@devflowai/core` only.** It adds no npm
 dependency: it uses `yaml` and `zod`, which the repository already has.
 
 **OpenAPI 3.x.** The document is read with the YAML parser (JSON is YAML 1.2), with line

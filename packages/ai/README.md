@@ -1,8 +1,8 @@
-# @devflow/ai
+# @devflowai/ai
 
 The LLM gateway and the provider adapters that implement the `LlmProvider` port of
-`@devflow/core` ([ADR 0010](../../docs/adr/0010-llm-providers.md)). It depends only on
-`@devflow/core`, `zod` and the official `@anthropic-ai/sdk`.
+`@devflowai/core` ([ADR 0010](../../docs/adr/0010-llm-providers.md)). It depends only on
+`@devflowai/core`, `zod` and the official `@anthropic-ai/sdk`.
 
 **Implemented (Phase 2):**
 
@@ -36,8 +36,8 @@ The LLM gateway and the provider adapters that implement the `LlmProvider` port 
 **Not implemented yet:** the OpenAI provider, the price table and cost budgets (Phase 4).
 
 ```ts
-import { BudgetTracker, LlmGateway, createProvider } from "@devflow/ai";
-import { SecretRedactor } from "@devflow/core";
+import { BudgetTracker, LlmGateway, createProvider } from "@devflowai/ai";
+import { SecretRedactor } from "@devflowai/core";
 import { z } from "zod";
 
 const gateway = new LlmGateway({

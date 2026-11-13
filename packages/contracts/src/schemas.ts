@@ -1,4 +1,4 @@
-import { ContractKind } from "@devflow/core";
+import { ContractKind } from "@devflowai/core";
 import { z } from "zod";
 
 /**

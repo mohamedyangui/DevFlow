@@ -1,6 +1,6 @@
 # ADR 0020: A container execution backend on `docker run`
 
-- **Status:** Accepted, 2026-11-10. Implemented in Phase 6 in `@devflow/core`
+- **Status:** Accepted, 2026-11-10. Implemented in Phase 6 in `@devflowai/core`
   (`src/security/execution-backend.ts`, `executor.ts`, `command-policy.ts`, `fingerprint.ts`)
   and the CLI (`--backend`). Narrows the residual risks of
   [ADR 0007](0007-workspace-trust.md); keeps [ADR 0018](0018-in-house-process-launcher.md).

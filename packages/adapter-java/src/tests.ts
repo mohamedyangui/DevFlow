@@ -10,7 +10,7 @@ import {
   type TestAuthoringGuide,
   type TestInventory,
   type TestLevel,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { baseName } from "./paths.js";
 
 /** Surefire's default includes (unit tests, `mvn test`). */

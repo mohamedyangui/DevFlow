@@ -1,6 +1,6 @@
 # ADR 0019: A small GitHub REST client on Node's `fetch` instead of `@octokit/rest`
 
-- **Status:** Accepted, 2026-11-10. Implemented in Phase 5 in `@devflow/github`
+- **Status:** Accepted, 2026-11-10. Implemented in Phase 5 in `@devflowai/github`
   (`src/client.ts`, `repository.ts`, `issues.ts`, `pulls.ts`, `publish.ts`, `drafts.ts`).
 - **Deciders:** Mohamed Yangui
 
@@ -18,8 +18,8 @@ so the HTTP layer costs nothing.
 
 ## Decision
 
-1. **`@devflow/github` talks to the REST API with the built-in `fetch`.** It has no runtime
-   dependency beyond `@devflow/core` and `zod`. API version `2022-11-28` is requested on every
+1. **`@devflowai/github` talks to the REST API with the built-in `fetch`.** It has no runtime
+   dependency beyond `@devflowai/core` and `zod`. API version `2022-11-28` is requested on every
    call.
 2. **Redirects are not followed** (`redirect: "manual"`, and a 3xx is an error). The token is
    sent only to the configured API origin, which must be `https`.

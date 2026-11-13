@@ -33,7 +33,7 @@ so a release cannot be an npm package yet.
 
 - `devflow --version`, the MCP `serverInfo` and the reports show a real version, so a bug
   report or a report file can be traced to a release.
-- Users build from source; there is no `npm install -g` yet.
+- Users build from source; there is no `npm install -g` yet (added by ADR 0029 in 0.2.0).
 - The tests that compare a version read it from the CLI's `package.json` instead of a literal.
 
 ## Alternatives considered

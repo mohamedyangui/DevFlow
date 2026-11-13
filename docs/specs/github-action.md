@@ -20,7 +20,7 @@ own source, at the commit the workflow pins it to:
 3. Build DevFlow in the action's directory (`$GITHUB_ACTION_PATH`):
    `pnpm install --frozen-lockfile` and `pnpm build`. This step receives no credential.
 4. Run `node $GITHUB_ACTION_PATH/packages/cli/dist/bin.js` (the `devflow` bin of
-   `@devflow/cli`) in `working-directory`, with `DEVFLOW_HOME` in the runner's temporary
+   `@devflowai/cli`) in `working-directory`, with `DEVFLOW_HOME` in the runner's temporary
    directory: trust and approvals last for the job only. With `trust-workspace: "true"`,
    `devflow trust --yes` runs first.
 

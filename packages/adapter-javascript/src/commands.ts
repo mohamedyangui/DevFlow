@@ -8,7 +8,7 @@ import {
   type ModuleProfile,
   type ParamSpec,
   type RepositoryView,
-} from "@devflow/core";
+} from "@devflowai/core";
 import { parseJsonc } from "./jsonc.js";
 import { installedPackage } from "./manifest.js";
 import { pathFrom, resolveRepoPath } from "./paths.js";
