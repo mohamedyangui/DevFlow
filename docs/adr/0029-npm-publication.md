@@ -39,9 +39,12 @@ script, although DevFlow only reads their WebAssembly builds.
   - no type declarations or source maps.
 - **Published from GitHub Actions only,** by `.github/workflows/publish.yml`, when a `vX.Y.Z`
   tag is pushed: build, tests, a check that the tag matches the version, the staged package,
-  then `npm publish` with **provenance** through npm trusted publishing (OIDC). No npm token is
-  stored in the repository. The job runs in the `npm` environment, so the maintainer can require
-  a manual approval on GitHub before anything is published.
+  then `npm stage publish` with **provenance** through npm trusted publishing (OIDC). No npm
+  token is stored in the repository. A release needs two approvals by the maintainer: the job
+  runs in the `npm` environment, which requires an approval on GitHub, and the version it
+  uploads is staged, not installable, until the maintainer approves it on npmjs.com with 2FA.
+  The trusted publisher allows `npm stage publish` only, so the workflow cannot publish a
+  version directly.
 - **The maintainer creates the tag** after merging the release pull request (ADR 0028); nothing
   creates a tag automatically. A local `npm publish` of the staged package is refused, because
   provenance requires the CI environment.
@@ -53,7 +56,9 @@ script, although DevFlow only reads their WebAssembly builds.
 - The internal package names (`@devflowai/core`, ...) appear inside the tarball but cannot be
   installed on their own; using DevFlow as a library is not supported yet.
 - The publish workflow needs one-time setup on npmjs.com (the organization and a trusted
-  publisher for this repository and workflow) and an `npm` environment on GitHub.
+  publisher for this repository and workflow) and an `npm` environment on GitHub. npm accepts
+  a trusted publisher only for a package that exists, so the name was first taken by a
+  placeholder version, `0.0.0-setup.0`, published by hand and then deprecated.
 - A version cannot be published twice: a broken release is fixed with a new patch version.
 
 ## Alternatives considered

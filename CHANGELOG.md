@@ -17,8 +17,9 @@ contain breaking changes. Each release is a git tag and a GitHub release
 - `scripts/pack-cli.mjs` stages the package from the built workspace (`--pack` runs
   `npm pack`).
 - A publish workflow (`.github/workflows/publish.yml`): on a `vX.Y.Z` tag it builds, tests,
-  checks the tag against the version and publishes with provenance through npm trusted
-  publishing, in the `npm` environment. No npm token is stored.
+  checks the tag against the version and stages the release with provenance through npm
+  trusted publishing, in the `npm` environment. The staged version goes live when the
+  maintainer approves it on npmjs.com. No npm token is stored.
 
 ### Changed
 

@@ -42,12 +42,13 @@ describe("npm publish workflow", () => {
     expect((checkout?.with as Node | undefined)?.["persist-credentials"]).toBe(false);
   });
 
-  it("tests, checks the tag against the version and publishes with provenance, without a token", () => {
+  it("tests, checks the tag against the version and stages the release with provenance, without a token", () => {
     const runs = steps.map(runOf);
     expect(runs).toContain("pnpm test");
     expect(runs.some((run) => run.includes("does not match version"))).toBe(true);
     expect(runs).toContain("node scripts/pack-cli.mjs --pack");
     const publish = runs.find((run) => run.includes(" publish "));
+    expect(publish).toContain(" stage publish ");
     expect(publish).toContain("--provenance");
     expect(text).not.toMatch(/NODE_AUTH_TOKEN|NPM_TOKEN|secrets\./);
   });

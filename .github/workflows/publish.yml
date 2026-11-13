@@ -2,7 +2,8 @@ name: Publish to npm
 
 # Publishes @devflowai/cli when the maintainer pushes a release tag (ADR 0028, ADR 0029).
 # Trusted publishing (OIDC) with provenance: no npm token is stored. The `npm` environment
-# lets the maintainer require a manual approval on GitHub before the job runs.
+# requires the maintainer's approval on GitHub before the job runs, and the staged version is
+# released only when the maintainer approves it on npmjs.com.
 
 on:
   push:
@@ -59,6 +60,9 @@ jobs:
       - name: Stage and pack the package
         run: node scripts/pack-cli.mjs --pack
 
-      - name: Publish with provenance
-        # Trusted publishing needs npm 11.5.1 or newer.
-        run: npx --yes npm@11.6.0 publish dist-npm/*.tgz --access public --provenance
+      - name: Stage the release on npm, with provenance
+        # Staged publishing (npm 11.15.0 or newer): the version is uploaded but not installable
+        # until the maintainer approves it on npmjs.com with 2FA. The trusted publisher allows
+        # `npm stage publish` only, not a direct `npm publish`.
+        working-directory: dist-npm/package
+        run: npx --yes npm@11.21.2 stage publish --access public --provenance
