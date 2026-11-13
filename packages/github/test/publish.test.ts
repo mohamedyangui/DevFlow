@@ -1,4 +1,4 @@
-import { EngineeringReport, ErrorCode } from "@devflow-ai/core";
+import { EngineeringReport, ErrorCode } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   COMMENT_MARKER,

@@ -1,5 +1,5 @@
 {
-  "name": "@devflow-ai/context",
+  "name": "@devflowai/context",
   "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI engineering context engine: discovery, classification, contract scanning, ranking and packing.",
@@ -20,7 +20,7 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow-ai/core": "workspace:*",
+    "@devflowai/core": "workspace:*",
     "ignore": "^7.0.14",
     "tree-sitter-java": "0.23.5",
     "tree-sitter-javascript": "0.25.0",

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { canonicalJson } from "@devflow-ai/ai";
+import { canonicalJson } from "@devflowai/ai";
 import {
   type Evidence,
   type Finding,
@@ -14,7 +14,7 @@ import {
   type TestOutcome,
   assessTestEvidence,
   isDevflowError,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import type {
   DesignedTest,
   EvidenceEntry,

@@ -1,8 +1,8 @@
 # ADR 0009: `web-tree-sitter` behind a `SourceParser` port
 
 - **Status:** Accepted, 2026-11-06. Confirmed by the Phase 3 spike, 2026-11-08 (below). The
-  `SourceParser` port is in `@devflow-ai/core` (`ports/source-parser.ts`), its implementation in
-  `@devflow-ai/context` (`source-parser.ts`).
+  `SourceParser` port is in `@devflowai/core` (`ports/source-parser.ts`), its implementation in
+  `@devflowai/context` (`source-parser.ts`).
 - **Deciders:** Mohamed Yangui
 
 ## Context

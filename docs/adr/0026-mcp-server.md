@@ -1,6 +1,6 @@
 # ADR 0026: An in-house MCP server that exposes DevFlow as tools, with approvals kept by the developer
 
-- **Status:** Accepted, 2026-11-11. Implemented in Phase 6 in `@devflow-ai/mcp` and
+- **Status:** Accepted, 2026-11-11. Implemented in Phase 6 in `@devflowai/mcp` and
   `devflow mcp` (`packages/cli/src/commands/mcp.ts`).
 - **Deciders:** Mohamed Yangui
 
@@ -21,7 +21,7 @@ stdio.
 
 ## Decision
 
-1. **The protocol is implemented in-house** in `@devflow-ai/mcp` (dependency: `zod` only; no
+1. **The protocol is implemented in-house** in `@devflowai/mcp` (dependency: `zod` only; no
    workspace dependency). It covers what a tools-only stdio server needs: JSON-RPC 2.0
    messages, newline-delimited on stdin and stdout; `initialize` with version negotiation
    (2025-06-18 and 2025-03-26: the client's version when supported, else the latest);

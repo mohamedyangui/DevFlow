@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { PathGuard, SecretRedactor, type SourceFile, type SourceParser } from "@devflow-ai/core";
+import { PathGuard, SecretRedactor, type SourceFile, type SourceParser } from "@devflowai/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   FallbackSourceParser,

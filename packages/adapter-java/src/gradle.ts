@@ -8,7 +8,7 @@ import {
   repoDirname,
   type Evidence,
   type RepositoryView,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { dedupeLocated, normalizeJavaVersion } from "./maven.js";
 import type { BuildFile, BuildModel, Declaration, Located } from "./model.js";
 import { baseName, resolveRepoPath, unique } from "./paths.js";

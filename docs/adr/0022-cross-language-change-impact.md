@@ -1,6 +1,6 @@
 # ADR 0022: Cross-language change impact: deterministic consumer heuristics
 
-- **Status:** Accepted, 2026-11-11. Implemented in Phase 6 in `@devflow-ai/contracts`
+- **Status:** Accepted, 2026-11-11. Implemented in Phase 6 in `@devflowai/contracts`
   (`src/impact/`), used by review mode and `devflow contracts impact`.
 - **Deciders:** Mohamed Yangui
 
@@ -15,12 +15,12 @@ language, without running anything from the repository, and a model must never d
 
 ## Decision
 
-**Deterministic heuristics over the repository text, in `@devflow-ai/contracts`.**
+**Deterministic heuristics over the repository text, in `@devflowai/contracts`.**
 `findConsumers(change, repo, modules)` returns `ConsumerRef[]`
-(`{ path, line, language, kind, via?, match, confidence }`, a Zod schema in `@devflow-ai/core`);
+(`{ path, line, language, kind, via?, match, confidence }`, a Zod schema in `@devflowai/core`);
 `contractImpact(diffs, repo)` gives one `ContractImpact` per breaking change, with at most 50
-consumers listed and the rest counted. The package still depends on `@devflow-ai/core` only: the
-caller reads the files (`@devflow-ai/workflow` uses context discovery, so ignore files, sensitive
+consumers listed and the rest counted. The package still depends on `@devflowai/core` only: the
+caller reads the files (`@devflowai/workflow` uses context discovery, so ignore files, sensitive
 files and the configured include and exclude globs apply) and passes their text. Comments are
 masked before matching; string literals are kept. No new dependency.
 

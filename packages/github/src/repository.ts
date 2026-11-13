@@ -1,4 +1,4 @@
-import { DevflowError, ErrorCode } from "@devflow-ai/core";
+import { DevflowError, ErrorCode } from "@devflowai/core";
 
 /** A GitHub repository, `owner/name`. */
 export interface GitHubRepository {

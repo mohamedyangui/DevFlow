@@ -7,7 +7,7 @@ import {
   agentRequestIdIn,
   readAgentRequest,
   writeAgentAnswer,
-} from "@devflow-ai/ai";
+} from "@devflowai/ai";
 import {
   DevflowError,
   EngineeringReport,
@@ -22,7 +22,7 @@ import {
   type VerificationRun,
   type WorkspaceModule,
   readAuditLog,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   AfterRun,

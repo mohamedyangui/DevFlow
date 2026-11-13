@@ -1,11 +1,11 @@
-import type { ConsumerRepository, ConsumerSource } from "@devflow-ai/contracts";
-import { discoverFiles, languageOf, readTextForPrompt, roleOf } from "@devflow-ai/context";
-import type { PathGuard, ProjectConfig } from "@devflow-ai/core";
+import type { ConsumerRepository, ConsumerSource } from "@devflowai/contracts";
+import { discoverFiles, languageOf, readTextForPrompt, roleOf } from "@devflowai/context";
+import type { PathGuard, ProjectConfig } from "@devflowai/core";
 
 /**
- * Reads the workspace's source files for the consumer finder of `@devflow-ai/contracts`
- * (ADR 0022). The finder depends on `@devflow-ai/core` only, so the files are read here, where
- * the package boundaries allow `@devflow-ai/context`: its discovery (ignore files, sensitive
+ * Reads the workspace's source files for the consumer finder of `@devflowai/contracts`
+ * (ADR 0022). The finder depends on `@devflowai/core` only, so the files are read here, where
+ * the package boundaries allow `@devflowai/context`: its discovery (ignore files, sensitive
  * files, the configured include and exclude globs), its language and role classification
  * (test files, generated code) and its guarded reader. Nothing is executed.
  */

@@ -1,4 +1,4 @@
-import { checkRepoRelativePath } from "@devflow-ai/core";
+import { checkRepoRelativePath } from "@devflowai/core";
 
 /**
  * Paths that never belong to a Python project of their own: virtual environments, installed

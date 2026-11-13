@@ -1,4 +1,4 @@
-import { ErrorCode } from "@devflow-ai/core";
+import { ErrorCode } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { GitHubClient, apiPath, githubToken } from "../src/index.js";

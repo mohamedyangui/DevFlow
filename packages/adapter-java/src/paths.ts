@@ -1,4 +1,4 @@
-import { checkRepoRelativePath } from "@devflow-ai/core";
+import { checkRepoRelativePath } from "@devflowai/core";
 
 /**
  * Resolves `relative` (which may contain `.` and `..` segments, as `<module>../shared</module>`

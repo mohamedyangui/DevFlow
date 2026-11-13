@@ -1,4 +1,4 @@
-import { DevflowError, type EngineeringReport, ErrorCode, SecretRedactor } from "@devflow-ai/core";
+import { DevflowError, type EngineeringReport, ErrorCode, SecretRedactor } from "@devflowai/core";
 import { z } from "zod";
 import { type GitHubClient, apiPath } from "./client.js";
 import { limitBody, neutralise, renderEvidence } from "./publish.js";

@@ -3,7 +3,7 @@ import { type IncomingMessage, type ServerResponse, createServer } from "node:ht
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { DevflowError, ErrorCode, type LlmRequest, SecretRedactor } from "@devflow-ai/core";
+import { DevflowError, ErrorCode, type LlmRequest, SecretRedactor } from "@devflowai/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import {

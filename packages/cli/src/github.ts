@@ -4,7 +4,7 @@ import {
   ErrorCode,
   GitClient,
   credentialValuesFromEnv,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import {
   type GitHubRepository,
   GitHubClient,
@@ -14,8 +14,8 @@ import {
   parseRepository,
   publishReview,
   repositoryFromRemote,
-} from "@devflow-ai/github";
-import type { RunStore } from "@devflow-ai/workflow";
+} from "@devflowai/github";
+import type { RunStore } from "@devflowai/workflow";
 import type { CliIo } from "./io.js";
 
 /** The GitHub client of a command: the token from the environment, `fetch` from `io`. */

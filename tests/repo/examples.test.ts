@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import path from "node:path";
-import { loadTaskFile, type TaskContract } from "@devflow-ai/core";
+import { loadTaskFile, type TaskContract } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./helpers.js";
 

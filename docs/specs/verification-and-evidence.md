@@ -1,6 +1,6 @@
 # Specification: verification, evidence and statuses
 
-- **Status:** The schemas and rules below exist in `@devflow-ai/core` with tests (Phase 1):
+- **Status:** The schemas and rules below exist in `@devflowai/core` with tests (Phase 1):
   `TestOutcome`, `ResultStatus`, `assessTestEvidence` and `statusForOutcome`
   (`verification/test-evidence.ts`), `TestEvidence`, `TestCaseResult`, `GateResult`,
   `ParsedCommandResults` (`schemas/verification.ts`), `Finding` (`schemas/findings.ts`),
@@ -8,7 +8,7 @@
   engine (section 4.1, `verification/engine.ts` and `verification/snapshot.ts`) exists since
   Phase 3, and `devflow verify` runs it ([CLI spec](cli.md)). The red/green workflow exists
   since Phase 4: test mode records the baseline, implement mode the run after the change, the
-  rerun of failed gates and the comparison (`@devflow-ai/workflow`, `implementation.ts`).
+  rerun of failed gates and the comparison (`@devflowai/workflow`, `implementation.ts`).
 
 ## 1. Statuses
 

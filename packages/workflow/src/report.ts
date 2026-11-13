@@ -8,7 +8,7 @@ import {
   type Risk,
   type TaskContract,
   statusForOutcome,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import type {
   AfterRun,
   BaselineRun,

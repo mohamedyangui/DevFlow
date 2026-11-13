@@ -1,5 +1,5 @@
 /**
- * @devflow-ai/contracts: contract compatibility verification (Phase 6, ADR 0021).
+ * @devflowai/contracts: contract compatibility verification (Phase 6, ADR 0021).
  *
  * OpenAPI 3.x and Protobuf parsers written in-house, built-in breaking-change rules, and the
  * optional `oasdiff` and `buf` integration through the command policy. Compatibility is
@@ -75,4 +75,4 @@ export {
 } from "./impact/find.js";
 export { pathSegments, scanFile, type HttpEndpoint, type ScannedFile } from "./impact/scan.js";
 export { protoTarget, protocCamelCase, type ProtoTarget } from "./impact/protobuf.js";
-export { ConsumerRef, ContractImpact } from "@devflow-ai/core";
+export { ConsumerRef, ContractImpact } from "@devflowai/core";

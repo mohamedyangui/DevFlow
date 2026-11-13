@@ -6,7 +6,7 @@ import type {
   SourceParser,
   SourceSymbol,
   SourceSymbolKind,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import type * as WebTreeSitter from "web-tree-sitter";
 import type { Language, Node, Parser } from "web-tree-sitter";
 import { declarationLines, regexImports } from "./outline.js";

@@ -1,4 +1,4 @@
-import type { ConsumerMechanism, SourceImport } from "@devflow-ai/core";
+import type { ConsumerMechanism, SourceImport } from "@devflowai/core";
 import {
   type LanguageFamily,
   LineIndex,

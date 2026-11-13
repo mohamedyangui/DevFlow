@@ -8,22 +8,22 @@ importers:
 
   .:
     devDependencies:
-      '@devflow-ai/adapter-java':
+      '@devflowai/adapter-java':
         specifier: workspace:*
         version: link:packages/adapter-java
-      '@devflow-ai/adapter-javascript':
+      '@devflowai/adapter-javascript':
         specifier: workspace:*
         version: link:packages/adapter-javascript
-      '@devflow-ai/adapter-python':
+      '@devflowai/adapter-python':
         specifier: workspace:*
         version: link:packages/adapter-python
-      '@devflow-ai/cli':
+      '@devflowai/cli':
         specifier: workspace:*
         version: link:packages/cli
-      '@devflow-ai/context':
+      '@devflowai/context':
         specifier: workspace:*
         version: link:packages/context
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:packages/core
       '@eslint/js':
@@ -56,7 +56,7 @@ importers:
 
   packages/adapter-java:
     dependencies:
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
       fast-xml-parser:
@@ -65,13 +65,13 @@ importers:
 
   packages/adapter-javascript:
     dependencies:
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
 
   packages/adapter-python:
     dependencies:
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
       fast-xml-parser:
@@ -83,7 +83,7 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^1.6.0
         version: 1.6.0(zod@4.6.7)
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
       openai:
@@ -95,34 +95,34 @@ importers:
 
   packages/cli:
     dependencies:
-      '@devflow-ai/adapter-java':
+      '@devflowai/adapter-java':
         specifier: workspace:*
         version: link:../adapter-java
-      '@devflow-ai/adapter-javascript':
+      '@devflowai/adapter-javascript':
         specifier: workspace:*
         version: link:../adapter-javascript
-      '@devflow-ai/adapter-python':
+      '@devflowai/adapter-python':
         specifier: workspace:*
         version: link:../adapter-python
-      '@devflow-ai/ai':
+      '@devflowai/ai':
         specifier: workspace:*
         version: link:../ai
-      '@devflow-ai/context':
+      '@devflowai/context':
         specifier: workspace:*
         version: link:../context
-      '@devflow-ai/contracts':
+      '@devflowai/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
-      '@devflow-ai/github':
+      '@devflowai/github':
         specifier: workspace:*
         version: link:../github
-      '@devflow-ai/mcp':
+      '@devflowai/mcp':
         specifier: workspace:*
         version: link:../mcp
-      '@devflow-ai/workflow':
+      '@devflowai/workflow':
         specifier: workspace:*
         version: link:../workflow
       commander:
@@ -137,7 +137,7 @@ importers:
 
   packages/context:
     dependencies:
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
       ignore:
@@ -164,7 +164,7 @@ importers:
 
   packages/contracts:
     dependencies:
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
       yaml:
@@ -192,7 +192,7 @@ importers:
 
   packages/github:
     dependencies:
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
       zod:
@@ -207,16 +207,16 @@ importers:
 
   packages/workflow:
     dependencies:
-      '@devflow-ai/ai':
+      '@devflowai/ai':
         specifier: workspace:*
         version: link:../ai
-      '@devflow-ai/context':
+      '@devflowai/context':
         specifier: workspace:*
         version: link:../context
-      '@devflow-ai/contracts':
+      '@devflowai/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@devflow-ai/core':
+      '@devflowai/core':
         specifier: workspace:*
         version: link:../core
       zod:

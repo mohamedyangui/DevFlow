@@ -11,7 +11,7 @@ import {
   type RepositoryView,
   type TestCaseResult,
   type TestOutcome,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { sourceAndTestRoots } from "./analyze.js";
 import { loadBuildModel } from "./build.js";
 import { JAVA_PARSERS } from "./commands.js";

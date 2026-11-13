@@ -1,4 +1,4 @@
-import type { ModuleProfile } from "@devflow-ai/core";
+import type { ModuleProfile } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   GRADLE_TEST_FILTER,

@@ -19,7 +19,7 @@
     "node": ">=22.13.0"
   },
   "devflow": {
-    "npmScope": "@devflow-ai",
+    "npmScope": "@devflowai",
     "packageBoundaries": {
       "core": [],
       "context": [
@@ -68,12 +68,12 @@
     "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
   },
   "devDependencies": {
-    "@devflow-ai/adapter-java": "workspace:*",
-    "@devflow-ai/adapter-javascript": "workspace:*",
-    "@devflow-ai/adapter-python": "workspace:*",
-    "@devflow-ai/cli": "workspace:*",
-    "@devflow-ai/context": "workspace:*",
-    "@devflow-ai/core": "workspace:*",
+    "@devflowai/adapter-java": "workspace:*",
+    "@devflowai/adapter-javascript": "workspace:*",
+    "@devflowai/adapter-python": "workspace:*",
+    "@devflowai/cli": "workspace:*",
+    "@devflowai/context": "workspace:*",
+    "@devflowai/core": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.0",
     "eslint": "^10.14.0",

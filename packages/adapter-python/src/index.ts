@@ -1,4 +1,4 @@
-import { defineAdapter, type LanguageAdapter } from "@devflow-ai/core";
+import { defineAdapter, type LanguageAdapter } from "@devflowai/core";
 import { analyzePythonModule } from "./analyze.js";
 import { pythonCommandCatalog } from "./commands.js";
 import { parsePythonResults } from "./results.js";

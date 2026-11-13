@@ -1,5 +1,5 @@
 {
-  "name": "@devflow-ai/adapter-javascript",
+  "name": "@devflowai/adapter-javascript",
   "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI language adapter for JavaScript and TypeScript: npm, pnpm, Yarn and Bun workspaces, Vitest, Jest, ESLint, Prettier and tsc.",
@@ -20,6 +20,6 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow-ai/core": "workspace:*"
+    "@devflowai/core": "workspace:*"
   }
 }

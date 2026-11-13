@@ -1,4 +1,4 @@
-# @devflow-ai/core
+# @devflowai/core
 
 The foundation every other DevFlow package builds on. It has no dependencies on other
 workspace packages.
@@ -49,13 +49,13 @@ workspace packages.
 - **`AdapterRegistry`**: registration, module discovery across adapters (or from the
   `modules` of the project configuration), unique module ids, failures reported as warnings.
 - **`PathToolchainProbe`**: tells adapters whether a tool is on PATH without running it.
-- **`@devflow-ai/core/testing`**: the adapter conformance kit (`checkAdapterConformance`), an
+- **`@devflowai/core/testing`**: the adapter conformance kit (`checkAdapterConformance`), an
   in-memory `RepositoryView` and a fixed toolchain probe, for adapter tests.
 
 See [docs/specs/language-adapter.md](../../docs/specs/language-adapter.md).
 
 ```ts
-import { loadTaskFile } from "@devflow-ai/core";
+import { loadTaskFile } from "@devflowai/core";
 
 const result = await loadTaskFile("task.yaml");
 if (!result.valid) {

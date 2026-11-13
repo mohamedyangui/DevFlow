@@ -4,7 +4,7 @@ import {
   ErrorCode,
   GitClient,
   credentialValuesFromEnv,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import {
   type DraftPullRequest,
   createDraftPullRequest,
@@ -14,8 +14,8 @@ import {
   renderDraftBody,
   repositoryFromRemote,
   repositoryLabel,
-} from "@devflow-ai/github";
-import { RunStore } from "@devflow-ai/workflow";
+} from "@devflowai/github";
+import { RunStore } from "@devflowai/workflow";
 import { ExitCode } from "../exit-codes.js";
 import { githubClient, githubRepository } from "../github.js";
 import type { CliIo } from "../io.js";

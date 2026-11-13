@@ -7,7 +7,7 @@ import {
   repoDirname,
   type Evidence,
   type RepositoryView,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { ancestors, escapeRegExp } from "./paths.js";
 
 /** A `package.json` file. `json` is undefined when the file is not valid JSON. */

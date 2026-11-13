@@ -1,4 +1,4 @@
-import { parseJsonOrUndefined } from "@devflow-ai/core";
+import { parseJsonOrUndefined } from "@devflowai/core";
 
 /**
  * Parses JSON with comments and trailing commas, as `tsconfig.json` allows. Comments and

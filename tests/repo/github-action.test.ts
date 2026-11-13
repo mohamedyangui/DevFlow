@@ -11,7 +11,7 @@ import { repoRoot } from "./helpers.js";
  * workflows are not run on GitHub by this test suite.
  */
 
-// `yaml` is a dependency of @devflow-ai/core, not of the repository root: load it from there.
+// `yaml` is a dependency of @devflowai/core, not of the repository root: load it from there.
 const { parse } = createRequire(path.join(repoRoot, "packages", "core", "package.json"))(
   "yaml",
 ) as { parse: (text: string) => unknown };

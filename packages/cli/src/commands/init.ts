@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { PathGuard, isDevflowError } from "@devflow-ai/core";
+import { PathGuard, isDevflowError } from "@devflowai/core";
 import { ExitCode } from "../exit-codes.js";
 import { type CliIo, colorsFor } from "../io.js";
 

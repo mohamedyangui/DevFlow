@@ -1,6 +1,6 @@
 # Specification: task files and the Engineering Task Contract
 
-- **Status:** Implemented in Phase 1 (`@devflow-ai/core`, `devflow task validate`).
+- **Status:** Implemented in Phase 1 (`@devflowai/core`, `devflow task validate`).
 - **Schemas:** `TaskFile` and `TaskContract` in `packages/core/src/schemas/task.ts`.
   Generated JSON Schema: [`schemas/task.schema.json`](../../schemas/task.schema.json).
 
@@ -196,7 +196,7 @@ import {
   validateTaskInput,
   normalizeTask,
   lintTask,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 
 const task = await loadTaskFile("tasks/add-pagination.task.yaml");
 task.valid; // boolean

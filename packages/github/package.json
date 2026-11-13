@@ -1,5 +1,5 @@
 {
-  "name": "@devflow-ai/github",
+  "name": "@devflowai/github",
   "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI GitHub integration over the REST API: issues as task sources.",
@@ -20,7 +20,7 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow-ai/core": "workspace:*",
+    "@devflowai/core": "workspace:*",
     "zod": "^4.6.7"
   }
 }

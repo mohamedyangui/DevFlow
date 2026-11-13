@@ -685,7 +685,7 @@ No command is planned at the moment: the remaining Phase 5 work, the GitHub Acti
 command.
 
 Module detection by `devflow init` waits for the Phase 3 adapters. `analyze` and `plan`
-accept `--mode assist`; test, implement and review mode have their own commands. The functions exported by `@devflow-ai/workflow` (`startRun`, `approvePlan`,
+accept `--mode assist`; test, implement and review mode have their own commands. The functions exported by `@devflowai/workflow` (`startRun`, `approvePlan`,
 `rejectPlan`, `approveTests`, `rejectTests`, `approveChanges`, `rejectChanges`,
 `answerQuestions`, `resumeRun`, `cancelRun`, `getRun`, `listRuns`) expose the same operations
 programmatically; test, implement and review mode need a `testRunner` in the services, which

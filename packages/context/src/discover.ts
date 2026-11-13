@@ -1,7 +1,7 @@
 import type { Dirent } from "node:fs";
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { createPathMatcher, type PathGuard } from "@devflow-ai/core";
+import { createPathMatcher, type PathGuard } from "@devflowai/core";
 import ignore, { type Ignore } from "ignore";
 import type { SkipReason } from "./schemas.js";
 

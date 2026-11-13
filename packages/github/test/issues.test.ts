@@ -1,4 +1,4 @@
-import { ErrorCode, parseTaskText } from "@devflow-ai/core";
+import { ErrorCode, parseTaskText } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   GitHubClient,

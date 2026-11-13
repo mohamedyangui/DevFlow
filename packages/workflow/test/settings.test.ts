@@ -1,4 +1,4 @@
-import { ErrorCode, ProjectConfig } from "@devflow-ai/core";
+import { ErrorCode, ProjectConfig } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PROVIDER, resolveRunSettings } from "../src/index.js";
 

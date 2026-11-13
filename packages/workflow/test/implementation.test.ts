@@ -7,7 +7,7 @@ import {
   type TestCaseResult,
   TestEvidence,
   assessTestEvidence,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   type EvidenceEntry,

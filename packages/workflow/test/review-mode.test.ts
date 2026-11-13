@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { FakeProvider } from "@devflow-ai/ai";
+import { FakeProvider } from "@devflowai/ai";
 import {
   EngineeringReport,
   ErrorCode,
@@ -12,7 +12,7 @@ import {
   type GitWorkspace,
   type LlmRequest,
   type TestCaseResult,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   ReviewDiff,

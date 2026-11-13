@@ -8,7 +8,7 @@ import {
   type TaskContract,
   type TestCaseResult,
   statusForOutcome,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import type { ReviewContracts, ReviewDiff, ReviewWire } from "./schemas.js";
 
 /**

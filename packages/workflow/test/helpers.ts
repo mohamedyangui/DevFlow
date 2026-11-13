@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { FakeProvider, type FakeReply } from "@devflow-ai/ai";
-import { type LlmRequest, PathGuard, SecretRedactor, TaskContract } from "@devflow-ai/core";
+import { FakeProvider, type FakeReply } from "@devflowai/ai";
+import { type LlmRequest, PathGuard, SecretRedactor, TaskContract } from "@devflowai/core";
 import type { RunSettings, WorkflowServices } from "../src/index.js";
 
 export const SECRET = "sk-test-WORKFLOWSECRET-0123456789";

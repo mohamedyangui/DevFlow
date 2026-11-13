@@ -1,6 +1,6 @@
 import { rm, symlink } from "node:fs/promises";
 import path from "node:path";
-import { PathGuard, ProjectConfig, SecretRedactor } from "@devflow-ai/core";
+import { PathGuard, ProjectConfig, SecretRedactor } from "@devflowai/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   Bm25Index,

@@ -4,7 +4,7 @@ import {
   type WorkflowMode,
   type WorkflowState,
   isTerminalState,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 
 /**
  * The transition table (ADR 0004, architecture proposal section 4.1). Every non-terminal state

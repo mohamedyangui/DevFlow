@@ -15,15 +15,15 @@ change and ship together.
 
 Seven packages for the MVP. `github` and `contracts` are added in Phases 5 and 6.
 
-| Package                          | Responsibility                                                                           | May depend on (internal) |
-| -------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------ |
-| `@devflow-ai/core`               | Schemas, domain rules, ports, errors, task loading. Later: security policy and executor. | none                     |
-| `@devflow-ai/context`            | Repository discovery, classification, instructions, ranking, packing                     | `core`                   |
-| `@devflow-ai/ai`                 | Model gateway and providers                                                              | `core`                   |
-| `@devflow-ai/adapter-java`       | Maven, Gradle, JUnit, Spring Boot                                                        | `core`                   |
-| `@devflow-ai/adapter-javascript` | npm, pnpm, yarn, Jest, Vitest, ESLint, tsc                                               | `core`                   |
-| `@devflow-ai/workflow`           | State machine, steps, run store, reports, SDK entry point                                | `core`, `context`, `ai`  |
-| `@devflow-ai/cli`                | The `devflow` binary (composition root)                                                  | any                      |
+| Package                         | Responsibility                                                                           | May depend on (internal) |
+| ------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------ |
+| `@devflowai/core`               | Schemas, domain rules, ports, errors, task loading. Later: security policy and executor. | none                     |
+| `@devflowai/context`            | Repository discovery, classification, instructions, ranking, packing                     | `core`                   |
+| `@devflowai/ai`                 | Model gateway and providers                                                              | `core`                   |
+| `@devflowai/adapter-java`       | Maven, Gradle, JUnit, Spring Boot                                                        | `core`                   |
+| `@devflowai/adapter-javascript` | npm, pnpm, yarn, Jest, Vitest, ESLint, tsc                                               | `core`                   |
+| `@devflowai/workflow`           | State machine, steps, run store, reports, SDK entry point                                | `core`, `context`, `ai`  |
+| `@devflowai/cli`                | The `devflow` binary (composition root)                                                  | any                      |
 
 The table lives in **one place**: the `devflow.packageBoundaries` field of the root
 `package.json`. Three mechanisms enforce it:

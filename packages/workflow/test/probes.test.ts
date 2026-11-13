@@ -1,4 +1,4 @@
-import { Finding, type GateResult, type TestCaseResult } from "@devflow-ai/core";
+import { Finding, type GateResult, type TestCaseResult } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import { classifyProbe, probeCandidates, probedFinding } from "../src/index.js";
 

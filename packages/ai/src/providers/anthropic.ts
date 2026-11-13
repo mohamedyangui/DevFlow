@@ -5,7 +5,7 @@ import {
   type LlmProvider,
   type LlmRequest,
   type LlmResponse,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { LlmProviderError, kindForStatus, parseRetryAfter } from "../provider-error.js";
 import { strictJsonSchema } from "../structured.js";
 

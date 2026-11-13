@@ -1,5 +1,5 @@
 {
-  "name": "@devflow-ai/mcp",
+  "name": "@devflowai/mcp",
   "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI as Model Context Protocol tools: an in-house MCP server over stdio and the DevFlow tool definitions.",

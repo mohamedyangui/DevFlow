@@ -1,5 +1,5 @@
 {
-  "name": "@devflow-ai/adapter-python",
+  "name": "@devflowai/adapter-python",
   "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI language adapter for Python: uv, Poetry, Pipenv and pip projects, virtual environments, pytest, unittest, Ruff, flake8 and mypy.",
@@ -20,7 +20,7 @@
     "dist"
   ],
   "dependencies": {
-    "@devflow-ai/core": "workspace:*",
+    "@devflowai/core": "workspace:*",
     "fast-xml-parser": "~5.11.2"
   }
 }

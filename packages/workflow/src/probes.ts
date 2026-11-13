@@ -8,7 +8,7 @@ import {
   type SecretRedactor,
   type TestCaseResult,
   isDevflowError,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import type { ProbeRecord, ProbeWire } from "./schemas.js";
 import { type TestModule, isTestPath, sha256Of } from "./test-design.js";
 

@@ -11,7 +11,7 @@ import {
   type ExecutionRecord,
   type ExecutionResult,
   type PolicyDecision,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { describe, expect, it, vi } from "vitest";
 import {
   BUF_COMMAND,

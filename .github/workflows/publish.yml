@@ -1,6 +1,6 @@
 name: Publish to npm
 
-# Publishes @devflow-ai/cli when the maintainer pushes a release tag (ADR 0028, ADR 0029).
+# Publishes @devflowai/cli when the maintainer pushes a release tag (ADR 0028, ADR 0029).
 # Trusted publishing (OIDC) with provenance: no npm token is stored. The `npm` environment
 # lets the maintainer require a manual approval on GitHub before the job runs.
 
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish @devflow-ai/cli
+    name: Publish @devflowai/cli
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: npm

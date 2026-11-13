@@ -1,12 +1,12 @@
 import path from "node:path";
-import { isTerminalState } from "@devflow-ai/core";
+import { isTerminalState } from "@devflowai/core";
 import {
   RunStore,
   type TraceExportPlan,
   exportRunTrace,
   resolveOtlpEndpoint,
   traceRedactor,
-} from "@devflow-ai/workflow";
+} from "@devflowai/workflow";
 import { ExitCode } from "../exit-codes.js";
 import type { CliIo } from "../io.js";
 import { openWorkspace } from "../workspace.js";

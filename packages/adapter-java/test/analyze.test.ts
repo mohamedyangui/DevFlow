@@ -1,5 +1,5 @@
-import { validatedAdapter, type ModuleProfile } from "@devflow-ai/core";
-import { MemoryRepository } from "@devflow-ai/core/testing";
+import { validatedAdapter, type ModuleProfile } from "@devflowai/core";
+import { MemoryRepository } from "@devflowai/core/testing";
 import { describe, expect, it } from "vitest";
 import { buildToolAt, gradleIncludes, javaAdapter } from "../src/index.js";
 import { gradleRepo, legacyGradleRepo, mavenReactorRepo, springMavenRepo } from "./fixtures.js";

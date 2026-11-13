@@ -1,4 +1,4 @@
-import { type CommandRunner, McpServer, devflowTools, serveStdio } from "@devflow-ai/mcp";
+import { type CommandRunner, McpServer, devflowTools, serveStdio } from "@devflowai/mcp";
 import { ExitCode } from "../exit-codes.js";
 import type { CliIo } from "../io.js";
 import { readCliVersion } from "../version.js";

@@ -4,7 +4,7 @@ import {
   type IssueSource,
   type IssueTaskDocument,
   MAX_TASK_FILE_BYTES,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { z } from "zod";
 import { type GitHubClient, apiPath } from "./client.js";
 import { type GitHubRepository, isRepository, repositoryLabel } from "./repository.js";

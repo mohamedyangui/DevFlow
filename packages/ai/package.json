@@ -1,5 +1,5 @@
 {
-  "name": "@devflow-ai/ai",
+  "name": "@devflowai/ai",
   "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI LLM gateway and provider adapters: Anthropic, OpenAI, Fake and Replay.",
@@ -21,7 +21,7 @@
   ],
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
-    "@devflow-ai/core": "workspace:*",
+    "@devflowai/core": "workspace:*",
     "openai": "7.39.0",
     "zod": "^4.6.7"
   }

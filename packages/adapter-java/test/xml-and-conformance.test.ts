@@ -1,4 +1,4 @@
-import { checkAdapterConformance, MemoryRepository } from "@devflow-ai/core/testing";
+import { checkAdapterConformance, MemoryRepository } from "@devflowai/core/testing";
 import { describe, expect, it } from "vitest";
 import { javaAdapter, parseXml } from "../src/index.js";
 import { isWellFormed } from "../src/xml.js";

@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { PathGuard, SecretRedactor } from "@devflow-ai/core";
+import type { PathGuard, SecretRedactor } from "@devflowai/core";
 import { readTextForPrompt } from "./files.js";
 import type { Instruction } from "./schemas.js";
 

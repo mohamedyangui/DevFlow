@@ -1,4 +1,4 @@
-import { projectConfigJsonSchema, taskFileJsonSchema } from "@devflow-ai/core";
+import { projectConfigJsonSchema, taskFileJsonSchema } from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import { readJson } from "./helpers.js";
 

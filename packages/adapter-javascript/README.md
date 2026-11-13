@@ -1,19 +1,19 @@
-# @devflow-ai/adapter-javascript
+# @devflowai/adapter-javascript
 
 The JavaScript and TypeScript language adapter: it recognizes npm, pnpm, Yarn and Bun projects
 and workspaces, describes what they use with evidence, lists their tests, provides the
 commands that test, lint, type-check and format-check them, and reads the reports those
-commands write. It implements the `LanguageAdapter` port of `@devflow-ai/core`
+commands write. It implements the `LanguageAdapter` port of `@devflowai/core`
 ([docs/specs/language-adapter.md](../../docs/specs/language-adapter.md), section 10).
 
 The adapter only reads files through `RepositoryView` and returns data. It never runs a package
 script or a configuration file to learn about a project: manifests are parsed as JSON,
 `tsconfig.json` as JSON with comments, and configuration files are only checked for existence.
 ESLint forbids it from importing `node:child_process`, `node:fs` or network modules (ADR 0003,
-ADR 0006). Its only dependency is `@devflow-ai/core`.
+ADR 0006). Its only dependency is `@devflowai/core`.
 
 ```ts
-import { javascriptAdapter } from "@devflow-ai/adapter-javascript";
+import { javascriptAdapter } from "@devflowai/adapter-javascript";
 registry.register(javascriptAdapter);
 ```
 

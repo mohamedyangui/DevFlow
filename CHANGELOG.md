@@ -4,14 +4,14 @@ All notable changes to DevFlow AI are listed here. Versions follow
 [Semantic Versioning](https://semver.org/); while the version is `0.x`, a minor release may
 contain breaking changes. Each release is a git tag and a GitHub release
 ([ADR 0028](docs/adr/0028-source-releases.md)); from 0.2.0 it is also published on npm as
-`@devflow-ai/cli` ([ADR 0029](docs/adr/0029-npm-publication.md)).
+`@devflowai/cli` ([ADR 0029](docs/adr/0029-npm-publication.md)).
 
 ## [0.2.0] - 2026-11-12
 
 ### Added
 
-- **npm package `@devflow-ai/cli`** with the `devflow` command: `npm install -g @devflow-ai/cli`
-  or `npx @devflow-ai/cli`, and `npx -y @devflow-ai/cli mcp` as an MCP server command. One
+- **npm package `@devflowai/cli`** with the `devflow` command: `npm install -g @devflowai/cli`
+  or `npx @devflowai/cli`, and `npx -y @devflowai/cli mcp` as an MCP server command. One
   package with the internal packages bundled; the tree-sitter grammars are shipped as
   WebAssembly only, so installing runs no native build.
 - `scripts/pack-cli.mjs` stages the package from the built workspace (`--pack` runs
@@ -22,7 +22,7 @@ contain breaking changes. Each release is a git tag and a GitHub release
 
 ### Changed
 
-- **The npm scope is `@devflow-ai`** (was the provisional `@devflow`). Code importing the
+- **The npm scope is `@devflowai`** (was the provisional `@devflow`). Code importing the
   internal packages by name must use the new scope.
 - ESLint and Prettier ignore `dist-npm/` and local `.claude/` worktrees.
 

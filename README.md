@@ -120,15 +120,15 @@ executed tools—not the model's confidence.
 
 ### 1. Install
 
-From npm (`@devflow-ai/cli`, published from version 0.2.0 with
+From npm (`@devflowai/cli`, published from version 0.2.0 with
 [provenance](https://docs.npmjs.com/generating-provenance-statements)):
 
 ```bash
-npm install -g @devflow-ai/cli
+npm install -g @devflowai/cli
 devflow --help
 ```
 
-Or without installing: `npx @devflow-ai/cli --help`. Releases and their notes are on
+Or without installing: `npx @devflowai/cli --help`. Releases and their notes are on
 [GitHub](https://github.com/mohamedyangui/DevFlow/releases); see also the
 [changelog](CHANGELOG.md).
 
@@ -357,7 +357,7 @@ approved by the developer in a terminal.
 requests and DevFlow checks the answers as it checks a model's. For Claude Code:
 
 ```bash
-claude mcp add devflow -- npx -y @devflow-ai/cli mcp
+claude mcp add devflow -- npx -y @devflowai/cli mcp
 ```
 
 From a source checkout, after `pnpm build`:
@@ -429,18 +429,18 @@ flowchart TB
     VERIFY --> REPORT[Verification report]
 ```
 
-| Package                          | Purpose                                                                    |
-| -------------------------------- | -------------------------------------------------------------------------- |
-| `@devflow-ai/core`               | Task schemas, adapter ports, security policy, execution and evidence model |
-| `@devflow-ai/workflow`           | State machine, approvals, implementation steps, history and reports        |
-| `@devflow-ai/context`            | Repository discovery, code context and rules                               |
-| `@devflow-ai/ai`                 | Anthropic, OpenAI, Fake/Replay providers, usage and budget controls        |
-| `@devflow-ai/adapter-java`       | Java-specific build, test and quality-gate intelligence                    |
-| `@devflow-ai/adapter-javascript` | JavaScript/TypeScript-specific tooling and result parsing                  |
-| `@devflow-ai/adapter-python`     | Python-specific discovery and verification                                 |
-| `@devflow-ai/contracts`          | OpenAPI and Protobuf compatibility analysis                                |
-| `@devflow-ai/github`             | GitHub issue, review and PR integration                                    |
-| `@devflow-ai/cli`                | Developer command-line interface                                           |
+| Package                         | Purpose                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------- |
+| `@devflowai/core`               | Task schemas, adapter ports, security policy, execution and evidence model |
+| `@devflowai/workflow`           | State machine, approvals, implementation steps, history and reports        |
+| `@devflowai/context`            | Repository discovery, code context and rules                               |
+| `@devflowai/ai`                 | Anthropic, OpenAI, Fake/Replay providers, usage and budget controls        |
+| `@devflowai/adapter-java`       | Java-specific build, test and quality-gate intelligence                    |
+| `@devflowai/adapter-javascript` | JavaScript/TypeScript-specific tooling and result parsing                  |
+| `@devflowai/adapter-python`     | Python-specific discovery and verification                                 |
+| `@devflowai/contracts`          | OpenAPI and Protobuf compatibility analysis                                |
+| `@devflowai/github`             | GitHub issue, review and PR integration                                    |
+| `@devflowai/cli`                | Developer command-line interface                                           |
 
 Read the [architecture overview](docs/architecture/overview.md), [ADRs](docs/adr/README.md), and
 [technical specifications](docs/specs/).

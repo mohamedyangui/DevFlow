@@ -37,7 +37,7 @@ pnpm check      # build, typecheck, lint, format:check, test
   `devflow.packageBoundaries` in the root `package.json`. Lint and tests enforce them. Changing
   them needs an ADR. No package may import `node:child_process`; adapters may not import
   `node:fs` or network modules.
-- **Schemas first.** New data shapes are Zod schemas in `@devflow-ai/core`, strict where people or
+- **Schemas first.** New data shapes are Zod schemas in `@devflowai/core`, strict where people or
   models write them, with invariants as refinements. If you change `TaskFile` or
   `ProjectConfig`, run `pnpm build && pnpm schemas:generate` and commit the result; a test
   checks for drift.

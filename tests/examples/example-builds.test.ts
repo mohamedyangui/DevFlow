@@ -2,11 +2,11 @@ import { spawnSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { javaAdapter } from "@devflow-ai/adapter-java";
-import { javascriptAdapter } from "@devflow-ai/adapter-javascript";
-import { pythonAdapter } from "@devflow-ai/adapter-python";
-import { ExitCode, runCli, type CliIo } from "@devflow-ai/cli";
-import { WorkspaceRepository } from "@devflow-ai/context";
+import { javaAdapter } from "@devflowai/adapter-java";
+import { javascriptAdapter } from "@devflowai/adapter-javascript";
+import { pythonAdapter } from "@devflowai/adapter-python";
+import { ExitCode, runCli, type CliIo } from "@devflowai/cli";
+import { WorkspaceRepository } from "@devflowai/context";
 import {
   AdapterRegistry,
   CommandPolicy,
@@ -18,7 +18,7 @@ import {
   decideGate,
   defaultTrustStorePath,
   withExecutionLogs,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { repoRoot } from "../repo/helpers.js";
 

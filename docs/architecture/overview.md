@@ -36,47 +36,47 @@ Consequences:
 
 ```mermaid
 flowchart LR
-  cli["@devflow-ai/cli"] --> workflow["@devflow-ai/workflow"]
-  cli --> java["@devflow-ai/adapter-java"]
-  cli --> js["@devflow-ai/adapter-javascript"]
-  cli --> py["@devflow-ai/adapter-python"]
-  workflow --> context["@devflow-ai/context"]
-  workflow --> ai["@devflow-ai/ai"]
-  workflow --> contracts["@devflow-ai/contracts"]
+  cli["@devflowai/cli"] --> workflow["@devflowai/workflow"]
+  cli --> java["@devflowai/adapter-java"]
+  cli --> js["@devflowai/adapter-javascript"]
+  cli --> py["@devflowai/adapter-python"]
+  workflow --> context["@devflowai/context"]
+  workflow --> ai["@devflowai/ai"]
+  workflow --> contracts["@devflowai/contracts"]
   contracts --> core
-  workflow --> core["@devflow-ai/core"]
+  workflow --> core["@devflowai/core"]
   context --> core
   ai --> core
   java --> core
   js --> core
   py --> core
   cli --> core
-  cli --> mcp["@devflow-ai/mcp"]
+  cli --> mcp["@devflowai/mcp"]
 ```
 
-| Package                          | Responsibility                                                                          | State                                                                          |
-| -------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `@devflow-ai/core`               | Schemas, domain rules, ports, errors, task loading, security layer, verification engine | Implemented                                                                    |
-| `@devflow-ai/context`            | Discovery, classification, instructions, ranking, packing, contract discovery           | Implemented, with tree-sitter outlines and imports                             |
-| `@devflow-ai/ai`                 | Model gateway; Anthropic, OpenAI, Fake and Replay providers; costs                      | Implemented                                                                    |
-| `@devflow-ai/adapter-java`       | Maven, Gradle, Spring Boot, JUnit, Mockito, Checkstyle, SpotBugs                        | Implemented, run against real Maven and Gradle builds                          |
-| `@devflow-ai/adapter-javascript` | npm, pnpm, Yarn, Bun, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc        | Implemented, run against real npm, Vitest and tsc runs                         |
-| `@devflow-ai/adapter-python`     | uv, Poetry, pip, Django, Flask, FastAPI, pytest, unittest, Ruff, flake8, mypy, Pyright  | Implemented; unittest and mypy run for real, pytest not yet                    |
-| `@devflow-ai/workflow`           | State machine, steps, run store, reports, SDK entry point                               | Assist, test, implement and review modes implemented                           |
-| `@devflow-ai/github`             | GitHub REST client, issues as task sources, pull requests, publishing (Phase 5)         | Issues, pull requests and publishing implemented, tested with fixtures         |
-| `@devflow-ai/contracts`          | OpenAPI and Protobuf parsers, breaking-change rules, oasdiff and buf (Phase 6)          | Built-in rules implemented; tool output tested with recorded fixtures only     |
-| `@devflow-ai/mcp`                | In-house MCP server over stdio and the DevFlow tool definitions (Phase 6)               | Implemented; tested over real stdio, not yet with a real MCP client            |
-| `@devflow-ai/cli`                | The `devflow` binary, composition root                                                  | `init`, `task validate`, `trust`, `verify`, the workflow commands and `review` |
+| Package                         | Responsibility                                                                          | State                                                                          |
+| ------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `@devflowai/core`               | Schemas, domain rules, ports, errors, task loading, security layer, verification engine | Implemented                                                                    |
+| `@devflowai/context`            | Discovery, classification, instructions, ranking, packing, contract discovery           | Implemented, with tree-sitter outlines and imports                             |
+| `@devflowai/ai`                 | Model gateway; Anthropic, OpenAI, Fake and Replay providers; costs                      | Implemented                                                                    |
+| `@devflowai/adapter-java`       | Maven, Gradle, Spring Boot, JUnit, Mockito, Checkstyle, SpotBugs                        | Implemented, run against real Maven and Gradle builds                          |
+| `@devflowai/adapter-javascript` | npm, pnpm, Yarn, Bun, Express, NestJS, React, Next.js, Jest, Vitest, ESLint, tsc        | Implemented, run against real npm, Vitest and tsc runs                         |
+| `@devflowai/adapter-python`     | uv, Poetry, pip, Django, Flask, FastAPI, pytest, unittest, Ruff, flake8, mypy, Pyright  | Implemented; unittest and mypy run for real, pytest not yet                    |
+| `@devflowai/workflow`           | State machine, steps, run store, reports, SDK entry point                               | Assist, test, implement and review modes implemented                           |
+| `@devflowai/github`             | GitHub REST client, issues as task sources, pull requests, publishing (Phase 5)         | Issues, pull requests and publishing implemented, tested with fixtures         |
+| `@devflowai/contracts`          | OpenAPI and Protobuf parsers, breaking-change rules, oasdiff and buf (Phase 6)          | Built-in rules implemented; tool output tested with recorded fixtures only     |
+| `@devflowai/mcp`                | In-house MCP server over stdio and the DevFlow tool definitions (Phase 6)               | Implemented; tested over real stdio, not yet with a real MCP client            |
+| `@devflowai/cli`                | The `devflow` binary, composition root                                                  | `init`, `task validate`, `trust`, `verify`, the workflow commands and `review` |
 
 Boundaries are declared once in the root `package.json` and enforced by ESLint, repository
 tests and TypeScript project references ([ADR 0003](../adr/0003-package-boundaries.md)).
-`@devflow-ai/github` depends on `@devflow-ai/core` only ([ADR 0019](../adr/0019-github-rest-client.md)).
-`@devflow-ai/contracts` depends on `@devflow-ai/core` only, and `@devflow-ai/workflow` uses it in review
+`@devflowai/github` depends on `@devflowai/core` only ([ADR 0019](../adr/0019-github-rest-client.md)).
+`@devflowai/contracts` depends on `@devflowai/core` only, and `@devflowai/workflow` uses it in review
 mode ([ADR 0021](../adr/0021-contract-compatibility.md)).
-`@devflow-ai/mcp` has no workspace dependency; `devflow mcp` gives it a runner that calls the CLI
+`@devflowai/mcp` has no workspace dependency; `devflow mcp` gives it a runner that calls the CLI
 in-process ([ADR 0026](../adr/0026-mcp-server.md)).
 
-## 4. Public interfaces in `@devflow-ai/core`
+## 4. Public interfaces in `@devflowai/core`
 
 - **Task contract:** `TaskFile` (authoring format), `TaskContract` (normalized), and the
   loaders `loadTaskFile`, `parseTaskText`, `validateTaskInput`, `normalizeTask`, `lintTask`

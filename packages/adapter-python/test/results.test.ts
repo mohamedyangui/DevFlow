@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
-import { validatedAdapter, type CommandSpec, type ExecutionRecord } from "@devflow-ai/core";
+import { validatedAdapter, type CommandSpec, type ExecutionRecord } from "@devflowai/core";
 import {
   checkAdapterConformance,
   MemoryRepository,
   StaticToolchainProbe,
-} from "@devflow-ai/core/testing";
+} from "@devflowai/core/testing";
 import { describe, expect, it } from "vitest";
 import {
   parseFlake8Output,

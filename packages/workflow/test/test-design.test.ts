@@ -6,7 +6,7 @@ import {
   PathGuard,
   type TestCaseResult,
   type TestOutcome,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { describe, expect, it } from "vitest";
 import {
   type TestDesign,

@@ -7,8 +7,8 @@ import {
   formatIssuePath,
   loadTaskFile,
   parseTaskText,
-} from "@devflow-ai/core";
-import { GitHubIssueSource } from "@devflow-ai/github";
+} from "@devflowai/core";
+import { GitHubIssueSource } from "@devflowai/github";
 import { githubClient, githubRepository } from "./github.js";
 import type { CliIo } from "./io.js";
 

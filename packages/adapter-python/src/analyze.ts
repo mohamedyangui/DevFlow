@@ -11,7 +11,7 @@ import {
   type ModuleCandidate,
   type ModuleProfile,
   type RepositoryView,
-} from "@devflow-ai/core";
+} from "@devflowai/core";
 import { entry, tableLine } from "./config-files.js";
 import {
   declaredDependencies,

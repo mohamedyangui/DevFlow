@@ -1,4 +1,4 @@
-import type { LlmProvider, LlmRequest, LlmResponse } from "@devflow-ai/core";
+import type { LlmProvider, LlmRequest, LlmResponse } from "@devflowai/core";
 
 /** What a scripted step returns: a full response, just the answer text, or an error to throw. */
 export type FakeReply = LlmResponse | string | Error;

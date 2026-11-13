@@ -10,8 +10,8 @@
   - **Phase 2, implemented and tested:** the path guard (section 6), secret detection and
     redaction (section 7), the audit log (section 8), a redacting logger, the trust store and
     `devflow trust` (section 3.1), the command policy (section 4) and the executor
-    (section 5). Everything except the CLI command is in `@devflow-ai/core` under
-    `src/security/`. The LLM gateway in `@devflow-ai/ai` redacts every prompt before it reaches a
+    (section 5). Everything except the CLI command is in `@devflowai/core` under
+    `src/security/`. The LLM gateway in `@devflowai/ai` redacts every prompt before it reaches a
     provider and writes the redaction and llm-call audit entries (sections 7 and 8).
   - **Not implemented yet:** wiring the policy and executor into workflow steps and gates
     (the workflow engine, later in Phase 2; gates in Phase 3), a command-line flag for the CI
@@ -184,7 +184,7 @@ Every denial and every interactive decision is written to the audit log. A denie
 its gate `not_executed`.
 
 DevFlow's own git operations ([ADR 0012](../adr/0012-git-isolation.md), `GitClient` in
-`@devflow-ai/core`) are fixed internal calls: inspect the repository and its status, create and
+`@devflowai/core`) are fixed internal calls: inspect the repository and its status, create and
 check out the run's branch, commit exactly the approved files, and (only for
 `devflow pr create --yes`) push that one branch. Git is found on the absolute
 entries of PATH, never inside the workspace (on Windows only `git.exe`), and runs with the

@@ -1,4 +1,4 @@
-# ADR 0029: npm publication as one bundled `@devflow-ai/cli` package
+# ADR 0029: npm publication as one bundled `@devflowai/cli` package
 
 - **Status:** Accepted, 2026-11-12. Implements the publication step left open by ADR 0016 and
   ADR 0028. First npm version: `0.2.0`.
@@ -14,16 +14,17 @@ was verified and a publication decision was written.
 The workspace has eleven packages and the CLI depends on all of the others. Publishing them
 one by one would make ten library APIs public that are not designed or documented as such, and
 every release would have to publish eleven packages in the right order. The tree-sitter grammar
-packages that `@devflow-ai/context` depends on also carry native bindings with an install
+packages that `@devflowai/context` depends on also carry native bindings with an install
 script, although DevFlow only reads their WebAssembly builds.
 
 ## Decision
 
-- **Scope `@devflow-ai`.** The scope is the npm organization `devflow-ai`, which the maintainer
-  creates and owns before the first publication; it was renamed from the provisional
-  `@devflow` with the procedure of ADR 0016. The publish workflow fails if the scope does not
+- **Scope `@devflowai`.** The scope is the npm organization `devflowai`, owned by the
+  maintainer; it was renamed from the provisional `@devflow` with the procedure of ADR 0016.
+  The name `devflow-ai` was not possible: npm refuses an organization whose name is already
+  an unscoped package, and an unrelated `devflow-ai` package exists. The publish workflow fails if the scope does not
   belong to the account that configured the trusted publisher.
-- **One published package, `@devflow-ai/cli`,** with the `devflow` command. The workspace
+- **One published package, `@devflowai/cli`,** with the `devflow` command. The workspace
   packages stay `private` and are not published separately.
 - **The package is staged, not published from the workspace.** `scripts/pack-cli.mjs` builds
   `dist-npm/package` from the compiled workspace:
@@ -47,9 +48,9 @@ script, although DevFlow only reads their WebAssembly builds.
 
 ## Consequences
 
-- `npx @devflow-ai/cli` and `npm install -g @devflow-ai/cli` work, and the MCP server can be
-  configured as `npx -y @devflow-ai/cli mcp`.
-- The internal package names (`@devflow-ai/core`, ...) appear inside the tarball but cannot be
+- `npx @devflowai/cli` and `npm install -g @devflowai/cli` work, and the MCP server can be
+  configured as `npx -y @devflowai/cli mcp`.
+- The internal package names (`@devflowai/core`, ...) appear inside the tarball but cannot be
   installed on their own; using DevFlow as a library is not supported yet.
 - The publish workflow needs one-time setup on npmjs.com (the organization and a trusted
   publisher for this repository and workflow) and an `npm` environment on GitHub.

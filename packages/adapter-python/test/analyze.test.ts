@@ -1,5 +1,5 @@
-import { validatedAdapter } from "@devflow-ai/core";
-import { MemoryRepository } from "@devflow-ai/core/testing";
+import { validatedAdapter } from "@devflowai/core";
+import { MemoryRepository } from "@devflowai/core/testing";
 import { describe, expect, it } from "vitest";
 import { pythonAdapter, readIni, readToml, requirementName, tomlStrings } from "../src/index.js";
 import { monorepoRepo, poetryRepo, unittestRepo, uvRepo } from "./fixtures.js";

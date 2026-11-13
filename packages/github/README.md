@@ -1,4 +1,4 @@
-# @devflow-ai/github
+# @devflowai/github
 
 GitHub integration for DevFlow AI, over the GitHub REST API with the `fetch` built into Node
 ([ADR 0019](../../docs/adr/0019-github-rest-client.md)).
@@ -13,8 +13,8 @@ import {
   GitHubIssueSource,
   githubToken,
   repositoryFromRemote,
-} from "@devflow-ai/github";
-import { parseTaskText } from "@devflow-ai/core";
+} from "@devflowai/github";
+import { parseTaskText } from "@devflowai/core";
 
 const client = new GitHubClient({ token: githubToken(process.env) });
 const source = new GitHubIssueSource(client, repositoryFromRemote(originUrl));
@@ -33,7 +33,7 @@ const task = parseTaskText(document.text, document.format, document.source, {
 ## Pull requests
 
 ```ts
-import { getPullRequest, publishReview } from "@devflow-ai/github";
+import { getPullRequest, publishReview } from "@devflowai/github";
 
 const pull = await getPullRequest(client, "57", repository);
 // pull.headSha, pull.baseSha, pull.fromFork, pull.warnings
@@ -57,7 +57,7 @@ const published = await publishReview(client, "comment", {
 ## Draft pull requests
 
 ```ts
-import { createDraftPullRequest, getRepositoryInfo, renderDraftBody } from "@devflow-ai/github";
+import { createDraftPullRequest, getRepositoryInfo, renderDraftBody } from "@devflowai/github";
 
 const { default_branch } = await getRepositoryInfo(client, repository);
 const created = await createDraftPullRequest(client, {
@@ -79,7 +79,7 @@ const created = await createDraftPullRequest(client, {
   changed, criteria, gates and findings (neutralised as in `renderReview`), and a note that a
   person must review the change before it is marked ready or merged.
 - This package does not push: `devflow pr create` pushes the branch with git and the user's
-  own credentials (`GitClient.push` in `@devflow-ai/core`) before it creates the pull request.
+  own credentials (`GitClient.push` in `@devflowai/core`) before it creates the pull request.
 
 ## Security
 

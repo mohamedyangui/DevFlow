@@ -1,5 +1,5 @@
 {
-  "name": "@devflow-ai/core",
+  "name": "@devflowai/core",
   "version": "0.2.0",
   "private": true,
   "description": "DevFlow AI core: domain schemas, public interfaces (ports), security primitives, the adapter SDK and task loading.",

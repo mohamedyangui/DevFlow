@@ -1,4 +1,4 @@
-import type { ContractKind } from "@devflow-ai/core";
+import type { ContractKind } from "@devflowai/core";
 import { OpenApiDocument, isObject } from "./openapi/document.js";
 import { OpenApiComparison } from "./openapi/diff.js";
 import { ProtobufComparison } from "./protobuf/diff.js";

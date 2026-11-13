@@ -40,7 +40,7 @@ const scope = rootManifest.devflow.npmScope;
 const version = rootManifest.version;
 const repository = "https://github.com/mohamedyangui/DevFlow";
 
-/** Grammar packages shipped as their .wasm files (read by @devflow-ai/context). */
+/** Grammar packages shipped as their .wasm files (read by @devflowai/context). */
 const GRAMMARS = {
   "tree-sitter-java": ["tree-sitter-java.wasm"],
   "tree-sitter-javascript": ["tree-sitter-javascript.wasm"],
