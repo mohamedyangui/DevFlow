@@ -50,6 +50,7 @@ security property, or rejects an option that a reasonable contributor would othe
 | [0027](0027-agent-mode.md)                   | Agent mode: the calling coding agent answers DevFlow's model requests, no API key     | Accepted                               |
 | [0028](0028-source-releases.md)              | Source releases with one version for all packages                                     | Accepted                               |
 | [0029](0029-npm-publication.md)              | npm publication as one bundled `@devflowai/cli` package                               | Accepted                               |
+| [0030](0030-criteria-ledger.md)              | A committed criteria ledger, rechecked by every verification                          | Proposed (planned for 0.3.0)           |
 
 "Accepted" means the decision is made. Where the implementation belongs to a later phase,
 the status says so: an accepted ADR is not a claim that the component exists. The
